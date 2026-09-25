@@ -19,7 +19,10 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:e2e": "npm run build && playwright test",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "setup": "node scripts/local.mjs setup",
+    "local": "node scripts/local.mjs dev",
+    "local:prod": "npm run build && node scripts/local.mjs start"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1140.0",
@@ -53,6 +56,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "embedded-postgres": "^16.14.0-beta.17",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "prettier": "^3.9.9",
