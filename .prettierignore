@@ -1,0 +1,7 @@
+src/generated
+.next
+node_modules
+storage
+prisma/migrations
+playwright-report
+test-results

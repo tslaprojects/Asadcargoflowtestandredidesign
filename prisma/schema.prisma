@@ -1,0 +1,1161 @@
+// CargoFlow — Prisma schema
+// Все даты хранятся в UTC (timestamptz). Денежные суммы — Decimal(14,2).
+// Частичные уникальные индексы (активная ставка, принятая ставка, активная подпись)
+// создаются вручную в миграции, т.к. Prisma их не выражает.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────────── Enums ─────────────────────────────
+
+enum PlatformRole {
+  USER
+  PLATFORM_ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED
+}
+
+enum CompanyType {
+  SHIPPER
+  CARRIER
+  FORWARDER
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum MemberRole {
+  SHIPPER
+  CARRIER_ADMIN
+  CARRIER_DISPATCHER
+  FORWARDER
+  DRIVER
+}
+
+enum MemberStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum CompanyDocumentType {
+  REGISTRATION
+  TAX
+  LICENSE
+  OTHER
+}
+
+enum VerificationRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+enum VehicleType {
+  TRACTOR_TRAILER
+  TRUCK
+  VAN
+  ROAD_TRAIN
+}
+
+enum BodyType {
+  CURTAINSIDER
+  REFRIGERATOR
+  ISOTHERMAL
+  BOX
+  FLATBED
+  CONTAINER
+  TANKER
+  LOWBED
+  OTHER
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  ASSIGNED
+  INACTIVE
+  MAINTENANCE
+}
+
+enum DriverStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum CargoType {
+  GENERAL
+  ELECTRONICS
+  CLOTHING
+  FOOD
+  EQUIPMENT
+  AUTOMOTIVE
+  CHEMICAL
+  OTHER
+}
+
+enum PriceType {
+  FIXED
+  NEGOTIABLE
+  REQUEST_QUOTE
+}
+
+enum Currency {
+  USD
+  CNY
+  KZT
+  RUB
+}
+
+enum LoadVisibility {
+  MARKETPLACE
+  INVITE_ONLY
+  DRAFT
+}
+
+enum LoadStatus {
+  DRAFT
+  PUBLISHED
+  BIDDING
+  CARRIER_SELECTED
+  CANCELLED
+  CONVERTED_TO_ORDER
+}
+
+enum StopType {
+  PICKUP
+  BORDER
+  DELIVERY
+  TRANSIT
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
+enum PartySide {
+  CUSTOMER
+  CARRIER
+}
+
+enum BidMessageType {
+  OFFER
+  COUNTER
+  COMMENT
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum OrderStatus {
+  DRAFT
+  PUBLISHED
+  CARRIER_SELECTION
+  CARRIER_SELECTED
+  CONTRACT_PENDING
+  CONTRACT_SIGNED
+  VEHICLE_ASSIGNED
+  DRIVER_ASSIGNED
+  WAITING_FOR_LOADING
+  AT_LOADING
+  LOADED
+  IN_TRANSIT
+  AT_BORDER
+  CUSTOMS
+  BORDER_CLEARED
+  AT_DELIVERY
+  DELIVERED
+  CLOSED
+  CANCELLED
+  DISPUTED
+  ON_HOLD
+}
+
+enum ActorType {
+  USER
+  DRIVER
+  ADMIN
+  SYSTEM
+}
+
+enum ActionSource {
+  WEB
+  DRIVER_APP
+  API
+  SYSTEM
+}
+
+enum ParticipantRole {
+  SHIPPER
+  CARRIER
+  FORWARDER
+  DRIVER
+}
+
+enum ContractStatus {
+  DRAFT
+  PENDING_SIGNATURES
+  PARTIALLY_SIGNED
+  SIGNED
+  CANCELLED
+}
+
+enum SignatureMethod {
+  INTERNAL_ACCEPTANCE
+}
+
+enum SignatureStatus {
+  SIGNED
+  REVOKED
+}
+
+enum DocumentType {
+  CONTRACT
+  APPLICATION
+  CMR
+  INVOICE
+  PACKING_LIST
+  VEHICLE_DOCUMENT
+  DRIVER_DOCUMENT
+  CARGO_PHOTO
+  SEAL_PHOTO
+  PROOF_OF_DELIVERY
+  OTHER
+}
+
+enum DocumentStatus {
+  ACTIVE
+  SUPERSEDED
+  DELETED
+}
+
+enum TrackingEventType {
+  MANUAL_LOCATION
+  ARRIVED_LOADING
+  LOADED
+  DEPARTED
+  BORDER_ARRIVED
+  BORDER_CLEARED
+  DELIVERY_ARRIVED
+  DELIVERED
+}
+
+enum TrackingSource {
+  DRIVER_APP
+  WEB
+  GPS_PROVIDER
+  SYSTEM
+}
+
+enum NotificationType {
+  NEW_BID
+  BID_ACCEPTED
+  BID_REJECTED
+  BID_COUNTERED
+  CONTRACT_READY
+  CONTRACT_SIGNED
+  VEHICLE_ASSIGNED
+  DRIVER_ASSIGNED
+  STATUS_CHANGED
+  NEW_DOCUMENT
+  NEW_MESSAGE
+  DELIVERY_CONFIRMED
+  DISPUTE_CREATED
+  DISPUTE_UPDATED
+  LOAD_PUBLISHED
+  LOAD_QUESTION
+  VERIFICATION_UPDATED
+  PAYMENT_UPDATED
+  REVIEW_RECEIVED
+  SYSTEM
+}
+
+enum PaymentType {
+  PREPAYMENT
+  FINAL_PAYMENT
+  OTHER
+}
+
+enum PaymentStatus {
+  PLANNED
+  INVOICED
+  PAID
+  CANCELLED
+}
+
+enum DisputeReason {
+  DELAY
+  DAMAGE
+  MISSING_DOCUMENTS
+  CARGO_MISMATCH
+  PAYMENT_ISSUE
+  OTHER
+}
+
+enum DisputeStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+// ───────────────────────────── Identity ─────────────────────────────
+
+model User {
+  id           String       @id @default(uuid()) @db.Uuid
+  email        String       @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  phone        String?
+  platformRole PlatformRole @default(USER)
+  status       UserStatus   @default(ACTIVE)
+  locale       String       @default("ru-RU")
+  timezone     String       @default("Asia/Almaty")
+  lastLoginAt  DateTime?    @db.Timestamptz(3)
+  blockedAt    DateTime?    @db.Timestamptz(3)
+  blockReason  String?
+  createdAt    DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
+  deletedAt    DateTime?    @db.Timestamptz(3)
+
+  sessions            Session[]
+  passwordResetTokens PasswordResetToken[]
+  memberships         CompanyMember[]
+  driverProfiles      DriverProfile[]
+  createdLoads        Load[]                @relation("LoadCreatedBy")
+  bids                Bid[]                 @relation("BidCreatedBy")
+  bidMessages         BidMessage[]
+  notifications       Notification[]
+  signatures          ContractSignature[]
+  chatMessages        ChatMessage[]
+  auditLogs           AuditLog[]
+  idempotencyKeys     IdempotencyKey[]
+  chatReadStates      ChatReadState[]
+}
+
+model Session {
+  id              String    @id @default(uuid()) @db.Uuid
+  tokenHash       String    @unique
+  userId          String    @db.Uuid
+  activeCompanyId String?   @db.Uuid
+  ipAddress       String?
+  userAgent       String?
+  expiresAt       DateTime  @db.Timestamptz(3)
+  lastSeenAt      DateTime  @default(now()) @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+  revokedAt       DateTime? @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz(3)
+  usedAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime  @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ───────────────────────────── Companies ─────────────────────────────
+
+model Company {
+  id                 String             @id @default(uuid()) @db.Uuid
+  type               CompanyType
+  legalName          String
+  tradeName          String?
+  registrationNumber String
+  taxId              String?
+  country            String // ISO 3166-1 alpha-2
+  region             String?
+  city               String
+  address            String
+  postalCode         String?
+  phone              String?
+  email              String?
+  website            String?
+  logoUrl            String?
+  description        String?
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  suspendedAt        DateTime?          @db.Timestamptz(3)
+  suspendReason      String?
+  createdAt          DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime           @updatedAt @db.Timestamptz(3)
+  deletedAt          DateTime?          @db.Timestamptz(3)
+
+  members              CompanyMember[]
+  invites              CompanyInvite[]
+  documents            CompanyDocument[]
+  verificationRequests VerificationRequest[]
+  vehicles             Vehicle[]
+  drivers              DriverProfile[]
+  loads                Load[]
+  loadInvitations      LoadInvitation[]
+  loadQuestions        LoadQuestion[]
+  bids                 Bid[]
+  bidMessages          BidMessage[]
+  shipperOrders        TransportOrder[]           @relation("OrderShipper")
+  carrierOrders        TransportOrder[]           @relation("OrderCarrier")
+  forwarderOrders      TransportOrder[]           @relation("OrderForwarder")
+  participants         TransportOrderParticipant[]
+  signatures           ContractSignature[]
+  paymentsOut          PaymentRecord[]            @relation("PaymentPayer")
+  paymentsIn           PaymentRecord[]            @relation("PaymentPayee")
+  reviewsGiven         Review[]                   @relation("ReviewFrom")
+  reviewsReceived      Review[]                   @relation("ReviewTo")
+  auditLogs            AuditLog[]
+
+  @@unique([country, registrationNumber])
+  @@index([type])
+  @@index([verificationStatus])
+  @@index([legalName])
+}
+
+model CompanyMember {
+  id        String       @id @default(uuid()) @db.Uuid
+  companyId String       @db.Uuid
+  userId    String       @db.Uuid
+  role      MemberRole
+  status    MemberStatus @default(ACTIVE)
+  createdAt DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([userId])
+}
+
+model CompanyInvite {
+  id               String       @id @default(uuid()) @db.Uuid
+  companyId        String       @db.Uuid
+  email            String
+  role             MemberRole
+  tokenHash        String       @unique
+  invitedByUserId  String       @db.Uuid
+  status           InviteStatus @default(PENDING)
+  expiresAt        DateTime     @db.Timestamptz(3)
+  acceptedByUserId String?      @db.Uuid
+  acceptedAt       DateTime?    @db.Timestamptz(3)
+  driverProfileId  String?      @db.Uuid
+  createdAt        DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([email])
+}
+
+model CompanyDocument {
+  id                    String              @id @default(uuid()) @db.Uuid
+  companyId             String              @db.Uuid
+  uploadedByUserId      String              @db.Uuid
+  verificationRequestId String?             @db.Uuid
+  type                  CompanyDocumentType
+  filename              String
+  mimeType              String
+  size                  Int
+  storageKey            String
+  createdAt             DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime            @updatedAt @db.Timestamptz(3)
+  deletedAt             DateTime?           @db.Timestamptz(3)
+
+  company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  verificationRequest VerificationRequest? @relation(fields: [verificationRequestId], references: [id])
+
+  @@index([companyId])
+}
+
+model VerificationRequest {
+  id                String                    @id @default(uuid()) @db.Uuid
+  companyId         String                    @db.Uuid
+  submittedByUserId String                    @db.Uuid
+  status            VerificationRequestStatus @default(PENDING)
+  comment           String?
+  reviewerUserId    String?                   @db.Uuid
+  reviewComment     String?
+  reviewedAt        DateTime?                 @db.Timestamptz(3)
+  createdAt         DateTime                  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime                  @updatedAt @db.Timestamptz(3)
+
+  company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  documents CompanyDocument[]
+
+  @@index([companyId])
+  @@index([status])
+}
+
+// ───────────────────────────── Fleet ─────────────────────────────
+
+model Vehicle {
+  id          String        @id @default(uuid()) @db.Uuid
+  companyId   String        @db.Uuid
+  plateNumber String
+  country     String
+  make        String
+  model       String
+  year        Int?
+  vehicleType VehicleType
+  bodyType    BodyType
+  capacityKg  Decimal       @db.Decimal(12, 2)
+  volumeM3    Decimal?      @db.Decimal(10, 2)
+  vin         String?
+  status      VehicleStatus @default(AVAILABLE)
+  gpsEnabled  Boolean       @default(false)
+  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
+  deletedAt   DateTime?     @db.Timestamptz(3)
+
+  company Company          @relation(fields: [companyId], references: [id])
+  orders  TransportOrder[]
+
+  @@unique([country, plateNumber])
+  @@index([companyId, status])
+  @@index([plateNumber])
+}
+
+model DriverProfile {
+  id              String       @id @default(uuid()) @db.Uuid
+  userId          String?      @db.Uuid
+  companyId       String       @db.Uuid
+  fullName        String
+  phone           String
+  licenseNumber   String
+  licenseCategory String
+  licenseExpiry   DateTime?    @db.Timestamptz(3)
+  passportNumber  String?
+  status          DriverStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
+  deletedAt       DateTime?    @db.Timestamptz(3)
+
+  user    User?            @relation(fields: [userId], references: [id])
+  company Company          @relation(fields: [companyId], references: [id])
+  orders  TransportOrder[]
+
+  @@unique([companyId, userId])
+  @@index([companyId, status])
+}
+
+// ───────────────────────────── Loads ─────────────────────────────
+
+model Load {
+  id                 String         @id @default(uuid()) @db.Uuid
+  publicNumber       String         @unique
+  companyId          String         @db.Uuid
+  createdByUserId    String         @db.Uuid
+  clientName         String?
+  title              String
+  cargoType          CargoType
+  cargoDescription   String?
+  weightKg           Decimal        @db.Decimal(12, 2)
+  volumeM3           Decimal?       @db.Decimal(10, 2)
+  packagesCount      Int?
+  packageType        String?
+  vehicleType        VehicleType?
+  bodyType           BodyType?
+  temperatureFrom    Decimal?       @db.Decimal(5, 1)
+  temperatureTo      Decimal?       @db.Decimal(5, 1)
+  requiresGps        Boolean        @default(false)
+  requirements       String?
+  priceType          PriceType
+  targetPrice        Decimal?       @db.Decimal(14, 2)
+  currency           Currency
+  additionalTerms    String?
+  loadingDateFrom    DateTime       @db.Timestamptz(3)
+  loadingDateTo      DateTime?      @db.Timestamptz(3)
+  deliveryDateFrom   DateTime?      @db.Timestamptz(3)
+  deliveryDateTo     DateTime?      @db.Timestamptz(3)
+  status             LoadStatus     @default(DRAFT)
+  visibility         LoadVisibility @default(DRAFT)
+  notes              String?
+  // Денормализованные точки маршрута для быстрого поиска и индексов
+  originCountry      String?
+  originCity         String?
+  destinationCountry String?
+  destinationCity    String?
+  publishedAt        DateTime?      @db.Timestamptz(3)
+  cancelledAt        DateTime?      @db.Timestamptz(3)
+  cancelReason       String?
+  createdAt          DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime       @updatedAt @db.Timestamptz(3)
+  deletedAt          DateTime?      @db.Timestamptz(3)
+
+  company     Company          @relation(fields: [companyId], references: [id])
+  createdBy   User             @relation("LoadCreatedBy", fields: [createdByUserId], references: [id])
+  stops       LoadStop[]
+  documents   LoadDocument[]
+  bids        Bid[]
+  invitations LoadInvitation[]
+  questions   LoadQuestion[]
+  order       TransportOrder?
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([loadingDateFrom])
+  @@index([originCountry, originCity])
+  @@index([destinationCountry, destinationCity])
+  @@index([companyId, status])
+}
+
+model LoadStop {
+  id             String    @id @default(uuid()) @db.Uuid
+  loadId         String    @db.Uuid
+  sequence       Int
+  type           StopType
+  country        String
+  region         String?
+  city           String
+  street         String?
+  building       String?
+  postalCode     String?
+  fullAddress    String?
+  latitude       Float?
+  longitude      Float?
+  contactName    String?
+  contactPhone   String?
+  plannedDateFrom DateTime? @db.Timestamptz(3)
+  plannedDateTo  DateTime?  @db.Timestamptz(3)
+  timezone       String?
+  notes          String?
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
+
+  load Load @relation(fields: [loadId], references: [id], onDelete: Cascade)
+
+  @@unique([loadId, sequence])
+}
+
+model LoadInvitation {
+  id               String   @id @default(uuid()) @db.Uuid
+  loadId           String   @db.Uuid
+  carrierCompanyId String   @db.Uuid
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+
+  load    Load    @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  carrier Company @relation(fields: [carrierCompanyId], references: [id])
+
+  @@unique([loadId, carrierCompanyId])
+  @@index([carrierCompanyId])
+}
+
+model LoadDocument {
+  id               String       @id @default(uuid()) @db.Uuid
+  loadId           String       @db.Uuid
+  uploadedByUserId String       @db.Uuid
+  type             DocumentType
+  filename         String
+  mimeType         String
+  size             Int
+  storageKey       String
+  createdAt        DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime     @updatedAt @db.Timestamptz(3)
+  deletedAt        DateTime?    @db.Timestamptz(3)
+
+  load Load @relation(fields: [loadId], references: [id], onDelete: Cascade)
+
+  @@index([loadId])
+}
+
+model LoadQuestion {
+  id               String    @id @default(uuid()) @db.Uuid
+  loadId           String    @db.Uuid
+  companyId        String    @db.Uuid
+  askedByUserId    String    @db.Uuid
+  question         String
+  answer           String?
+  answeredByUserId String?   @db.Uuid
+  answeredAt       DateTime? @db.Timestamptz(3)
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+
+  load    Load    @relation(fields: [loadId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([loadId])
+}
+
+// ───────────────────────────── Bidding ─────────────────────────────
+
+model Bid {
+  id               String    @id @default(uuid()) @db.Uuid
+  loadId           String    @db.Uuid
+  carrierCompanyId String    @db.Uuid
+  createdByUserId  String    @db.Uuid
+  amount           Decimal   @db.Decimal(14, 2)
+  currency         Currency
+  comment          String?
+  terms            String?
+  readyDate        DateTime? @db.Timestamptz(3)
+  status           BidStatus @default(PENDING)
+  // Текущее встречное предложение заказчика (если есть) и чья очередь отвечать
+  counterAmount    Decimal?  @db.Decimal(14, 2)
+  awaitingSide     PartySide @default(CUSTOMER)
+  validUntil       DateTime? @db.Timestamptz(3)
+  decidedAt        DateTime? @db.Timestamptz(3)
+  decidedByUserId  String?   @db.Uuid
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+
+  load     Load            @relation(fields: [loadId], references: [id])
+  carrier  Company         @relation(fields: [carrierCompanyId], references: [id])
+  createdBy User           @relation("BidCreatedBy", fields: [createdByUserId], references: [id])
+  messages BidMessage[]
+  order    TransportOrder?
+
+  @@index([loadId])
+  @@index([carrierCompanyId, status])
+}
+
+model BidMessage {
+  id              String         @id @default(uuid()) @db.Uuid
+  bidId           String         @db.Uuid
+  authorUserId    String         @db.Uuid
+  authorCompanyId String         @db.Uuid
+  side            PartySide
+  type            BidMessageType
+  amount          Decimal?       @db.Decimal(14, 2)
+  currency        Currency?
+  message         String?
+  createdAt       DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(3)
+
+  bid     Bid     @relation(fields: [bidId], references: [id], onDelete: Cascade)
+  author  User    @relation(fields: [authorUserId], references: [id])
+  company Company @relation(fields: [authorCompanyId], references: [id])
+
+  @@index([bidId, createdAt])
+}
+
+// ───────────────────────────── Orders ─────────────────────────────
+
+model TransportOrder {
+  id                 String      @id @default(uuid()) @db.Uuid
+  publicNumber       String      @unique
+  loadId             String      @unique @db.Uuid
+  shipperCompanyId   String      @db.Uuid
+  carrierCompanyId   String      @db.Uuid
+  forwarderCompanyId String?     @db.Uuid
+  acceptedBidId      String      @unique @db.Uuid
+  agreedAmount       Decimal     @db.Decimal(14, 2)
+  currency           Currency
+  currentStatus      OrderStatus
+  previousStatus     OrderStatus?
+  statusChangedAt    DateTime    @default(now()) @db.Timestamptz(3)
+  loadingDate        DateTime?   @db.Timestamptz(3)
+  deliveryDate       DateTime?   @db.Timestamptz(3)
+  vehicleId          String?     @db.Uuid
+  driverId           String?     @db.Uuid
+  deliveredAt        DateTime?   @db.Timestamptz(3)
+  closedAt           DateTime?   @db.Timestamptz(3)
+  cancelledAt        DateTime?   @db.Timestamptz(3)
+  createdAt          DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime    @updatedAt @db.Timestamptz(3)
+
+  load          Load                          @relation(fields: [loadId], references: [id])
+  shipper       Company                       @relation("OrderShipper", fields: [shipperCompanyId], references: [id])
+  carrier       Company                       @relation("OrderCarrier", fields: [carrierCompanyId], references: [id])
+  forwarder     Company?                      @relation("OrderForwarder", fields: [forwarderCompanyId], references: [id])
+  acceptedBid   Bid                           @relation(fields: [acceptedBidId], references: [id])
+  vehicle       Vehicle?                      @relation(fields: [vehicleId], references: [id])
+  driver        DriverProfile?                @relation(fields: [driverId], references: [id])
+  statusHistory TransportOrderStatusHistory[]
+  participants  TransportOrderParticipant[]
+  contracts     Contract[]
+  documents     OrderDocument[]
+  trackingEvents TrackingEvent[]
+  chatThread    ChatThread?
+  payments      PaymentRecord[]
+  reviews       Review[]
+  disputes      Dispute[]
+
+  @@index([currentStatus])
+  @@index([carrierCompanyId])
+  @@index([shipperCompanyId])
+  @@index([forwarderCompanyId])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([createdAt])
+}
+
+model TransportOrderStatusHistory {
+  id              String       @id @default(uuid()) @db.Uuid
+  orderId         String       @db.Uuid
+  fromStatus      OrderStatus?
+  toStatus        OrderStatus
+  actorUserId     String?      @db.Uuid
+  actorType       ActorType
+  source          ActionSource
+  comment         String?
+  trackingEventId String?      @db.Uuid
+  documentIds     String[]     @default([])
+  createdAt       DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
+
+  order TransportOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+model TransportOrderParticipant {
+  id        String          @id @default(uuid()) @db.Uuid
+  orderId   String          @db.Uuid
+  companyId String?         @db.Uuid
+  userId    String?         @db.Uuid
+  role      ParticipantRole
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime        @updatedAt @db.Timestamptz(3)
+
+  order   TransportOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  company Company?       @relation(fields: [companyId], references: [id])
+
+  @@unique([orderId, role, companyId, userId])
+  @@index([companyId])
+  @@index([userId])
+}
+
+// ───────────────────────────── Contracts ─────────────────────────────
+
+model ContractTemplate {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String
+  name      String
+  version   Int
+  body      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  contracts Contract[]
+
+  @@unique([code, version])
+}
+
+model Contract {
+  id              String         @id @default(uuid()) @db.Uuid
+  orderId         String         @db.Uuid
+  templateId      String         @db.Uuid
+  version         Int
+  documentNumber  String         @unique
+  title           String
+  contentSnapshot String
+  dataSnapshot    Json
+  pdfUrl          String?
+  contentHash     String
+  status          ContractStatus @default(PENDING_SIGNATURES)
+  signedAt        DateTime?      @db.Timestamptz(3)
+  createdAt       DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(3)
+
+  order      TransportOrder      @relation(fields: [orderId], references: [id])
+  template   ContractTemplate    @relation(fields: [templateId], references: [id])
+  signatures ContractSignature[]
+
+  @@unique([orderId, version])
+}
+
+model ContractSignature {
+  id              String          @id @default(uuid()) @db.Uuid
+  contractId      String          @db.Uuid
+  userId          String          @db.Uuid
+  companyId       String          @db.Uuid
+  side            PartySide
+  method          SignatureMethod
+  signedAt        DateTime        @db.Timestamptz(3)
+  ipAddress       String?
+  userAgent       String?
+  documentHash    String
+  signatureStatus SignatureStatus @default(SIGNED)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
+
+  contract Contract @relation(fields: [contractId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  company  Company  @relation(fields: [companyId], references: [id])
+
+  @@index([contractId])
+}
+
+// ───────────────────────────── Documents ─────────────────────────────
+
+model OrderDocument {
+  id                String         @id @default(uuid()) @db.Uuid
+  orderId           String         @db.Uuid
+  uploadedByUserId  String         @db.Uuid
+  uploadedCompanyId String?        @db.Uuid
+  type              DocumentType
+  filename          String
+  mimeType          String
+  size              Int
+  storageKey        String
+  version           Int            @default(1)
+  groupId           String         @db.Uuid
+  status            DocumentStatus @default(ACTIVE)
+  note              String?
+  deletedAt         DateTime?      @db.Timestamptz(3)
+  deletedByUserId   String?        @db.Uuid
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime       @updatedAt @db.Timestamptz(3)
+
+  order        TransportOrder @relation(fields: [orderId], references: [id])
+  chatMessages ChatMessage[]
+
+  @@index([orderId, createdAt])
+  @@index([groupId])
+}
+
+// ───────────────────────────── Tracking ─────────────────────────────
+
+model TrackingEvent {
+  id        String            @id @default(uuid()) @db.Uuid
+  orderId   String            @db.Uuid
+  userId    String?           @db.Uuid
+  type      TrackingEventType
+  latitude  Float?
+  longitude Float?
+  accuracy  Float?
+  note      String?
+  source    TrackingSource
+  recordedAt DateTime         @default(now()) @db.Timestamptz(3)
+  createdAt DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime          @updatedAt @db.Timestamptz(3)
+
+  order TransportOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+}
+
+// ───────────────────────────── Chat ─────────────────────────────
+
+model ChatThread {
+  id        String   @id @default(uuid()) @db.Uuid
+  orderId   String   @unique @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  order      TransportOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  messages   ChatMessage[]
+  readStates ChatReadState[]
+}
+
+model ChatMessage {
+  id              String    @id @default(uuid()) @db.Uuid
+  threadId        String    @db.Uuid
+  senderUserId    String    @db.Uuid
+  senderCompanyId String?   @db.Uuid
+  message         String
+  attachmentId    String?   @db.Uuid
+  readAt          DateTime? @db.Timestamptz(3)
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  thread     ChatThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender     User           @relation(fields: [senderUserId], references: [id])
+  attachment OrderDocument? @relation(fields: [attachmentId], references: [id])
+
+  @@index([threadId, createdAt])
+}
+
+model ChatReadState {
+  id         String   @id @default(uuid()) @db.Uuid
+  threadId   String   @db.Uuid
+  userId     String   @db.Uuid
+  lastReadAt DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, userId])
+}
+
+// ───────────────────────────── Notifications ─────────────────────────────
+
+model Notification {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @db.Uuid
+  type       NotificationType
+  title      String
+  body       String?
+  entityType String?
+  entityId   String?
+  link       String?
+  readAt     DateTime?        @db.Timestamptz(3)
+  createdAt  DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime         @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+// ───────────────────────────── Finance ─────────────────────────────
+
+model PaymentRecord {
+  id              String        @id @default(uuid()) @db.Uuid
+  orderId         String        @db.Uuid
+  payerCompanyId  String        @db.Uuid
+  payeeCompanyId  String        @db.Uuid
+  amount          Decimal       @db.Decimal(14, 2)
+  currency        Currency
+  type            PaymentType
+  status          PaymentStatus @default(PLANNED)
+  dueDate         DateTime?     @db.Timestamptz(3)
+  paidAt          DateTime?     @db.Timestamptz(3)
+  note            String?
+  createdByUserId String?       @db.Uuid
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+
+  order TransportOrder @relation(fields: [orderId], references: [id])
+  payer Company        @relation("PaymentPayer", fields: [payerCompanyId], references: [id])
+  payee Company        @relation("PaymentPayee", fields: [payeeCompanyId], references: [id])
+
+  @@index([orderId])
+}
+
+// ───────────────────────────── Reviews & Disputes ─────────────────────────────
+
+model Review {
+  id            String   @id @default(uuid()) @db.Uuid
+  orderId       String   @db.Uuid
+  fromCompanyId String   @db.Uuid
+  toCompanyId   String   @db.Uuid
+  fromUserId    String   @db.Uuid
+  rating        Int
+  punctuality   Int?
+  communication Int?
+  documentation Int?
+  comment       String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  order       TransportOrder @relation(fields: [orderId], references: [id])
+  fromCompany Company        @relation("ReviewFrom", fields: [fromCompanyId], references: [id])
+  toCompany   Company        @relation("ReviewTo", fields: [toCompanyId], references: [id])
+
+  @@unique([orderId, fromCompanyId])
+  @@index([toCompanyId])
+}
+
+model Dispute {
+  id                String        @id @default(uuid()) @db.Uuid
+  orderId           String        @db.Uuid
+  openedByUserId    String        @db.Uuid
+  openedByCompanyId String?       @db.Uuid
+  reason            DisputeReason
+  description       String
+  status            DisputeStatus @default(OPEN)
+  orderStatusBefore OrderStatus
+  resolution        String?
+  resolvedByUserId  String?       @db.Uuid
+  resolvedAt        DateTime?     @db.Timestamptz(3)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+
+  order    TransportOrder   @relation(fields: [orderId], references: [id])
+  comments DisputeComment[]
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model DisputeComment {
+  id           String   @id @default(uuid()) @db.Uuid
+  disputeId    String   @db.Uuid
+  authorUserId String   @db.Uuid
+  message      String
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @db.Timestamptz(3)
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId, createdAt])
+}
+
+// ───────────────────────────── Platform ─────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  actorUserId String?  @db.Uuid
+  companyId   String?  @db.Uuid
+  action      String
+  entityType  String
+  entityId    String?
+  oldValue    Json?
+  newValue    Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+
+  actor   User?    @relation(fields: [actorUserId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model IdempotencyKey {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  key            String
+  scope          String
+  responseStatus Int
+  responseBody   Json
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime @updatedAt @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scope, key])
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}

@@ -1,0 +1,166 @@
+"use client";
+import * as React from "react";
+import { ConfirmDialog } from "@/components/common/confirm-dialog";
+import { Field } from "@/components/common/field";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { api } from "@/lib/client/api";
+import { useAction } from "@/lib/client/use-action";
+import { enumOptions } from "@/lib/i18n";
+
+export function UserBlockButton({ userId, status }: { userId: string; status: string }) {
+  const { run } = useAction();
+  const block = status === "ACTIVE";
+  return (
+    <ConfirmDialog
+      title={block ? "Заблокировать пользователя?" : "Разблокировать пользователя?"}
+      description={block ? "Все активные сессии будут завершены, вход станет невозможен." : "Пользователь снова сможет войти."}
+      destructive={block}
+      withReason={block}
+      reasonLabel="Причина блокировки"
+      confirmLabel={block ? "Заблокировать" : "Разблокировать"}
+      onConfirm={async (reason) =>
+        (await run(() => api(`/api/admin/users/${userId}`, { method: "PATCH", body: { action: block ? "BLOCK" : "UNBLOCK", reason } }), {
+          success: block ? "Пользователь заблокирован" : "Пользователь разблокирован",
+        })) !== undefined
+      }
+      trigger={
+        <Button variant={block ? "outline" : "default"} size="sm" className={block ? "text-destructive" : ""}>
+          {block ? "Заблокировать" : "Разблокировать"}
+        </Button>
+      }
+    />
+  );
+}
+
+const DECISIONS = {
+  APPROVE: { label: "Подтвердить проверку", success: "Компания проверена", destructive: false, reason: false },
+  REJECT: { label: "Отклонить", success: "Проверка отклонена", destructive: true, reason: true },
+  REQUEST_CHANGES: { label: "Запросить исправления", success: "Исправления запрошены", destructive: false, reason: true },
+  SUSPEND: { label: "Приостановить", success: "Компания приостановлена", destructive: true, reason: true },
+  RESTORE: { label: "Восстановить", success: "Компания восстановлена", destructive: false, reason: false },
+} as const;
+
+export function CompanyDecisionButtons({ companyId, status }: { companyId: string; status: string }) {
+  const { run } = useAction();
+  const available: (keyof typeof DECISIONS)[] =
+    status === "SUSPENDED" ? ["RESTORE"] : status === "VERIFIED" ? ["SUSPEND"] : ["APPROVE", "REQUEST_CHANGES", "REJECT", "SUSPEND"];
+  return (
+    <div className="flex flex-wrap gap-2">
+      {available.map((d) => {
+        const cfg = DECISIONS[d];
+        return (
+          <ConfirmDialog
+            key={d}
+            title={`${cfg.label}?`}
+            description="Компания получит уведомление. Решение записывается в историю проверки и журнал аудита."
+            destructive={cfg.destructive}
+            withReason
+            reasonRequired={cfg.reason}
+            reasonLabel="Комментарий для компании"
+            confirmLabel={cfg.label}
+            onConfirm={async (comment) =>
+              (await run(
+                (key) =>
+                  api(`/api/admin/companies/${companyId}/decision`, {
+                    body: { decision: d, comment: comment || null },
+                    idempotencyKey: key,
+                  }),
+                { success: cfg.success },
+              )) !== undefined
+            }
+            trigger={
+              <Button
+                size="sm"
+                variant={d === "APPROVE" || d === "RESTORE" ? "success" : cfg.destructive ? "outline" : "outline"}
+                className={cfg.destructive ? "text-destructive" : ""}
+              >
+                {cfg.label}
+              </Button>
+            }
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+type Settings = {
+  commissionPercent: number;
+  requirePodForClose: boolean;
+  restrictedCargoTypes: string[];
+  requireVerifiedToPublish: boolean;
+  supportEmail: string;
+};
+
+export function SettingsForm({ initial }: { initial: Settings }) {
+  const [s, setS] = React.useState(initial);
+  const { run, pending } = useAction();
+  return (
+    <form
+      className="max-w-2xl space-y-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void run(() => api("/api/admin/settings", { method: "PUT", body: s }), { success: "Настройки сохранены" });
+      }}
+    >
+      <Field
+        id="s-commission"
+        label="Комиссия платформы, %"
+        hint="Информационно: отображается в статистике. Платформа не удерживает платежи."
+      >
+        <Input
+          type="number"
+          min={0}
+          max={50}
+          step="0.1"
+          value={s.commissionPercent}
+          onChange={(e) => setS({ ...s, commissionPercent: Number(e.target.value) })}
+        />
+      </Field>
+      <div className="flex items-start gap-2">
+        <Checkbox id="s-pod" checked={s.requirePodForClose} onCheckedChange={(c) => setS({ ...s, requirePodForClose: c === true })} />
+        <Label htmlFor="s-pod" className="leading-snug font-normal">
+          Требовать подтверждение доставки (POD или CMR) для закрытия перевозки
+        </Label>
+      </div>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="s-ver"
+          checked={s.requireVerifiedToPublish}
+          onCheckedChange={(c) => setS({ ...s, requireVerifiedToPublish: c === true })}
+        />
+        <Label htmlFor="s-ver" className="leading-snug font-normal">
+          Публиковать грузы могут только проверенные компании
+        </Label>
+      </div>
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium">Ограничить публикацию грузов типов</legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {enumOptions("CargoType").map((o) => (
+            <label key={o.value} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={s.restrictedCargoTypes.includes(o.value)}
+                onCheckedChange={(c) =>
+                  setS({
+                    ...s,
+                    restrictedCargoTypes: c ? [...s.restrictedCargoTypes, o.value] : s.restrictedCargoTypes.filter((x) => x !== o.value),
+                  })
+                }
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <Field id="s-support" label="Email поддержки">
+        <Input type="email" value={s.supportEmail} onChange={(e) => setS({ ...s, supportEmail: e.target.value })} />
+      </Field>
+      <Button type="submit" loading={pending} loadingText="Сохраняем...">
+        Сохранить настройки
+      </Button>
+    </form>
+  );
+}
