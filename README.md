@@ -10,6 +10,12 @@
 
 ---
 
+## Скриншоты
+
+| Dashboard | Перевозка | Водитель (mobile) |
+| --- | --- | --- |
+| ![](docs/screenshots/2-dashboard.png) | ![](docs/screenshots/3-order.png) | ![](docs/screenshots/5-driver-mobile.png) |
+
 ## 1. Что такое CargoFlow
 
 | Роль                                           | Что делает                                                                                                                                                     |
