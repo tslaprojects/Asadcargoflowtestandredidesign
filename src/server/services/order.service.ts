@@ -21,7 +21,9 @@ import { ordersWhereForActor, requireOrderAccess, resolveOrderAccess, type Order
 import { companyRatings } from "./company.service";
 import { notify } from "./notification.service";
 import { lockOrder, orderParticipantUserIds, performTransitionInTx } from "./order-core";
+import { confirmReceiptWithSecureDeal, findLiveSecureDeal, settleOnOrderCancel, startConfirmationWindow } from "./secure-deal.service";
 import { getSettings } from "./settings.service";
+import { HELD_STATUSES, UNSECURED_STATUSES, type SecureDealStatus } from "@/lib/state-machine/payment-state-machine";
 
 type ListQuery = z.output<typeof orderListQuerySchema>;
 
@@ -235,6 +237,18 @@ export async function changeStatus(
     throw errors.forbidden("У вас нет прав на изменение статуса этой перевозки.");
   }
   await validateAttachments(orderId, input.documentIds);
+  if (to === "AT_LOADING") {
+    const settings = await getSettings();
+    if (settings.requireSecureDeal) {
+      const deal = await findLiveSecureDeal(prisma, orderId);
+      if (!deal || !HELD_STATUSES.includes(deal.status as SecureDealStatus)) {
+        throw new AppError(
+          "INVALID_STATE_TRANSITION",
+          "Начать загрузку можно после того, как заказчик обеспечит оплату через безопасную сделку.",
+        );
+      }
+    }
+  }
 
   return prisma.$transaction(async (tx) => {
     let trackingEventId: string | null = null;
@@ -283,7 +297,7 @@ export async function cancelOrder(actor: Actor, orderId: string, reason: string)
   if (access.side !== "ADMIN" && !access.can("ORDER_CANCEL")) throw errors.forbidden("У вас нет прав на отмену перевозки.");
   if (!reason || reason.trim().length < 3) throw errors.validation("Укажите причину отмены.", { comment: ["Укажите причину отмены"] });
 
-  return prisma.$transaction(async (tx) => {
+  const cancelled = await prisma.$transaction(async (tx) => {
     const { order, from } = await performTransitionInTx(tx, {
       orderId,
       to: "CANCELLED",
@@ -312,6 +326,9 @@ export async function cancelOrder(actor: Actor, orderId: string, reason: string)
     );
     return order;
   });
+  // Безопасная сделка: неподтверждённая оплата отменяется, обеспеченная — возвращается заказчику через провайдера
+  await settleOnOrderCancel(orderId, actor, reason);
+  return cancelled;
 }
 
 // ─────────── Назначение транспорта ───────────
@@ -378,13 +395,16 @@ export async function assignVehicle(actor: Actor, orderId: string, vehicleId: st
       throw new AppError("VEHICLE_UNAVAILABLE", "Нельзя назначить автомобиль: груз требует наличия GPS.");
     }
     const conflict = await tx.transportOrder.findFirst({
-      where: { vehicleId, id: { not: orderId }, currentStatus: { in: RESOURCE_BUSY_STATUSES } },
+      // Рейсы, где груз уже выгружен (спор/пауза после доставки), автомобиль не занимают
+      where: { vehicleId, id: { not: orderId }, currentStatus: { in: RESOURCE_BUSY_STATUSES }, deliveredAt: null },
       select: { publicNumber: true },
     });
     if (conflict) throw new AppError("VEHICLE_UNAVAILABLE", `Автомобиль уже задействован в перевозке ${conflict.publicNumber}.`);
 
     await tx.vehicle.update({ where: { id: vehicleId }, data: { status: "ASSIGNED" } });
     await tx.transportOrder.update({ where: { id: orderId }, data: { vehicleId } });
+    // Следующий рейс найден: активный план движения автомобиля выполнен
+    await tx.plannedMovement.updateMany({ where: { vehicleId, status: "ACTIVE" }, data: { status: "FULFILLED" } });
     await performTransitionInTx(tx, {
       orderId,
       to: "VEHICLE_ASSIGNED",
@@ -464,7 +484,7 @@ export async function driverOptionsForOrder(actor: Actor, orderId: string) {
     orderBy: { fullName: "asc" },
     include: {
       orders: {
-        where: { currentStatus: { in: RESOURCE_BUSY_STATUSES }, id: { not: orderId } },
+        where: { currentStatus: { in: RESOURCE_BUSY_STATUSES }, id: { not: orderId }, deliveredAt: null },
         select: { id: true, publicNumber: true, loadingDate: true, deliveryDate: true, currentStatus: true },
       },
     },
@@ -516,7 +536,7 @@ export async function assignDriver(actor: Actor, orderId: string, driverId: stri
       throw new AppError("DRIVER_UNAVAILABLE", "У водителя нет доступа к приложению. Отправьте ему приглашение в разделе «Водители».");
     const win = orderWindow(order);
     const busy = await tx.transportOrder.findMany({
-      where: { driverId, id: { not: orderId }, currentStatus: { in: RESOURCE_BUSY_STATUSES } },
+      where: { driverId, id: { not: orderId }, currentStatus: { in: RESOURCE_BUSY_STATUSES }, deliveredAt: null },
       select: { publicNumber: true, loadingDate: true, deliveryDate: true },
     });
     const conflict = busy.find((o) => {
@@ -665,6 +685,7 @@ export async function reportDelivered(
       expectedFrom: "AT_DELIVERY",
       silent: true,
     });
+    const confirmationDueAt = await startConfirmationWindow(tx, orderId, updated.deliveredAt ?? new Date());
     await audit(
       actor,
       {
@@ -680,7 +701,9 @@ export async function reportDelivered(
       excludeUserId: actor.userId,
       type: "STATUS_CHANGED",
       title: `${updated.publicNumber}: груз доставлен`,
-      body: "Проверьте документы и подтвердите получение груза.",
+      body: confirmationDueAt
+        ? `Проверьте документы и подтвердите получение или откройте спор до ${confirmationDueAt.toLocaleString("ru-RU", { timeZone: "Asia/Almaty" })} (Алматы). После этого выплата перевозчику будет выполнена автоматически.`
+        : "Проверьте документы и подтвердите получение груза.",
       entityType: "TransportOrder",
       entityId: orderId,
       link: `/orders/${orderId}`,
@@ -704,7 +727,18 @@ export async function confirmDelivery(actor: Actor, orderId: string, comment: st
       throw new AppError("DELIVERY_NOT_ALLOWED", "Нельзя закрыть перевозку без подтверждения доставки: загрузите POD или подписанную CMR.");
     }
   }
+  // Безопасная сделка: подтверждение получения запускает выплату; перевозка закроется после подтверждения провайдером
+  const deal = await findLiveSecureDeal(prisma, orderId);
+  if (deal && HELD_STATUSES.includes(deal.status as SecureDealStatus)) {
+    if (deal.status === "PAYMENT_DISPUTED") throw new AppError("INVALID_STATE_TRANSITION", "По перевозке открыт спор.");
+    return confirmReceiptWithSecureDeal(actor, orderId, comment);
+  }
+  if (deal && UNSECURED_STATUSES.includes(deal.status as SecureDealStatus)) {
+    // Оплата так и не была обеспечена — сделка отменяется, расчёты ведутся в ручном учёте
+    await settleOnOrderCancel(orderId, actor, "оплата не была обеспечена до завершения перевозки");
+  }
   return prisma.$transaction(async (tx) => {
+    await tx.transportOrder.update({ where: { id: orderId }, data: { receiptConfirmedAt: new Date() } });
     const { order: closed } = await performTransitionInTx(tx, {
       orderId,
       to: "CLOSED",
@@ -719,7 +753,7 @@ export async function confirmDelivery(actor: Actor, orderId: string, comment: st
       data: { orderId, userId: actor.userId, type: "DELIVERED", source: "WEB", note: "Получение подтверждено заказчиком" },
     });
     // Финансы: фиксируем окончательный расчёт на остаток, если он ещё не запланирован
-    const payments = await tx.paymentRecord.findMany({ where: { orderId, status: { not: "CANCELLED" } } });
+    const payments = await tx.paymentRecord.findMany({ where: { orderId, type: { not: "SECURE_DEAL" }, status: { not: "CANCELLED" } } });
     const summary = financeSummary(
       Number(closed.agreedAmount),
       closed.currency,

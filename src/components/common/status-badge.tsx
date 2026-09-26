@@ -94,6 +94,22 @@ const STATUS_STYLES: Record<string, Record<string, Cfg>> = {
     INVOICED: { tone: "warning", icon: FileSignature },
     PAID: { tone: "success", icon: CheckCircle2 },
     CANCELLED: { tone: "danger", icon: Ban },
+    PAYMENT_PENDING: { tone: "neutral", icon: Clock },
+    PAYMENT_AUTHORIZED: { tone: "info", icon: Clock },
+    PAYMENT_RESERVED: { tone: "info", icon: ShieldCheck },
+    PAYMENT_RELEASE_PENDING: { tone: "warning", icon: Loader },
+    PAYMENT_RELEASED: { tone: "success", icon: CheckCircle2 },
+    PAYMENT_PARTIALLY_RELEASED: { tone: "warning", icon: ShieldCheck },
+    PAYMENT_REFUNDED: { tone: "neutral", icon: CheckCircle2 },
+    PAYMENT_DISPUTED: { tone: "danger", icon: AlertTriangle },
+    PAYMENT_FAILED: { tone: "danger", icon: ShieldX },
+    PAYMENT_CANCELLED: { tone: "neutral", icon: Ban },
+  },
+  PaymentTransactionStatus: {
+    PENDING: { tone: "warning", icon: Loader },
+    SUCCEEDED: { tone: "success", icon: CheckCircle2 },
+    FAILED: { tone: "danger", icon: ShieldX },
+    CANCELLED: { tone: "neutral", icon: Ban },
   },
   DisputeStatus: {
     OPEN: { tone: "danger", icon: AlertTriangle },
@@ -136,6 +152,7 @@ export type StatusKind =
   | "VerificationStatus"
   | "VerificationRequestStatus"
   | "PaymentStatus"
+  | "PaymentTransactionStatus"
   | "DisputeStatus"
   | "VehicleStatus"
   | "DriverStatus"

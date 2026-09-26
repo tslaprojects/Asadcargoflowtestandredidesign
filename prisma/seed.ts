@@ -28,6 +28,8 @@ import { addLocation } from "@/server/services/tracking.service";
 import { sendMessage } from "@/server/services/chat.service";
 import { openDispute } from "@/server/services/dispute.service";
 import { DEFAULT_SETTINGS } from "@/server/services/settings.service";
+import { initiateSecureDeal } from "@/server/services/secure-deal.service";
+import { createMovement } from "@/server/services/next-load.service";
 
 export const DEMO_PASSWORD = "Demo1234!";
 const META = { ip: "127.0.0.1", userAgent: "cargoflow-seed" };
@@ -130,7 +132,7 @@ async function shiftOrderToPast(orderId: string, days: number) {
   const bidIds = bids.map((b) => b.id);
   const q = (sql: string, ...params: unknown[]) => prisma.$executeRawUnsafe(sql, ...params);
   await q(
-    `UPDATE "TransportOrder" SET "createdAt"="createdAt"-$1::interval, "updatedAt"="updatedAt"-$1::interval, "statusChangedAt"="statusChangedAt"-$1::interval, "loadingDate"="loadingDate"-$1::interval, "deliveryDate"="deliveryDate"-$1::interval, "deliveredAt"="deliveredAt"-$1::interval, "closedAt"="closedAt"-$1::interval WHERE id=$2::uuid`,
+    `UPDATE "TransportOrder" SET "createdAt"="createdAt"-$1::interval, "updatedAt"="updatedAt"-$1::interval, "statusChangedAt"="statusChangedAt"-$1::interval, "loadingDate"="loadingDate"-$1::interval, "deliveryDate"="deliveryDate"-$1::interval, "deliveredAt"="deliveredAt"-$1::interval, "closedAt"="closedAt"-$1::interval, "confirmationDueAt"="confirmationDueAt"-$1::interval, "receiptConfirmedAt"="receiptConfirmedAt"-$1::interval WHERE id=$2::uuid`,
     iv,
     orderId,
   );
@@ -155,10 +157,17 @@ async function shiftOrderToPast(orderId: string, days: number) {
   }
   await q(`UPDATE "TrackingEvent" SET "recordedAt"="recordedAt"-$1::interval WHERE "orderId"=$2::uuid`, iv, orderId);
   await q(
-    `UPDATE "PaymentRecord" SET "paidAt"="paidAt"-$1::interval, "dueDate"="dueDate"-$1::interval WHERE "orderId"=$2::uuid`,
+    `UPDATE "PaymentRecord" SET "paidAt"="paidAt"-$1::interval, "dueDate"="dueDate"-$1::interval, "authorizedAt"="authorizedAt"-$1::interval, "reservedAt"="reservedAt"-$1::interval, "releaseRequestedAt"="releaseRequestedAt"-$1::interval, "releasedAt"="releasedAt"-$1::interval, "refundedAt"="refundedAt"-$1::interval, "updatedAt"="updatedAt"-$1::interval WHERE "orderId"=$2::uuid`,
     iv,
     orderId,
   );
+  for (const t of ["PaymentTransaction", "PaymentStatusHistory"]) {
+    await q(
+      `UPDATE "${t}" SET "createdAt"="createdAt"-$1::interval${t === "PaymentTransaction" ? `, "completedAt"="completedAt"-$1::interval` : ""} WHERE "paymentId" IN (SELECT id FROM "PaymentRecord" WHERE "orderId"=$2::uuid)`,
+      iv,
+      orderId,
+    );
+  }
   await q(
     `UPDATE "Contract" SET "createdAt"="createdAt"-$1::interval, "signedAt"="signedAt"-$1::interval WHERE "orderId"=$2::uuid`,
     iv,
@@ -212,6 +221,8 @@ async function main() {
   await prisma.platformSetting.createMany({
     data: Object.entries(DEFAULT_SETTINGS).map(([key, value]) => ({ key, value: value as never })),
   });
+  // Демо: комиссия платформы 2% по безопасной сделке ($3 000 → $60, перевозчику $2 940)
+  await prisma.platformSetting.update({ where: { key: "commissionPercent" }, data: { value: 2 } });
   await prisma.contractTemplate.create({
     data: { code: DEMO_TEMPLATE_CODE, name: "Договор-заявка на международную перевозку (демо)", version: 1, body: DEMO_CONTRACT_TEMPLATE },
   });
@@ -603,6 +614,95 @@ async function main() {
   await shiftOrderToPast(oTransit, 4);
   await addLocation(aDriver2, oTransit, { latitude: 50.28, longitude: 57.17, accuracy: 30, note: "Актобе", recordedAt: null });
 
+  // ───────── Безопасная сделка: Китай → Алматы, выплачено перевозчику (Volvo + Demo Driver) ─────────
+  console.log("→ Безопасная сделка: завершена и выплачена");
+  const CN_ALA = (start: number): LoadInput["stops"] => [
+    {
+      type: "PICKUP",
+      country: "CN",
+      city: "Урумчи",
+      fullAddress: "Урумчи, промзона Мидун, склад 12",
+      plannedDateFrom: date(start, 1),
+      plannedDateTo: date(start, 9),
+    },
+    { type: "BORDER", country: "KZ", city: "Хоргос", fullAddress: "МАПП Нуржолы", plannedDateFrom: date(start + 1) },
+    {
+      type: "DELIVERY",
+      country: "KZ",
+      city: "Алматы",
+      fullAddress: "Алматы, терминал «Демо», рампа 5",
+      plannedDateFrom: date(start + 2, 6),
+    },
+  ];
+  const tripCnAla = async (orderId: string) => {
+    await assignVehicle(aCarrier, orderId, volvo.id);
+    await assignDriver(aCarrier, orderId, driver1.id);
+    await st(aDriver, orderId, "AT_LOADING", 43.8256, 87.6168);
+    await uploadOrderDocument(aDriver, orderId, { type: "CARGO_PHOTO", file: file(PNG_1PX, "cargo.png", "image/png") });
+    await st(aDriver, orderId, "LOADED", 43.8256, 87.6168, "Пломба № DEMO-7730");
+    await st(aDriver, orderId, "IN_TRANSIT", 43.83, 87.6);
+    await st(aDriver, orderId, "AT_BORDER", 44.2167, 80.3833);
+    await st(aDriver, orderId, "CUSTOMS");
+    await st(aDriver, orderId, "BORDER_CLEARED", 44.2, 80.35);
+    await st(aDriver, orderId, "IN_TRANSIT");
+    await addLocation(aDriver, orderId, { latitude: 43.62, longitude: 77.95, accuracy: 30, note: "≈ 100 км до Алматы", recordedAt: null });
+    await st(aDriver, orderId, "AT_DELIVERY", 43.2389, 76.8897);
+    const cmr = await uploadOrderDocument(aDriver, orderId, {
+      type: "PROOF_OF_DELIVERY",
+      file: file(await makePdf("CMR / POD (DEMO)", ["Consignee: Demo Cargo Kazakhstan", "Received"]), "pod.pdf", "application/pdf"),
+    });
+    await reportDelivered(aDriver, orderId, {
+      comment: "Выгружено, CMR подписана получателем",
+      documentIds: [cmr.id],
+      latitude: 43.2389,
+      longitude: 76.8897,
+      accuracy: 20,
+    });
+  };
+  const lSecureDone = await createLoad(
+    aShipper,
+    loadInput({
+      title: "Бытовая электроника (безопасная сделка)",
+      cargoType: "ELECTRONICS",
+      weightKg: 16000,
+      targetPrice: 3000,
+      stops: CN_ALA(1),
+    }),
+    { publish: true },
+  );
+  const oSecureDone = await runOrderToSigned(aShipper, aCarrier, lSecureDone, 3000);
+  await initiateSecureDeal(aShipper, oSecureDone);
+  await tripCnAla(oSecureDone);
+  // Заказчик подтверждает получение → PAYMENT_RELEASE_PENDING → PAYMENT_RELEASED → CLOSED
+  await confirmDelivery(aShipper, oSecureDone, "Получено, претензий нет");
+  await createReview(aShipper, oSecureDone, {
+    rating: 5,
+    punctuality: 5,
+    communication: 5,
+    documentation: 5,
+    comment: "Быстро и аккуратно.",
+  });
+  await shiftOrderToPast(oSecureDone, 12);
+
+  // ───────── Безопасная сделка: Китай → Алматы, доставлено, ожидает подтверждения (оплата обеспечена) ─────────
+  console.log("→ Безопасная сделка: доставлено, оплата в резерве");
+  const lSecure = await createLoad(
+    aShipper,
+    loadInput({
+      title: "Оборудование для склада (безопасная сделка)",
+      cargoType: "EQUIPMENT",
+      weightKg: 18000,
+      targetPrice: 3000,
+      stops: CN_ALA(1),
+    }),
+    { publish: true },
+  );
+  const oSecure = await runOrderToSigned(aShipper, aCarrier, lSecure, 3000);
+  await initiateSecureDeal(aShipper, oSecure);
+  await tripCnAla(oSecure);
+  await sendMessage(aDriver, oSecure, { message: "Выгрузился в Алматы, CMR загрузил. Готов к следующему рейсу." });
+  await shiftOrderToPast(oSecure, 1);
+
   // ───────── Активная перевозка: договор подписан, нужно назначить транспорт ─────────
   console.log("→ Активная перевозка (договор подписан)");
   const lActive = await createLoad(
@@ -678,6 +778,8 @@ async function main() {
     { publish: true },
   );
   const oDispute = await runOrderToSigned(aForwarder, aCarrier2, lDispute, 2700);
+  // Оплата обеспечена безопасной сделкой — спор замораживает выплату
+  await initiateSecureDeal(aForwarder, oDispute);
   await assignVehicle(aCarrier2, oDispute, scania2.id);
   await assignDriver(aCarrier2, oDispute, cnDriver.id);
   await st(aCnDriver, oDispute, "AT_LOADING");
@@ -758,6 +860,75 @@ async function main() {
     }),
     { publish: true },
   );
+  // ───────── Next Load: грузы из Алматы в разные стороны (автомобиль KZ 123 AB свободен в Алматы) ─────────
+  console.log("→ Грузы для следующего рейса из Алматы");
+  const nextLoads: {
+    title: string;
+    cargoType: LoadInput["cargoType"];
+    weightKg: number;
+    price: number;
+    from: [string, string];
+    to: [string, string];
+    body?: LoadInput["bodyType"];
+    by?: Actor;
+    d: number;
+  }[] = [
+    { title: "Стройматериалы", cargoType: "GENERAL", weightKg: 18000, price: 1200, from: ["KZ", "Алматы"], to: ["KZ", "Астана"], d: 1 },
+    { title: "Сухофрукты и орехи", cargoType: "FOOD", weightKg: 16000, price: 4300, from: ["KZ", "Алматы"], to: ["RU", "Москва"], d: 1 },
+    { title: "Металлопрокат", cargoType: "GENERAL", weightKg: 20000, price: 2600, from: ["KZ", "Алматы"], to: ["RU", "Челябинск"], d: 2 },
+    {
+      title: "Бытовая химия",
+      cargoType: "GENERAL",
+      weightKg: 9000,
+      price: 650,
+      from: ["KZ", "Алматы"],
+      to: ["KG", "Бишкек"],
+      d: 1,
+      by: aForwarder,
+    },
+    { title: "Сельхозтехника", cargoType: "EQUIPMENT", weightKg: 15000, price: 3400, from: ["KZ", "Астана"], to: ["RU", "Москва"], d: 3 },
+    {
+      title: "Кондитерские изделия",
+      cargoType: "FOOD",
+      weightKg: 12000,
+      price: 900,
+      from: ["KZ", "Алматы"],
+      to: ["UZ", "Ташкент"],
+      body: "REFRIGERATOR",
+      d: 2,
+    },
+  ];
+  for (const n of nextLoads) {
+    await createLoad(
+      n.by ?? aShipper,
+      loadInput({
+        title: `${n.title}: ${n.from[1]} — ${n.to[1]}`,
+        cargoType: n.cargoType,
+        weightKg: n.weightKg,
+        targetPrice: n.price,
+        bodyType: n.body ?? "CURTAINSIDER",
+        stops: [
+          { type: "PICKUP", country: n.from[0], city: n.from[1], plannedDateFrom: date(n.d, 3), plannedDateTo: date(n.d + 2, 12) },
+          { type: "DELIVERY", country: n.to[0], city: n.to[1], plannedDateFrom: date(n.d + 3, 6) },
+        ],
+      }),
+      { publish: true },
+    );
+  }
+  // Диспетчер планирует: после Алматы — в сторону Москвы
+  await createMovement(aCarrier, {
+    vehicleId: volvo.id,
+    sourceOrderId: null,
+    intent: "CITY",
+    origin: null,
+    destinations: [{ country: "RU", city: "Москва" }],
+    allowedDeviationKm: 250,
+    maxPickupDistanceKm: 300,
+    availableFrom: null,
+    availableUntil: null,
+    note: "Водитель готов ехать в сторону Москвы",
+  });
+
   // Черновик
   await createLoad(
     aShipper,
@@ -782,7 +953,7 @@ async function main() {
     { role: "CARRIER_ADMIN", email: "carrier@cargoflow.demo", company: "Demo Trans Logistics" },
     { role: "CARRIER_DISPATCHER", email: "dispatcher@cargoflow.demo", company: "Demo Trans Logistics" },
     { role: "FORWARDER", email: "forwarder@cargoflow.demo", company: "Demo Forwarding" },
-    { role: "DRIVER", email: "driver@cargoflow.demo", company: "Demo Trans Logistics" },
+    { role: "DRIVER (доставил в Алматы)", email: "driver@cargoflow.demo", company: "Demo Trans Logistics" },
     { role: "DRIVER (в рейсе)", email: "driver2@cargoflow.demo", company: "Demo Trans Logistics" },
     { role: "CARRIER_ADMIN", email: "carrier2@cargoflow.demo", company: "Demo Silk Road Carriers" },
     { role: "PLATFORM_ADMIN", email: "admin@cargoflow.demo", company: "—" },

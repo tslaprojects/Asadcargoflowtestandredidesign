@@ -44,6 +44,11 @@ export const Permission = {
   // Финансы
   PAYMENT_VIEW: "PAYMENT_VIEW",
   PAYMENT_EDIT: "PAYMENT_EDIT",
+  // Безопасная сделка: оформление заказчиком (обеспечение оплаты)
+  SECURE_DEAL_INITIATE: "SECURE_DEAL_INITIATE",
+  // Следующий рейс
+  NEXT_LOAD_VIEW: "NEXT_LOAD_VIEW",
+  NEXT_LOAD_PLAN: "NEXT_LOAD_PLAN",
   // Отзывы и споры
   REVIEW_CREATE: "REVIEW_CREATE",
   DISPUTE_CREATE: "DISPUTE_CREATE",
@@ -66,6 +71,7 @@ export const Permission = {
   ADMIN_DISPUTES: "ADMIN_DISPUTES",
   ADMIN_VERIFICATION: "ADMIN_VERIFICATION",
   ADMIN_SETTINGS: "ADMIN_SETTINGS",
+  ADMIN_PAYMENTS: "ADMIN_PAYMENTS",
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -96,6 +102,7 @@ const CUSTOMER_PERMISSIONS: Permission[] = [
   P.CHAT_SEND,
   P.PAYMENT_VIEW,
   P.PAYMENT_EDIT,
+  P.SECURE_DEAL_INITIATE,
   P.REVIEW_CREATE,
   P.DISPUTE_CREATE,
   P.COMPANY_VIEW,
@@ -129,6 +136,8 @@ const CARRIER_DISPATCHER_PERMISSIONS: Permission[] = [
   P.VEHICLE_MANAGE,
   P.DRIVER_VIEW,
   P.DRIVER_MANAGE,
+  P.NEXT_LOAD_VIEW,
+  P.NEXT_LOAD_PLAN,
 ];
 
 export const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
@@ -145,6 +154,8 @@ export const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
   CARRIER_DISPATCHER: CARRIER_DISPATCHER_PERMISSIONS,
   DRIVER: [
     P.DRIVER_TRIP_VIEW,
+    // Водитель может указать, куда планирует ехать после доставки (только для своего автомобиля)
+    P.NEXT_LOAD_PLAN,
     P.ORDER_STATUS_UPDATE,
     P.TRACKING_UPDATE,
     P.TRACKING_VIEW,

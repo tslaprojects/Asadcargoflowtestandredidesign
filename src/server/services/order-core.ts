@@ -116,8 +116,8 @@ export async function performTransitionInTx(tx: Tx, input: TransitionInput) {
     tx,
   );
 
-  // Освобождение ресурсов при завершении сделки
-  if (input.to === "CLOSED" || input.to === "CANCELLED") {
+  // Освобождение ресурсов: после выгрузки (DELIVERED) автомобиль физически свободен и может взять следующий груз
+  if (input.to === "DELIVERED" || input.to === "CLOSED" || input.to === "CANCELLED") {
     if (order.vehicleId) {
       await tx.vehicle.updateMany({ where: { id: order.vehicleId, status: "ASSIGNED" }, data: { status: "AVAILABLE" } });
     }

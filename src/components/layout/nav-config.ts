@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Package,
   PackagePlus,
+  Route,
   Scale,
   ScrollText,
   Search,
@@ -55,6 +56,7 @@ export function navItems(kind: NavKind): NavItem[] {
       return [
         { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard, primary: true },
         { href: "/marketplace", label: t("nav.marketplace"), icon: Search, primary: true },
+        { href: "/next-load", label: t("nav.nextLoad"), icon: Route },
         { href: "/orders", label: t("nav.myOrders"), icon: Truck, primary: true },
         { href: "/vehicles", label: t("nav.vehicles"), icon: ClipboardList },
         { href: "/drivers", label: t("nav.drivers"), icon: Users },
@@ -77,6 +79,7 @@ export function navItems(kind: NavKind): NavItem[] {
         { href: "/admin/loads", label: t("nav.adminLoads"), icon: Package },
         { href: "/admin/orders", label: t("nav.adminOrders"), icon: Truck, primary: true },
         { href: "/admin/disputes", label: t("nav.adminDisputes"), icon: Scale },
+        { href: "/admin/payments", label: t("nav.adminPayments"), icon: Wallet },
         { href: "/admin/documents", label: t("nav.adminDocuments"), icon: FileText },
         { href: "/admin/verification", label: t("nav.adminVerification"), icon: ShieldCheck },
         { href: "/admin/audit", label: t("nav.adminAudit"), icon: ScrollText },

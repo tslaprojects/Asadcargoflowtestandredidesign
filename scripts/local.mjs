@@ -166,6 +166,7 @@ async function setup() {
 }
 
 async function dev(mode) {
+  run("node", ["scripts/copy-maplibre-worker.mjs"], {});
   const env = await ensureDatabase();
   const args = mode === "start" ? ["next", "start", "-p", "3000"] : ["next", "dev", "-p", "3000"];
   log(`Запуск приложения: http://localhost:3000  (остановка — Ctrl+C)`);

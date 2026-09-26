@@ -174,8 +174,9 @@ export const TRANSITIONS: Record<OrderStatus, Partial<Record<OrderStatus, Transi
     ON_HOLD: hold,
   },
   DELIVERED: {
-    // Закрытие — только через подтверждение получения заказчиком
-    CLOSED: { actors: ["CUSTOMER", "ADMIN"], manual: false, confirm: true },
+    // Закрытие — через подтверждение получения заказчиком; при безопасной сделке —
+    // системой после подтверждения выплаты перевозчику платёжным провайдером
+    CLOSED: { actors: ["CUSTOMER", "ADMIN", "SYSTEM"], manual: false, confirm: true },
     DISPUTED: dispute,
     ON_HOLD: hold,
   },
@@ -347,7 +348,11 @@ export function driverNextStep(status: OrderStatus): DriverStep {
     case "AT_DELIVERY":
       return { primary: t("DELIVERED"), secondary: [], hint: "Выгрузите груз, приложите фото и подписанную CMR." };
     case "DELIVERED":
-      return { primary: null, secondary: [], hint: "Груз доставлен. Ожидаем подтверждения получения заказчиком." };
+      return {
+        primary: null,
+        secondary: [],
+        hint: "Груз доставлен. Ожидаем подтверждения получения заказчиком. Укажите, куда планируете ехать дальше.",
+      };
     case "CLOSED":
       return { primary: null, secondary: [], hint: "Рейс завершён. Спасибо!" };
     case "DISPUTED":

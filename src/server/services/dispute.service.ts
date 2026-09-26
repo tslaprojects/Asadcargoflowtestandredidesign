@@ -11,6 +11,7 @@ import type { disputeCreateSchema, disputeUpdateSchema } from "@/lib/validation/
 import { ordersWhereForActor, requireOrderAccess } from "./access";
 import { notify } from "./notification.service";
 import { orderParticipantUserIds, performTransitionInTx } from "./order-core";
+import { executeDisputeOutcome, freezeForDispute, unfreezeInTx, validateDisputePaymentOutcome } from "./secure-deal.service";
 
 async function adminIds(tx: Prisma.TransactionClient) {
   const admins = await tx.user.findMany({ where: { platformRole: "PLATFORM_ADMIN", status: "ACTIVE" }, select: { id: true } });
@@ -47,6 +48,8 @@ export async function openDispute(actor: Actor, orderId: string, input: z.output
         comment: `Открыт спор: ${label("DisputeReason", input.reason)}`,
         silent: true,
       });
+      // Безопасная сделка: выплата замораживается до решения администратора
+      await freezeForDispute(tx, orderId, dispute.id, actor);
       await audit(
         actor,
         {
@@ -64,7 +67,7 @@ export async function openDispute(actor: Actor, orderId: string, input: z.output
         excludeUserId: actor.userId,
         type: "DISPUTE_CREATED",
         title: `${full.publicNumber}: открыт спор`,
-        body: `${label("DisputeReason", input.reason)}. Перевозка приостановлена до решения администратора.`,
+        body: `${label("DisputeReason", input.reason)}. Перевозка и выплата по безопасной сделке приостановлены до решения администратора.`,
         entityType: "TransportOrder",
         entityId: orderId,
         link: `/orders/${orderId}?tab=dispute`,
@@ -108,9 +111,18 @@ export async function commentDispute(actor: Actor, disputeId: string, message: s
 }
 
 /** Администратор: рассмотрение и закрытие спора. */
-export async function updateDispute(actor: Actor, disputeId: string, input: z.output<typeof disputeUpdateSchema>) {
+type DisputeUpdateInput = Omit<z.output<typeof disputeUpdateSchema>, "releaseAmount"> & { releaseAmount?: number | null };
+
+export async function updateDispute(actor: Actor, disputeId: string, input: DisputeUpdateInput) {
   if (!actor.permissions.has("ADMIN_DISPUTES")) throw errors.forbidden("Управлять спорами может только администратор.");
-  return prisma.$transaction(async (tx) => {
+  const closingRequest = input.status === "RESOLVED" || input.status === "REJECTED";
+  const target = await prisma.dispute.findUnique({ where: { id: disputeId }, select: { orderId: true } });
+  if (!target) throw errors.notFound("Спор не найден.");
+  // Решение по деньгам проверяется до изменения данных
+  const money = closingRequest
+    ? await validateDisputePaymentOutcome(target.orderId, input.orderOutcome, input.paymentOutcome, input.releaseAmount)
+    : null;
+  const updatedDispute = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "Dispute" WHERE id = ${disputeId}::uuid FOR UPDATE`;
     const dispute = await tx.dispute.findUnique({ where: { id: disputeId } });
     if (!dispute) throw errors.notFound("Спор не найден.");
@@ -144,6 +156,9 @@ export async function updateDispute(actor: Actor, disputeId: string, input: z.ou
           comment: `Спор ${input.status === "RESOLVED" ? "решён" : "отклонён"}: ${input.resolution}`,
         });
       }
+      if (money?.payment && money.outcome === "KEEP") {
+        await unfreezeInTx(tx, money.payment.id, actor, `Спор закрыт, перевозка возобновлена: ${input.resolution}`);
+      }
       await audit(
         actor,
         {
@@ -152,7 +167,13 @@ export async function updateDispute(actor: Actor, disputeId: string, input: z.ou
           entityId: dispute.orderId,
           companyId: null,
           oldValue: { status: dispute.status },
-          newValue: { status: input.status, resolution: input.resolution, orderOutcome: input.orderOutcome },
+          newValue: {
+            status: input.status,
+            resolution: input.resolution,
+            orderOutcome: input.orderOutcome,
+            paymentOutcome: money?.payment ? money.outcome : undefined,
+            releaseAmount: money?.outcome === "SPLIT" ? input.releaseAmount : undefined,
+          },
         },
         tx,
       );
@@ -182,6 +203,11 @@ export async function updateDispute(actor: Actor, disputeId: string, input: z.ou
     });
     return updated;
   });
+  // Движение средств по решению — операциями у платёжного провайдера, после фиксации решения
+  if (money?.payment && money.outcome !== "KEEP") {
+    await executeDisputeOutcome(actor, money.payment.id, money.outcome, input.releaseAmount, `Решение по спору: ${input.resolution}`);
+  }
+  return updatedDispute;
 }
 
 export async function listDisputes(actor: Actor, opts: { page: number; pageSize: number; status?: string }) {

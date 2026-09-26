@@ -89,6 +89,11 @@ export function CompanyDecisionButtons({ companyId, status }: { companyId: strin
 
 type Settings = {
   commissionPercent: number;
+  commissionFixed: Partial<Record<"USD" | "CNY" | "KZT" | "RUB", number>>;
+  secureDealEnabled: boolean;
+  requireSecureDeal: boolean;
+  confirmationWindowHours: number;
+  autoConfirmOnTimeout: boolean;
   requirePodForClose: boolean;
   restrictedCargoTypes: string[];
   requireVerifiedToPublish: boolean;
@@ -106,20 +111,74 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         void run(() => api("/api/admin/settings", { method: "PUT", body: s }), { success: "Настройки сохранены" });
       }}
     >
-      <Field
-        id="s-commission"
-        label="Комиссия платформы, %"
-        hint="Информационно: отображается в статистике. Платформа не удерживает платежи."
-      >
-        <Input
-          type="number"
-          min={0}
-          max={50}
-          step="0.1"
-          value={s.commissionPercent}
-          onChange={(e) => setS({ ...s, commissionPercent: Number(e.target.value) })}
-        />
-      </Field>
+      <fieldset className="border-border space-y-4 rounded-xl border p-4">
+        <legend className="px-1 text-sm font-semibold">Безопасная сделка</legend>
+        <div className="flex items-start gap-2">
+          <Checkbox id="s-sd" checked={s.secureDealEnabled} onCheckedChange={(c) => setS({ ...s, secureDealEnabled: c === true })} />
+          <Label htmlFor="s-sd" className="leading-snug font-normal">
+            Заказчики могут оформлять безопасную сделку (оплата обеспечивается у платёжного провайдера)
+          </Label>
+        </div>
+        <div className="flex items-start gap-2">
+          <Checkbox id="s-sd-req" checked={s.requireSecureDeal} onCheckedChange={(c) => setS({ ...s, requireSecureDeal: c === true })} />
+          <Label htmlFor="s-sd-req" className="leading-snug font-normal">
+            Начало загрузки только после обеспечения оплаты
+          </Label>
+        </div>
+        <Field
+          id="s-window"
+          label="Срок проверки после доставки, часов"
+          hint="За это время заказчик подтверждает получение или открывает спор"
+        >
+          <Input
+            type="number"
+            min={1}
+            max={720}
+            value={s.confirmationWindowHours}
+            onChange={(e) => setS({ ...s, confirmationWindowHours: Number(e.target.value) })}
+          />
+        </Field>
+        <div className="flex items-start gap-2">
+          <Checkbox
+            id="s-auto"
+            checked={s.autoConfirmOnTimeout}
+            onCheckedChange={(c) => setS({ ...s, autoConfirmOnTimeout: c === true })}
+          />
+          <Label htmlFor="s-auto" className="leading-snug font-normal">
+            По истечении срока без спора — подтвердить получение и выплатить перевозчику автоматически
+          </Label>
+        </div>
+        <Field
+          id="s-commission"
+          label="Комиссия платформы, %"
+          hint="Удерживается из выплаты перевозчику. Фиксируется в сделке при её оформлении."
+        >
+          <Input
+            type="number"
+            min={0}
+            max={50}
+            step="0.1"
+            value={s.commissionPercent}
+            onChange={(e) => setS({ ...s, commissionPercent: Number(e.target.value) })}
+          />
+        </Field>
+        <div>
+          <p className="mb-2 text-sm font-medium">Фиксированная часть комиссии (в валюте сделки)</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {(["USD", "CNY", "KZT", "RUB"] as const).map((c) => (
+              <Field key={c} id={`s-fix-${c}`} label={c}>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={s.commissionFixed?.[c] ?? 0}
+                  onChange={(e) => setS({ ...s, commissionFixed: { ...s.commissionFixed, [c]: Number(e.target.value) } })}
+                />
+              </Field>
+            ))}
+          </div>
+        </div>
+      </fieldset>
       <div className="flex items-start gap-2">
         <Checkbox id="s-pod" checked={s.requirePodForClose} onCheckedChange={(c) => setS({ ...s, requirePodForClose: c === true })} />
         <Label htmlFor="s-pod" className="leading-snug font-normal">

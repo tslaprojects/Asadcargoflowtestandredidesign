@@ -5,11 +5,12 @@ import { EmptyState } from "@/components/common/misc";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { NativeSelect, Textarea } from "@/components/ui/input";
+import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { api } from "@/lib/client/api";
 import { useAction } from "@/lib/client/use-action";
 import { formatDateTime } from "@/lib/format";
 import { label } from "@/lib/i18n";
+import { formatMoney } from "@/lib/money";
 import { OpenDisputeDialog } from "./order-actions";
 
 type Dispute = {
@@ -31,6 +32,7 @@ export function DisputePanel({
   isAdmin,
   canOpen,
   canComment,
+  secureDeal = null,
 }: {
   orderId: string;
   disputes: Dispute[];
@@ -38,11 +40,32 @@ export function DisputePanel({
   isAdmin: boolean;
   canOpen: boolean;
   canComment: boolean;
+  /** Безопасная сделка с удерживаемой суммой — администратор решает, как её распределить */
+  secureDeal?: { status: string; held: number; currency: string } | null;
 }) {
   const { run, pending } = useAction();
   const [comment, setComment] = React.useState("");
   const [resolution, setResolution] = React.useState("");
   const [outcome, setOutcome] = React.useState("RESUME");
+  const [paymentOutcome, setPaymentOutcome] = React.useState("");
+  const [releaseAmount, setReleaseAmount] = React.useState("");
+  const moneyOptions =
+    outcome === "RESUME"
+      ? [{ value: "KEEP", label: "Оставить в резерве до завершения перевозки" }]
+      : outcome === "CLOSE"
+        ? [
+            { value: "RELEASE_FULL", label: "Выплатить перевозчику весь остаток" },
+            { value: "SPLIT", label: "Разделить: часть перевозчику, остаток — заказчику" },
+          ]
+        : [
+            { value: "REFUND_FULL", label: "Вернуть заказчику весь остаток" },
+            { value: "SPLIT", label: "Разделить: часть перевозчику (компенсация), остаток — заказчику" },
+          ];
+  const chosenMoney = moneyOptions.some((o) => o.value === paymentOutcome) ? paymentOutcome : moneyOptions[0].value;
+  const moneyValid = !secureDeal || chosenMoney !== "SPLIT" || (Number(releaseAmount) > 0 && Number(releaseAmount) < secureDeal.held);
+  const moneyBody = secureDeal
+    ? { paymentOutcome: chosenMoney, releaseAmount: chosenMoney === "SPLIT" ? Number(releaseAmount) : null }
+    : {};
 
   if (disputes.length === 0) {
     return (
@@ -151,18 +174,48 @@ export function DisputePanel({
                       <option value="CANCEL">Отменить перевозку</option>
                     </NativeSelect>
                   </Field>
+                  {secureDeal && (
+                    <div className="space-y-2" data-testid="dispute-payment-outcome">
+                      <Field
+                        id={`money-${d.id}`}
+                        label={`Безопасная сделка: удерживается ${formatMoney(secureDeal.held, secureDeal.currency)}`}
+                        hint="Выплата и возврат выполняются платёжным провайдером и фиксируются в журнале."
+                      >
+                        <NativeSelect value={chosenMoney} onChange={(e) => setPaymentOutcome(e.target.value)}>
+                          {moneyOptions.map((o) => (
+                            <option key={o.value} value={o.value}>
+                              {o.label}
+                            </option>
+                          ))}
+                        </NativeSelect>
+                      </Field>
+                      {chosenMoney === "SPLIT" && (
+                        <Field id={`split-${d.id}`} label={`Перевозчику, ${secureDeal.currency}`} hint="Остаток будет возвращён заказчику">
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            max={secureDeal.held}
+                            step="0.01"
+                            value={releaseAmount}
+                            onChange={(e) => setReleaseAmount(e.target.value)}
+                          />
+                        </Field>
+                      )}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
                       variant="success"
-                      disabled={!resolution.trim()}
+                      disabled={!resolution.trim() || !moneyValid}
                       loading={pending}
                       onClick={() =>
                         run(
                           () =>
                             api(`/api/disputes/${d.id}`, {
                               method: "PATCH",
-                              body: { status: "RESOLVED", resolution, orderOutcome: outcome },
+                              body: { status: "RESOLVED", resolution, orderOutcome: outcome, ...moneyBody },
                             }),
                           { success: "Спор закрыт" },
                         )
@@ -173,14 +226,14 @@ export function DisputePanel({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={!resolution.trim()}
+                      disabled={!resolution.trim() || !moneyValid}
                       loading={pending}
                       onClick={() =>
                         run(
                           () =>
                             api(`/api/disputes/${d.id}`, {
                               method: "PATCH",
-                              body: { status: "REJECTED", resolution, orderOutcome: outcome },
+                              body: { status: "REJECTED", resolution, orderOutcome: outcome, ...moneyBody },
                             }),
                           { success: "Спор отклонён" },
                         )

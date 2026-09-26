@@ -9,6 +9,8 @@ import { toPlain } from "@/lib/serialize";
 import { DriverTripActions } from "@/features/driver/driver-trip";
 import { pageActor } from "@/server/page-context";
 import { getMyTrip } from "@/server/services/driver-trip.service";
+import { driverMovement } from "@/server/services/next-load.service";
+import { DriverNextStep } from "@/features/next-load/driver-next-step";
 
 export const metadata: Metadata = { title: "Мой рейс" };
 
@@ -31,6 +33,8 @@ export default async function DriverHomePage() {
   const stops = order.load.stops;
   const first = stops[0];
   const last = stops[stops.length - 1];
+  const showNext = ["AT_DELIVERY", "DELIVERED"].includes(order.currentStatus) && Boolean(order.vehicle);
+  const plan = showNext ? await driverMovement(actor) : null;
   return (
     <div className="space-y-3 pt-1" data-testid="driver-trip">
       <div className="bg-sidebar rounded-2xl p-4 text-white">
@@ -59,6 +63,17 @@ export default async function DriverHomePage() {
         documents={documents.map((d) => ({ ...d, createdAt: new Date(d.createdAt).toISOString() }))}
         carrierPhone={order.carrier.phone}
       />
+
+      {showNext && (
+        <DriverNextStep
+          orderId={order.id}
+          deliveryCity={last.city}
+          returnCity={first.city !== last.city ? first.city : null}
+          plan={
+            plan ? { destinations: plan.movement.destinations.map((d: { label: string }) => d.label), matches: plan.matchesCount } : null
+          }
+        />
+      )}
 
       <div className="border-border bg-card rounded-2xl border p-4">
         <p className="mb-3 text-sm font-semibold">Маршрут</p>

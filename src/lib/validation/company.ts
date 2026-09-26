@@ -69,7 +69,24 @@ export const driverSchema = z.object({
 });
 
 export const platformSettingsSchema = z.object({
-  commissionPercent: z.coerce.number().min(0).max(50),
+  commissionPercent: z.coerce.number().min(0, "Не меньше 0").max(50, "Не больше 50%"),
+  commissionFixed: z
+    .object({
+      USD: z.coerce.number().min(0).max(1_000_000).optional(),
+      CNY: z.coerce.number().min(0).max(1_000_000).optional(),
+      KZT: z.coerce.number().min(0).max(100_000_000).optional(),
+      RUB: z.coerce.number().min(0).max(100_000_000).optional(),
+    })
+    .default({}),
+  secureDealEnabled: z.coerce.boolean().default(true),
+  requireSecureDeal: z.coerce.boolean().default(false),
+  confirmationWindowHours: z.coerce
+    .number()
+    .int("Целое число часов")
+    .min(1, "Не меньше 1 часа")
+    .max(24 * 30, "Не больше 30 дней")
+    .default(72),
+  autoConfirmOnTimeout: z.coerce.boolean().default(true),
   requirePodForClose: z.coerce.boolean(),
   restrictedCargoTypes: z.array(z.enum(["GENERAL", "ELECTRONICS", "CLOTHING", "FOOD", "EQUIPMENT", "AUTOMOTIVE", "CHEMICAL", "OTHER"])),
   requireVerifiedToPublish: z.coerce.boolean(),

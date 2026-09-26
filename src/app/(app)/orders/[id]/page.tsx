@@ -20,6 +20,7 @@ import { DocumentUploader } from "@/features/documents/document-uploader";
 import { ContractPanel, type ContractView } from "@/features/orders/contract-panel";
 import { DisputePanel } from "@/features/orders/dispute-panel";
 import { FinancePanel } from "@/features/orders/finance-panel";
+import { SecureDealPanel, type SecureDealPanelView } from "@/features/orders/secure-deal-panel";
 import { OrderActions } from "@/features/orders/order-actions";
 import { OrderStatusTimeline, type HistoryEntry } from "@/features/orders/order-status-timeline";
 import { MapView, type MapPoint } from "@/features/tracking/map-view";
@@ -27,6 +28,7 @@ import { guard, pageActor } from "@/server/page-context";
 import { unreadForOrder } from "@/server/services/chat.service";
 import { DRIVER_DOCUMENT_TYPES, listOrderDocuments } from "@/server/services/document.service";
 import { getOrderAuditTrail, getOrderDetail } from "@/server/services/order.service";
+import { getSecureDealView } from "@/server/services/secure-deal.service";
 import { listTracking } from "@/server/services/tracking.service";
 
 export const metadata: Metadata = { title: "Перевозка" };
@@ -54,12 +56,15 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const side = access.side;
   const isDriver = side === "DRIVER";
 
-  const [docs, tracking, unread, audit] = await Promise.all([
+  const [docs, tracking, unread, audit, secureDeal] = await Promise.all([
     listOrderDocuments(actor, id, { includeHistory: true }).then(toPlain),
     listTracking(actor, id, { limit: 30 }).then(toPlain),
     unreadForOrder(actor, id),
     isDriver ? Promise.resolve(null) : getOrderAuditTrail(actor, id, { page: 1, pageSize: 100 }).then(toPlain),
+    finance ? getSecureDealView(actor, id).then((v) => toPlain(v) as unknown as SecureDealPanelView) : Promise.resolve(null),
   ]);
+  const secureStatus = secureDeal?.payment?.status ?? null;
+  const secureLive = !!secureStatus && !["PAYMENT_CANCELLED", "PAYMENT_FAILED"].includes(secureStatus);
 
   const stops = order.load.stops;
   const routeText = stops.map((s) => `${s.city} (${countryName(s.country)})`).join(" → ");
@@ -115,6 +120,18 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           <div>
             <p className="text-muted-foreground text-xs">Стоимость</p>
             <MoneyDisplay amount={order.agreedAmount} currency={order.currency} className="text-lg" />
+          </div>
+        )}
+        {secureDeal && (
+          <div>
+            <p className="text-muted-foreground text-xs">Безопасная сделка</p>
+            {secureLive ? (
+              <Link href={`/orders/${order.id}?tab=finance`} scroll={false} data-testid="summary-secure-deal">
+                <StatusBadge kind="PaymentStatus" value={secureStatus!} />
+              </Link>
+            ) : (
+              <p className="text-muted-foreground">Не оформлена</p>
+            )}
           </div>
         )}
         <div>
@@ -398,6 +415,10 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                   requirePod: detail.requirePod,
                   reviewedByMe,
                   weightKg: order.load.weightKg,
+                  secureDealStatus: secureStatus,
+                  receiptConfirmedAt: order.receiptConfirmedAt,
+                  confirmationDueAt: order.confirmationDueAt,
+                  vehicleId: order.vehicleId,
                 }}
               />
               {final && order.currentStatus === "CANCELLED" && <p className="text-danger text-sm">Перевозка отменена.</p>}
@@ -424,13 +445,19 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                 label: "Финансы",
                 hidden: !finance,
                 content: finance && (
-                  <FinancePanel
-                    orderId={order.id}
-                    summary={finance}
-                    payments={payments}
-                    canEdit={can("PAYMENT_EDIT")}
-                    closedOrCancelled={order.currentStatus === "CANCELLED"}
-                  />
+                  <div className="space-y-5">
+                    {secureDeal && <SecureDealPanel orderId={order.id} view={secureDeal} />}
+                    {!secureLive && (
+                      <FinancePanel
+                        orderId={order.id}
+                        summary={finance}
+                        payments={payments.filter((p) => p.type !== "SECURE_DEAL")}
+                        canEdit={can("PAYMENT_EDIT") && !secureLive}
+                        closedOrCancelled={order.currentStatus === "CANCELLED"}
+                        secureDeal={secureLive}
+                      />
+                    )}
+                  </div>
                 ),
               },
               {
@@ -458,6 +485,11 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                     disputes={order.disputes}
                     userNames={userNames}
                     isAdmin={side === "ADMIN"}
+                    secureDeal={
+                      secureLive && secureDeal?.payment
+                        ? { status: secureDeal.payment.status, held: secureDeal.held ?? 0, currency: secureDeal.order.currency }
+                        : null
+                    }
                     canOpen={
                       (side === "CUSTOMER" || side === "CARRIER") &&
                       can("DISPUTE_CREATE") &&

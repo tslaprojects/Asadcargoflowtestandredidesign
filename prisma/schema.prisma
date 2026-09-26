@@ -292,6 +292,7 @@ enum NotificationType {
   VERIFICATION_UPDATED
   PAYMENT_UPDATED
   REVIEW_RECEIVED
+  NEXT_LOAD_SUGGESTIONS
   SYSTEM
 }
 
@@ -299,18 +300,66 @@ enum PaymentType {
   PREPAYMENT
   FINAL_PAYMENT
   OTHER
+  // Безопасная сделка: оплата обеспечена у платёжного провайдера и выплачивается по условиям сделки
+  SECURE_DEAL
 }
 
+// PLANNED / INVOICED / PAID / CANCELLED — ручной учёт расчётов (PREPAYMENT, FINAL_PAYMENT, OTHER).
+// PAYMENT_* — состояния безопасной сделки (SECURE_DEAL), см. src/lib/state-machine/payment-state-machine.ts
 enum PaymentStatus {
   PLANNED
   INVOICED
   PAID
   CANCELLED
+  PAYMENT_PENDING
+  PAYMENT_AUTHORIZED
+  PAYMENT_RESERVED
+  PAYMENT_RELEASE_PENDING
+  PAYMENT_RELEASED
+  PAYMENT_PARTIALLY_RELEASED
+  PAYMENT_REFUNDED
+  PAYMENT_DISPUTED
+  PAYMENT_FAILED
+  PAYMENT_CANCELLED
+}
+
+/// Операция у платёжного провайдера (движение средств выполняет провайдер, не CargoFlow).
+enum PaymentTransactionKind {
+  AUTHORIZE
+  RESERVE
+  RELEASE
+  REFUND
+  VOID
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+/// Что перевозчик планирует после доставки.
+enum MovementIntent {
+  RETURN
+  CITY
+  DIRECTION
+  UNDECIDED
+}
+
+enum MovementStatus {
+  ACTIVE
+  FULFILLED
+  CANCELLED
+  EXPIRED
 }
 
 enum DisputeReason {
+  NOT_DELIVERED
   DELAY
   DAMAGE
+  SHORTAGE
+  TERMS_VIOLATION
   MISSING_DOCUMENTS
   CARGO_MISMATCH
   PAYMENT_ISSUE
@@ -348,8 +397,8 @@ model User {
   passwordResetTokens PasswordResetToken[]
   memberships         CompanyMember[]
   driverProfiles      DriverProfile[]
-  createdLoads        Load[]                @relation("LoadCreatedBy")
-  bids                Bid[]                 @relation("BidCreatedBy")
+  createdLoads        Load[]               @relation("LoadCreatedBy")
+  bids                Bid[]                @relation("BidCreatedBy")
   bidMessages         BidMessage[]
   notifications       Notification[]
   signatures          ContractSignature[]
@@ -429,15 +478,16 @@ model Company {
   loadQuestions        LoadQuestion[]
   bids                 Bid[]
   bidMessages          BidMessage[]
-  shipperOrders        TransportOrder[]           @relation("OrderShipper")
-  carrierOrders        TransportOrder[]           @relation("OrderCarrier")
-  forwarderOrders      TransportOrder[]           @relation("OrderForwarder")
+  shipperOrders        TransportOrder[]            @relation("OrderShipper")
+  carrierOrders        TransportOrder[]            @relation("OrderCarrier")
+  forwarderOrders      TransportOrder[]            @relation("OrderForwarder")
   participants         TransportOrderParticipant[]
   signatures           ContractSignature[]
-  paymentsOut          PaymentRecord[]            @relation("PaymentPayer")
-  paymentsIn           PaymentRecord[]            @relation("PaymentPayee")
-  reviewsGiven         Review[]                   @relation("ReviewFrom")
-  reviewsReceived      Review[]                   @relation("ReviewTo")
+  paymentsOut          PaymentRecord[]             @relation("PaymentPayer")
+  paymentsIn           PaymentRecord[]             @relation("PaymentPayee")
+  plannedMovements     PlannedMovement[]
+  reviewsGiven         Review[]                    @relation("ReviewFrom")
+  reviewsReceived      Review[]                    @relation("ReviewTo")
   auditLogs            AuditLog[]
 
   @@unique([country, registrationNumber])
@@ -543,8 +593,9 @@ model Vehicle {
   updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
   deletedAt   DateTime?     @db.Timestamptz(3)
 
-  company Company          @relation(fields: [companyId], references: [id])
-  orders  TransportOrder[]
+  company          Company           @relation(fields: [companyId], references: [id])
+  orders           TransportOrder[]
+  plannedMovements PlannedMovement[]
 
   @@unique([country, plateNumber])
   @@index([companyId, status])
@@ -566,9 +617,10 @@ model DriverProfile {
   updatedAt       DateTime     @updatedAt @db.Timestamptz(3)
   deletedAt       DateTime?    @db.Timestamptz(3)
 
-  user    User?            @relation(fields: [userId], references: [id])
-  company Company          @relation(fields: [companyId], references: [id])
-  orders  TransportOrder[]
+  user             User?             @relation(fields: [userId], references: [id])
+  company          Company           @relation(fields: [companyId], references: [id])
+  orders           TransportOrder[]
+  plannedMovements PlannedMovement[]
 
   @@unique([companyId, userId])
   @@index([companyId, status])
@@ -636,27 +688,27 @@ model Load {
 }
 
 model LoadStop {
-  id             String    @id @default(uuid()) @db.Uuid
-  loadId         String    @db.Uuid
-  sequence       Int
-  type           StopType
-  country        String
-  region         String?
-  city           String
-  street         String?
-  building       String?
-  postalCode     String?
-  fullAddress    String?
-  latitude       Float?
-  longitude      Float?
-  contactName    String?
-  contactPhone   String?
+  id              String    @id @default(uuid()) @db.Uuid
+  loadId          String    @db.Uuid
+  sequence        Int
+  type            StopType
+  country         String
+  region          String?
+  city            String
+  street          String?
+  building        String?
+  postalCode      String?
+  fullAddress     String?
+  latitude        Float?
+  longitude       Float?
+  contactName     String?
+  contactPhone    String?
   plannedDateFrom DateTime? @db.Timestamptz(3)
-  plannedDateTo  DateTime?  @db.Timestamptz(3)
-  timezone       String?
-  notes          String?
-  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime   @updatedAt @db.Timestamptz(3)
+  plannedDateTo   DateTime? @db.Timestamptz(3)
+  timezone        String?
+  notes           String?
+  createdAt       DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
 
   load Load @relation(fields: [loadId], references: [id], onDelete: Cascade)
 
@@ -735,11 +787,11 @@ model Bid {
   createdAt        DateTime  @default(now()) @db.Timestamptz(3)
   updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
 
-  load     Load            @relation(fields: [loadId], references: [id])
-  carrier  Company         @relation(fields: [carrierCompanyId], references: [id])
-  createdBy User           @relation("BidCreatedBy", fields: [createdByUserId], references: [id])
-  messages BidMessage[]
-  order    TransportOrder?
+  load      Load            @relation(fields: [loadId], references: [id])
+  carrier   Company         @relation(fields: [carrierCompanyId], references: [id])
+  createdBy User            @relation("BidCreatedBy", fields: [createdByUserId], references: [id])
+  messages  BidMessage[]
+  order     TransportOrder?
 
   @@index([loadId])
   @@index([carrierCompanyId, status])
@@ -768,46 +820,53 @@ model BidMessage {
 // ───────────────────────────── Orders ─────────────────────────────
 
 model TransportOrder {
-  id                 String      @id @default(uuid()) @db.Uuid
-  publicNumber       String      @unique
-  loadId             String      @unique @db.Uuid
-  shipperCompanyId   String      @db.Uuid
-  carrierCompanyId   String      @db.Uuid
-  forwarderCompanyId String?     @db.Uuid
-  acceptedBidId      String      @unique @db.Uuid
-  agreedAmount       Decimal     @db.Decimal(14, 2)
-  currency           Currency
-  currentStatus      OrderStatus
-  previousStatus     OrderStatus?
-  statusChangedAt    DateTime    @default(now()) @db.Timestamptz(3)
-  loadingDate        DateTime?   @db.Timestamptz(3)
-  deliveryDate       DateTime?   @db.Timestamptz(3)
-  vehicleId          String?     @db.Uuid
-  driverId           String?     @db.Uuid
-  deliveredAt        DateTime?   @db.Timestamptz(3)
-  closedAt           DateTime?   @db.Timestamptz(3)
-  cancelledAt        DateTime?   @db.Timestamptz(3)
-  createdAt          DateTime    @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime    @updatedAt @db.Timestamptz(3)
+  id                   String       @id @default(uuid()) @db.Uuid
+  publicNumber         String       @unique
+  loadId               String       @unique @db.Uuid
+  shipperCompanyId     String       @db.Uuid
+  carrierCompanyId     String       @db.Uuid
+  forwarderCompanyId   String?      @db.Uuid
+  acceptedBidId        String       @unique @db.Uuid
+  agreedAmount         Decimal      @db.Decimal(14, 2)
+  currency             Currency
+  currentStatus        OrderStatus
+  previousStatus       OrderStatus?
+  statusChangedAt      DateTime     @default(now()) @db.Timestamptz(3)
+  loadingDate          DateTime?    @db.Timestamptz(3)
+  deliveryDate         DateTime?    @db.Timestamptz(3)
+  vehicleId            String?      @db.Uuid
+  driverId             String?      @db.Uuid
+  deliveredAt          DateTime?    @db.Timestamptz(3)
+  // Период проверки после доставки: до этого момента заказчик подтверждает получение или открывает спор
+  confirmationDueAt    DateTime?    @db.Timestamptz(3)
+  receiptConfirmedAt   DateTime?    @db.Timestamptz(3)
+  // true — получение подтверждено системой по истечении периода проверки (без спора)
+  receiptAutoConfirmed Boolean      @default(false)
+  closedAt             DateTime?    @db.Timestamptz(3)
+  cancelledAt          DateTime?    @db.Timestamptz(3)
+  createdAt            DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime     @updatedAt @db.Timestamptz(3)
 
-  load          Load                          @relation(fields: [loadId], references: [id])
-  shipper       Company                       @relation("OrderShipper", fields: [shipperCompanyId], references: [id])
-  carrier       Company                       @relation("OrderCarrier", fields: [carrierCompanyId], references: [id])
-  forwarder     Company?                      @relation("OrderForwarder", fields: [forwarderCompanyId], references: [id])
-  acceptedBid   Bid                           @relation(fields: [acceptedBidId], references: [id])
-  vehicle       Vehicle?                      @relation(fields: [vehicleId], references: [id])
-  driver        DriverProfile?                @relation(fields: [driverId], references: [id])
-  statusHistory TransportOrderStatusHistory[]
-  participants  TransportOrderParticipant[]
-  contracts     Contract[]
-  documents     OrderDocument[]
+  load           Load                          @relation(fields: [loadId], references: [id])
+  shipper        Company                       @relation("OrderShipper", fields: [shipperCompanyId], references: [id])
+  carrier        Company                       @relation("OrderCarrier", fields: [carrierCompanyId], references: [id])
+  forwarder      Company?                      @relation("OrderForwarder", fields: [forwarderCompanyId], references: [id])
+  acceptedBid    Bid                           @relation(fields: [acceptedBidId], references: [id])
+  vehicle        Vehicle?                      @relation(fields: [vehicleId], references: [id])
+  driver         DriverProfile?                @relation(fields: [driverId], references: [id])
+  statusHistory  TransportOrderStatusHistory[]
+  participants   TransportOrderParticipant[]
+  contracts      Contract[]
+  documents      OrderDocument[]
   trackingEvents TrackingEvent[]
-  chatThread    ChatThread?
-  payments      PaymentRecord[]
-  reviews       Review[]
-  disputes      Dispute[]
+  chatThread     ChatThread?
+  payments       PaymentRecord[]
+  reviews        Review[]
+  disputes       Dispute[]
+  nextMovements  PlannedMovement[]
 
   @@index([currentStatus])
+  @@index([currentStatus, confirmationDueAt])
   @@index([carrierCompanyId])
   @@index([shipperCompanyId])
   @@index([forwarderCompanyId])
@@ -945,18 +1004,18 @@ model OrderDocument {
 // ───────────────────────────── Tracking ─────────────────────────────
 
 model TrackingEvent {
-  id        String            @id @default(uuid()) @db.Uuid
-  orderId   String            @db.Uuid
-  userId    String?           @db.Uuid
-  type      TrackingEventType
-  latitude  Float?
-  longitude Float?
-  accuracy  Float?
-  note      String?
-  source    TrackingSource
-  recordedAt DateTime         @default(now()) @db.Timestamptz(3)
-  createdAt DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt DateTime          @updatedAt @db.Timestamptz(3)
+  id         String            @id @default(uuid()) @db.Uuid
+  orderId    String            @db.Uuid
+  userId     String?           @db.Uuid
+  type       TrackingEventType
+  latitude   Float?
+  longitude  Float?
+  accuracy   Float?
+  note       String?
+  source     TrackingSource
+  recordedAt DateTime          @default(now()) @db.Timestamptz(3)
+  createdAt  DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime          @updatedAt @db.Timestamptz(3)
 
   order TransportOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -1031,27 +1090,160 @@ model Notification {
 
 // ───────────────────────────── Finance ─────────────────────────────
 
+/// Запись о платеже по сделке.
+/// Ручной учёт (PREPAYMENT/FINAL_PAYMENT/OTHER) — стороны фиксируют расчёты вне платформы.
+/// Безопасная сделка (SECURE_DEAL) — сумма обеспечена у платёжного провайдера; CargoFlow хранит только
+/// статус, условия и журнал операций. Данные банковских карт не хранятся.
 model PaymentRecord {
-  id              String        @id @default(uuid()) @db.Uuid
-  orderId         String        @db.Uuid
-  payerCompanyId  String        @db.Uuid
-  payeeCompanyId  String        @db.Uuid
-  amount          Decimal       @db.Decimal(14, 2)
-  currency        Currency
-  type            PaymentType
-  status          PaymentStatus @default(PLANNED)
-  dueDate         DateTime?     @db.Timestamptz(3)
-  paidAt          DateTime?     @db.Timestamptz(3)
-  note            String?
-  createdByUserId String?       @db.Uuid
-  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+  id                    String        @id @default(uuid()) @db.Uuid
+  orderId               String        @db.Uuid
+  payerCompanyId        String        @db.Uuid
+  payeeCompanyId        String        @db.Uuid
+  amount                Decimal       @db.Decimal(14, 2)
+  currency              Currency
+  type                  PaymentType
+  status                PaymentStatus @default(PLANNED)
+  dueDate               DateTime?     @db.Timestamptz(3)
+  paidAt                DateTime?     @db.Timestamptz(3)
+  note                  String?
+  createdByUserId       String?       @db.Uuid
+  // ── Безопасная сделка ──
+  /// Комиссия платформы (снимок правила на момент создания сделки)
+  platformFee           Decimal       @default(0) @db.Decimal(14, 2)
+  feePercent            Decimal?      @db.Decimal(5, 2)
+  feeFixed              Decimal?      @db.Decimal(14, 2)
+  /// Выплачено перевозчику (брутто, до удержания комиссии) и возвращено заказчику
+  releasedAmount        Decimal       @default(0) @db.Decimal(14, 2)
+  refundedAmount        Decimal       @default(0) @db.Decimal(14, 2)
+  /// Удержанная комиссия по уже выполненным выплатам
+  feeCollected          Decimal       @default(0) @db.Decimal(14, 2)
+  provider              String?
+  providerTransactionId String?
+  authorizedAt          DateTime?     @db.Timestamptz(3)
+  reservedAt            DateTime?     @db.Timestamptz(3)
+  releaseRequestedAt    DateTime?     @db.Timestamptz(3)
+  releasedAt            DateTime?     @db.Timestamptz(3)
+  refundedAt            DateTime?     @db.Timestamptz(3)
+  cancelledAt           DateTime?     @db.Timestamptz(3)
+  failedAt              DateTime?     @db.Timestamptz(3)
+  failureReason         String?
+  disputeId             String?       @db.Uuid
+  metadata              Json?
+  createdAt             DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @db.Timestamptz(3)
 
-  order TransportOrder @relation(fields: [orderId], references: [id])
-  payer Company        @relation("PaymentPayer", fields: [payerCompanyId], references: [id])
-  payee Company        @relation("PaymentPayee", fields: [payeeCompanyId], references: [id])
+  order         TransportOrder         @relation(fields: [orderId], references: [id])
+  payer         Company                @relation("PaymentPayer", fields: [payerCompanyId], references: [id])
+  payee         Company                @relation("PaymentPayee", fields: [payeeCompanyId], references: [id])
+  dispute       Dispute?               @relation(fields: [disputeId], references: [id])
+  transactions  PaymentTransaction[]
+  statusHistory PaymentStatusHistory[]
 
   @@index([orderId])
+  @@index([type, status])
+}
+
+/// Операция у платёжного провайдера. Одна операция в статусе PENDING на платёж (частичный уникальный индекс).
+model PaymentTransaction {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  paymentId             String                   @db.Uuid
+  kind                  PaymentTransactionKind
+  status                PaymentTransactionStatus @default(PENDING)
+  amount                Decimal                  @db.Decimal(14, 2)
+  /// Комиссия платформы, удерживаемая из этой выплаты
+  fee                   Decimal                  @default(0) @db.Decimal(14, 2)
+  currency              Currency
+  provider              String
+  providerTransactionId String?
+  /// Ключ идемпотентности, передаваемый провайдеру: повтор операции не приводит к повторному движению средств
+  idempotencyKey        String                   @unique
+  requestedByUserId     String?                  @db.Uuid
+  reason                String?
+  failureReason         String?
+  completedAt           DateTime?                @db.Timestamptz(3)
+  createdAt             DateTime                 @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                 @updatedAt @db.Timestamptz(3)
+
+  payment PaymentRecord @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId, createdAt])
+  @@index([provider, providerTransactionId])
+}
+
+model PaymentStatusHistory {
+  id            String         @id @default(uuid()) @db.Uuid
+  paymentId     String         @db.Uuid
+  fromStatus    PaymentStatus?
+  toStatus      PaymentStatus
+  actorUserId   String?        @db.Uuid
+  actorType     ActorType
+  reason        String?
+  transactionId String?        @db.Uuid
+  createdAt     DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime       @updatedAt @db.Timestamptz(3)
+
+  payment PaymentRecord @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId, createdAt])
+}
+
+// ───────────────────────────── Next Load ─────────────────────────────
+
+/// План дальнейшего движения транспорта после (или до окончания) текущего рейса.
+/// Подходящие грузы (NextLoadMatch) вычисляются на лету — см. src/lib/next-load/matching.ts
+model PlannedMovement {
+  id                  String         @id @default(uuid()) @db.Uuid
+  companyId           String         @db.Uuid
+  vehicleId           String?        @db.Uuid
+  driverId            String?        @db.Uuid
+  sourceOrderId       String?        @db.Uuid
+  createdByUserId     String         @db.Uuid
+  intent              MovementIntent
+  // Точка, где транспорт будет свободен (текущая позиция или точка разгрузки)
+  originLabel         String
+  originCountry       String?
+  originCity          String?
+  originLat           Float
+  originLng           Float
+  /// Откуда взята позиция: TRACKING (последняя отметка водителя), ORDER_DELIVERY (адрес разгрузки), MANUAL
+  originSource        String
+  /// Допустимое отклонение от коридора движения, км
+  allowedDeviationKm  Int            @default(250)
+  /// Радиус поиска погрузки вокруг текущей точки, км
+  maxPickupDistanceKm Int            @default(300)
+  availableFrom       DateTime       @db.Timestamptz(3)
+  availableUntil      DateTime       @db.Timestamptz(3)
+  status              MovementStatus @default(ACTIVE)
+  note                String?
+  createdAt           DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
+
+  company      Company                      @relation(fields: [companyId], references: [id])
+  vehicle      Vehicle?                     @relation(fields: [vehicleId], references: [id])
+  driver       DriverProfile?               @relation(fields: [driverId], references: [id])
+  sourceOrder  TransportOrder?              @relation(fields: [sourceOrderId], references: [id])
+  destinations PlannedMovementDestination[]
+
+  @@index([companyId, status])
+  @@index([vehicleId, status])
+  @@index([sourceOrderId])
+}
+
+model PlannedMovementDestination {
+  id         String   @id @default(uuid()) @db.Uuid
+  movementId String   @db.Uuid
+  sequence   Int
+  label      String
+  country    String?
+  city       String?
+  latitude   Float
+  longitude  Float
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  movement PlannedMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+
+  @@unique([movementId, sequence])
 }
 
 // ───────────────────────────── Reviews & Disputes ─────────────────────────────
@@ -1095,6 +1287,7 @@ model Dispute {
 
   order    TransportOrder   @relation(fields: [orderId], references: [id])
   comments DisputeComment[]
+  payments PaymentRecord[]
 
   @@index([orderId])
   @@index([status])

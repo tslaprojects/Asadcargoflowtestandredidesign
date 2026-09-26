@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, Gavel, Package, PackagePlus, Search, Truck } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Gavel, Navigation, Package, PackagePlus, Search, Truck } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -12,6 +12,7 @@ import { OrderTable, type OrderRow } from "@/features/orders/order-table";
 import { navKindFor, pageActor } from "@/server/page-context";
 import { carrierDashboard, customerDashboard, forwarderDashboard } from "@/server/services/dashboard.service";
 import { listOrders } from "@/server/services/order.service";
+import { nextLoadPreviews } from "@/server/services/next-load.service";
 
 export const metadata: Metadata = { title: "Главная" };
 
@@ -25,7 +26,7 @@ export default async function DashboardPage() {
   const company = actor.active!.company.legalName;
 
   if (kind === "carrier") {
-    const d = toPlain(await carrierDashboard(actor));
+    const [d, previews] = await Promise.all([carrierDashboard(actor).then(toPlain), nextLoadPreviews(actor)]);
     return (
       <>
         <PageHeader
@@ -82,6 +83,43 @@ export default async function DashboardPage() {
             </section>
           </div>
           <div className="space-y-5">
+            <Card data-testid="next-load-previews">
+              <CardHeader className="flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Navigation className="text-primary size-4" aria-hidden /> Следующий рейс
+                </CardTitle>
+                <Link href="/next-load" className="text-primary text-sm hover:underline">
+                  Спланировать →
+                </Link>
+              </CardHeader>
+              <CardContent>
+                {previews.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">
+                    Когда машина будет подъезжать к точке разгрузки, здесь появятся подходящие грузы для следующего рейса.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {previews.map((p) => (
+                      <li key={p.vehicleId}>
+                        <Link
+                          href={
+                            p.movementId
+                              ? `/next-load?vehicle=${p.vehicleId}&movement=${p.movementId}`
+                              : `/next-load?vehicle=${p.vehicleId}`
+                          }
+                          className="border-border hover:border-primary/40 block rounded-lg border p-3 text-sm transition-colors"
+                        >
+                          <span className="text-muted-foreground block text-xs">
+                            <span className="font-mono">{p.plateNumber}</span> · рейс {p.orderNumber}
+                          </span>
+                          <span className="font-medium">{p.message}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
             <ActionList items={d.actions} title="Ожидают моего действия" />
             <Card>
               <CardHeader>

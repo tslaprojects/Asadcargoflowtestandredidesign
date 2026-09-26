@@ -31,11 +31,18 @@ const tripInclude = {
 /** Текущий рейс водителя (без финансовых данных). */
 export async function getMyTrip(actor: Actor) {
   requireDriver(actor);
-  const order = await prisma.transportOrder.findFirst({
-    where: { driver: { userId: actor.userId }, currentStatus: { in: [...RESOURCE_BUSY_STATUSES, "DELIVERED"] } },
-    orderBy: [{ loadingDate: "asc" }],
-    include: tripInclude,
-  });
+  // Сначала — активный рейс; доставленный (ждёт подтверждения заказчиком) показывается, пока нового рейса нет
+  const order =
+    (await prisma.transportOrder.findFirst({
+      where: { driver: { userId: actor.userId }, currentStatus: { in: RESOURCE_BUSY_STATUSES }, deliveredAt: null },
+      orderBy: [{ loadingDate: "asc" }],
+      include: tripInclude,
+    })) ??
+    (await prisma.transportOrder.findFirst({
+      where: { driver: { userId: actor.userId }, currentStatus: "DELIVERED" },
+      orderBy: [{ deliveredAt: "desc" }],
+      include: tripInclude,
+    }));
   if (!order) return null;
   const [lastLocation, docs] = await Promise.all([
     prisma.trackingEvent.findFirst({

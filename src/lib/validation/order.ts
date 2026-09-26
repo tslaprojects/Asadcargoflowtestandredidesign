@@ -102,9 +102,12 @@ export const reviewSchema = z.object({
 });
 
 export const disputeCreateSchema = z.object({
-  reason: z.enum(["DELAY", "DAMAGE", "MISSING_DOCUMENTS", "CARGO_MISMATCH", "PAYMENT_ISSUE", "OTHER"], {
-    message: "Выберите причину",
-  }),
+  reason: z.enum(
+    ["NOT_DELIVERED", "DELAY", "DAMAGE", "SHORTAGE", "CARGO_MISMATCH", "MISSING_DOCUMENTS", "TERMS_VIOLATION", "PAYMENT_ISSUE", "OTHER"],
+    {
+      message: "Выберите причину",
+    },
+  ),
   description: requiredText(10, 4000, "Опишите ситуацию (не менее 10 символов)"),
 });
 
@@ -113,6 +116,35 @@ export const disputeUpdateSchema = z.object({
   resolution: optionalText(4000),
   /** Как поступить с перевозкой при закрытии спора */
   orderOutcome: z.enum(["RESUME", "CANCEL", "CLOSE"]).default("RESUME"),
+  /** Решение по безопасной сделке: оставить в резерве, выплатить перевозчику, вернуть заказчику или разделить */
+  paymentOutcome: z.enum(["KEEP", "RELEASE_FULL", "REFUND_FULL", "SPLIT"]).optional(),
+  /** Для SPLIT — сумма выплаты перевозчику (остаток возвращается заказчику) */
+  releaseAmount: z
+    .union([z.null(), z.undefined(), z.literal(""), z.coerce.number().positive("Сумма должна быть больше 0").max(1e11)])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : v)),
+});
+
+/** Администратор: выплата / возврат по безопасной сделке. Сумма не указана — весь удерживаемый остаток. */
+export const adminPaymentOperationSchema = z.object({
+  amount: z
+    .union([z.null(), z.undefined(), z.literal(""), z.coerce.number().positive("Сумма должна быть больше 0").max(1e11)])
+    .optional()
+    .transform((v) => (v === "" || v === undefined ? null : v)),
+  reason: requiredText(5, 1000, "Укажите основание операции (не менее 5 символов)"),
+});
+
+export const adminConfirmTransactionSchema = z.object({
+  outcome: z.enum(["SUCCEEDED", "FAILED"]),
+  providerTransactionId: optionalText(200),
+  failureReason: optionalText(500),
+});
+
+export const providerWebhookSchema = z.object({
+  idempotencyKey: z.string().min(10).max(200),
+  status: z.enum(["SUCCEEDED", "FAILED", "PENDING"]),
+  providerTransactionId: z.string().max(200).nullish(),
+  failureReason: z.string().max(500).nullish(),
 });
 
 export const disputeCommentSchema = z.object({ message: requiredText(1, 4000, "Введите комментарий") });

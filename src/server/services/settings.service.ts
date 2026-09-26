@@ -1,12 +1,23 @@
 import "server-only";
-import type { CargoType } from "@/generated/prisma/enums";
+import type { CargoType, Currency } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { audit, AuditAction } from "@/lib/audit/audit";
 import { requirePermission, type Actor } from "@/lib/auth/actor";
 import { prisma, type Tx } from "@/lib/db/prisma";
 
 export type PlatformSettings = {
+  /** Комиссия платформы по безопасной сделке, % от суммы */
   commissionPercent: number;
+  /** Фиксированная часть комиссии по безопасной сделке — в валюте сделки */
+  commissionFixed: Partial<Record<Currency, number>>;
+  /** Заказчик может оформить безопасную сделку */
+  secureDealEnabled: boolean;
+  /** Начало загрузки возможно только после обеспечения оплаты безопасной сделкой */
+  requireSecureDeal: boolean;
+  /** Период проверки после доставки: сколько часов у заказчика на подтверждение или спор */
+  confirmationWindowHours: number;
+  /** По истечении периода проверки без спора — подтвердить получение и выплатить перевозчику автоматически */
+  autoConfirmOnTimeout: boolean;
   requirePodForClose: boolean;
   restrictedCargoTypes: CargoType[];
   requireVerifiedToPublish: boolean;
@@ -15,6 +26,11 @@ export type PlatformSettings = {
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
   commissionPercent: 0,
+  commissionFixed: {},
+  secureDealEnabled: true,
+  requireSecureDeal: false,
+  confirmationWindowHours: 72,
+  autoConfirmOnTimeout: true,
   requirePodForClose: true,
   restrictedCargoTypes: [],
   requireVerifiedToPublish: false,

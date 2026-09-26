@@ -66,3 +66,24 @@ function capitalize(s: string) {
 }
 
 export const geocoder: Geocoder = localGeocoder;
+
+export type KnownCity = { country: string; city: string; latitude: number; longitude: number };
+
+/** Справочник городов (для быстрых направлений и подписей точек на карте). */
+export function knownCityPoints(): KnownCity[] {
+  return CITIES.map((c) => ({ country: c.country, city: capitalize(c.names[0]), latitude: c.lat, longitude: c.lng }));
+}
+
+/** Ближайший известный город к точке (для подписи точки, выбранной на карте). */
+export function nearestKnownCity(latitude: number, longitude: number): (KnownCity & { distanceKm: number }) | null {
+  let best: (KnownCity & { distanceKm: number }) | null = null;
+  for (const c of knownCityPoints()) {
+    const dLat = ((c.latitude - latitude) * Math.PI) / 180;
+    const dLng = ((c.longitude - longitude) * Math.PI) / 180;
+    const h =
+      Math.sin(dLat / 2) ** 2 + Math.cos((latitude * Math.PI) / 180) * Math.cos((c.latitude * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    const d = 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+    if (!best || d < best.distanceKm) best = { ...c, distanceKm: d };
+  }
+  return best;
+}

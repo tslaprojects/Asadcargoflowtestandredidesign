@@ -1,5 +1,19 @@
 "use client";
-import { AlertTriangle, Ban, CheckCircle2, FileSignature, PackageCheck, Pause, Play, Star, Truck, UserPlus, UserX } from "lucide-react";
+import {
+  AlertTriangle,
+  Ban,
+  CheckCircle2,
+  FileSignature,
+  Loader,
+  PackageCheck,
+  Pause,
+  Play,
+  Route,
+  Star,
+  Truck,
+  UserPlus,
+  UserX,
+} from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
@@ -12,7 +26,7 @@ import { NativeSelect, Textarea } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/tooltip";
 import { api, errorMessage } from "@/lib/client/api";
 import { useAction } from "@/lib/client/use-action";
-import { formatWeight } from "@/lib/format";
+import { formatDateTime, formatWeight } from "@/lib/format";
 import { enumOptions, label } from "@/lib/i18n";
 import type { Permission } from "@/lib/permissions";
 import {
@@ -40,7 +54,14 @@ type Ctx = {
   requirePod: boolean;
   reviewedByMe: boolean;
   weightKg: number;
+  /** Безопасная сделка: статус оплаты (null — не оформлена) */
+  secureDealStatus?: string | null;
+  receiptConfirmedAt?: Date | string | null;
+  confirmationDueAt?: Date | string | null;
+  vehicleId?: string | null;
 };
+
+const SECURE_HELD = ["PAYMENT_RESERVED", "PAYMENT_RELEASE_PENDING", "PAYMENT_PARTIALLY_RELEASED"];
 
 function useCan(permissions: Permission[]) {
   return (p: Permission) => permissions.includes(p);
@@ -453,7 +474,10 @@ export function OpenDisputeDialog({ orderId }: { orderId: string }) {
         <DialogContent size="sm">
           <DialogHeader>
             <DialogTitle>Открыть спор</DialogTitle>
-            <DialogDescription>Перевозка будет приостановлена (статус «Спор») до решения администратора CargoFlow.</DialogDescription>
+            <DialogDescription>
+              Перевозка будет приостановлена (статус «Спор») до решения администратора CargoFlow. Если оформлена безопасная сделка — выплата
+              перевозчику замораживается. Документы, фото, трекинг и переписка сохраняются для рассмотрения.
+            </DialogDescription>
           </DialogHeader>
           <Field id="dispute-reason" label="Причина" required>
             <NativeSelect value={reason} onChange={(e) => setReason(e.target.value)}>
@@ -607,11 +631,34 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
     blocks.push(<DeliverDialog key="deliver" orderId={orderId} />);
   }
 
-  if (status === "DELIVERED" && (isCustomer || isAdmin) && can("ORDER_CONFIRM_DELIVERY")) {
+  const secureHeld = SECURE_HELD.includes(ctx.secureDealStatus ?? "");
+  const dueText = ctx.confirmationDueAt ? formatDateTime(ctx.confirmationDueAt) : null;
+  if (status === "DELIVERED" && ctx.receiptConfirmedAt && secureHeld) {
+    blocks.push(
+      <p key="payout" className="text-info flex items-center gap-2 text-sm" data-testid="payout-pending">
+        <Loader className="size-4" aria-hidden /> Получение подтверждено. Выплата перевозчику обрабатывается платёжным провайдером —
+        перевозка закроется после подтверждения выплаты.
+      </p>,
+    );
+  } else if (status === "DELIVERED" && isCarrier && secureHeld && dueText) {
+    blocks.push(
+      <p key="await-confirm" className="text-muted-foreground text-sm">
+        Ожидаем подтверждения получения заказчиком до {dueText}. Если спор не будет открыт, выплата по безопасной сделке выполнится
+        автоматически.
+      </p>,
+    );
+  }
+  if (status === "DELIVERED" && !ctx.receiptConfirmedAt && (isCustomer || isAdmin) && can("ORDER_CONFIRM_DELIVERY")) {
     const blocked = ctx.requirePod && ctx.podCount === 0;
     blocks.push(
       <div key="confirm" className="space-y-2">
         <p className="text-sm font-medium">Подтвердить получение</p>
+        {secureHeld && dueText && (
+          <p className="text-muted-foreground text-sm">
+            Проверьте груз и документы до {dueText}. Если есть претензии — откройте спор; иначе после этого срока получение будет
+            подтверждено автоматически и перевозчик получит оплату.
+          </p>
+        )}
         {blocked && (
           <p className="text-warning text-sm">
             Перевозчик ещё не загрузил подтверждение доставки (POD/CMR). Закрыть перевозку без него нельзя.
@@ -619,8 +666,20 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
         )}
         <ConfirmDialog
           title="Подтвердить получение груза?"
-          description="Перевозка будет закрыта, по остатку будет сформирован окончательный расчёт."
-          consequences={["Статус перевозки станет «Закрыто».", "Стороны смогут оставить отзывы."]}
+          description={
+            secureHeld
+              ? "Условия безопасной сделки будут выполнены: выплата перевозчику передаётся платёжному провайдеру."
+              : "Перевозка будет закрыта, по остатку будет сформирован окончательный расчёт."
+          }
+          consequences={
+            secureHeld
+              ? [
+                  "Обеспеченная сумма будет выплачена перевозчику (за вычетом комиссии платформы).",
+                  "После подтверждения выплаты перевозка закроется.",
+                  "Открыть спор после этого будет нельзя.",
+                ]
+              : ["Статус перевозки станет «Закрыто».", "Стороны смогут оставить отзывы."]
+          }
           irreversible
           withReason
           reasonLabel="Комментарий"
@@ -628,7 +687,7 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
           pendingLabel="Подтверждаем..."
           onConfirm={async (comment) => {
             const r = await run((key) => api(`/api/orders/${orderId}/confirm-delivery`, { body: { comment }, idempotencyKey: key }), {
-              success: "Получение подтверждено. Перевозка закрыта.",
+              success: secureHeld ? "Получение подтверждено. Выплата перевозчику запущена." : "Получение подтверждено. Перевозка закрыта.",
             });
             return r !== undefined;
           }}
@@ -651,6 +710,21 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
       ) : (
         <ReviewDialog key="review" orderId={orderId} counterpart={counterpart} />
       ),
+    );
+  }
+
+  // Следующий рейс: машина скоро освободится или уже свободна
+  if (
+    isCarrier &&
+    ctx.vehicleId &&
+    ["LOADED", "IN_TRANSIT", "AT_BORDER", "CUSTOMS", "BORDER_CLEARED", "AT_DELIVERY", "DELIVERED", "CLOSED"].includes(status)
+  ) {
+    blocks.push(
+      <Button key="next-load" variant="outline" asChild>
+        <Link href={`/next-load?vehicle=${ctx.vehicleId}`}>
+          <Route /> Найти следующий рейс
+        </Link>
+      </Button>,
     );
   }
 

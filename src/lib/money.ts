@@ -12,34 +12,60 @@ export function sumAmounts(amounts: number[]): number {
   return fromMinor(amounts.reduce((acc, a) => acc + toMinor(a), 0));
 }
 
-export type PaymentLike = { amount: number; status: string; type: string; currency: string };
+export type PaymentLike = {
+  amount: number;
+  status: string;
+  type: string;
+  currency: string;
+  /** Для безопасной сделки: выплачено перевозчику / возвращено заказчику */
+  releasedAmount?: number | null;
+  refundedAmount?: number | null;
+};
 
 export type FinanceSummary = {
   total: number;
   prepaymentPlanned: number;
   paid: number;
   invoiced: number;
+  /** Безопасная сделка: сумма, обеспеченная у провайдера и ещё не выплаченная/не возвращённая */
+  secured: number;
+  /** Безопасная сделка: возвращено заказчику */
+  refunded: number;
   outstanding: number;
   currency: Currency;
   mismatchedCurrency: boolean;
 };
 
+const SECURE_HELD = ["PAYMENT_RESERVED", "PAYMENT_RELEASE_PENDING", "PAYMENT_DISPUTED", "PAYMENT_PARTIALLY_RELEASED"];
+const SECURE_DEAD = ["PAYMENT_CANCELLED", "PAYMENT_FAILED"];
+
 /**
  * Финансовая сводка по заказу. Учитываются только платежи в валюте заказа;
- * отменённые платежи не учитываются.
+ * отменённые платежи не учитываются. Для безопасной сделки «оплачено» — это сумма, выплаченная перевозчику.
  */
 export function financeSummary(total: number, currency: Currency, payments: PaymentLike[]): FinanceSummary {
-  const active = payments.filter((p) => p.status !== "CANCELLED");
+  const active = payments.filter((p) => p.status !== "CANCELLED" && !SECURE_DEAD.includes(p.status));
   const same = active.filter((p) => p.currency === currency);
-  const paid = sumAmounts(same.filter((p) => p.status === "PAID").map((p) => p.amount));
-  const invoiced = sumAmounts(same.filter((p) => p.status === "INVOICED").map((p) => p.amount));
-  const prepaymentPlanned = sumAmounts(same.filter((p) => p.type === "PREPAYMENT").map((p) => p.amount));
+  const ledger = same.filter((p) => p.type !== "SECURE_DEAL");
+  const secure = same.filter((p) => p.type === "SECURE_DEAL");
+  const released = sumAmounts(secure.map((p) => Number(p.releasedAmount ?? 0)));
+  const refunded = sumAmounts(secure.map((p) => Number(p.refundedAmount ?? 0)));
+  const secured = sumAmounts(
+    secure
+      .filter((p) => SECURE_HELD.includes(p.status))
+      .map((p) => fromMinor(toMinor(p.amount) - toMinor(Number(p.releasedAmount ?? 0)) - toMinor(Number(p.refundedAmount ?? 0)))),
+  );
+  const paid = sumAmounts([...ledger.filter((p) => p.status === "PAID").map((p) => p.amount), released]);
+  const invoiced = sumAmounts(ledger.filter((p) => p.status === "INVOICED").map((p) => p.amount));
+  const prepaymentPlanned = sumAmounts(ledger.filter((p) => p.type === "PREPAYMENT").map((p) => p.amount));
   return {
     total,
     prepaymentPlanned,
     paid,
     invoiced,
-    outstanding: fromMinor(Math.max(0, toMinor(total) - toMinor(paid))),
+    secured,
+    refunded,
+    outstanding: fromMinor(Math.max(0, toMinor(total) - toMinor(paid) - toMinor(refunded))),
     currency,
     mismatchedCurrency: active.some((p) => p.currency !== currency),
   };

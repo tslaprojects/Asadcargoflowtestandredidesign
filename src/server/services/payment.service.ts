@@ -10,6 +10,7 @@ import type { paymentCreateSchema, paymentUpdateSchema } from "@/lib/validation/
 import { ordersWhereForActor, requireOrderAccess } from "./access";
 import { notify } from "./notification.service";
 import { orderParticipantUserIds } from "./order-core";
+import { findLiveSecureDeal } from "./secure-deal.service";
 
 export async function listPayments(actor: Actor, orderId: string) {
   const { order } = await requireOrderAccess(actor, orderId, "PAYMENT_VIEW");
@@ -17,7 +18,14 @@ export async function listPayments(actor: Actor, orderId: string) {
   const summary = financeSummary(
     Number(order.agreedAmount),
     order.currency,
-    items.map((p) => ({ amount: Number(p.amount), status: p.status, type: p.type, currency: p.currency })),
+    items.map((p) => ({
+      amount: Number(p.amount),
+      status: p.status,
+      type: p.type,
+      currency: p.currency,
+      releasedAmount: Number(p.releasedAmount),
+      refundedAmount: Number(p.refundedAmount),
+    })),
   );
   return { items, summary };
 }
@@ -26,6 +34,9 @@ export async function createPayment(actor: Actor, orderId: string, input: z.outp
   const { access, order } = await requireOrderAccess(actor, orderId, "PAYMENT_EDIT");
   if (access.side === "DRIVER") throw errors.forbidden();
   if (order.currentStatus === "CANCELLED") throw new AppError("INVALID_STATE_TRANSITION", "Перевозка отменена — платежи не добавляются.");
+  if (await findLiveSecureDeal(prisma, orderId)) {
+    throw new AppError("CONFLICT", "По перевозке оформлена безопасная сделка — расчёты ведутся через неё, ручные записи не добавляются.");
+  }
   if (input.currency !== order.currency) {
     throw errors.validation(`Платёж должен быть в валюте сделки (${order.currency}).`, {
       currency: ["Валюта не совпадает с валютой сделки"],
@@ -33,7 +44,9 @@ export async function createPayment(actor: Actor, orderId: string, input: z.outp
   }
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM "TransportOrder" WHERE id = ${orderId}::uuid FOR UPDATE`;
-    const existing = await tx.paymentRecord.findMany({ where: { orderId, status: { not: "CANCELLED" }, currency: order.currency } });
+    const existing = await tx.paymentRecord.findMany({
+      where: { orderId, type: { not: "SECURE_DEAL" }, status: { not: "CANCELLED" }, currency: order.currency },
+    });
     const sum = existing.reduce((a, p) => a + toMinor(Number(p.amount)), 0) + toMinor(input.amount);
     if (sum > toMinor(Number(order.agreedAmount))) {
       throw errors.validation(
@@ -86,6 +99,9 @@ export async function updatePayment(actor: Actor, paymentId: string, input: z.ou
   const payment = await prisma.paymentRecord.findUnique({ where: { id: paymentId } });
   if (!payment) throw errors.notFound("Платёж не найден.");
   const { access } = await requireOrderAccess(actor, payment.orderId, "PAYMENT_EDIT");
+  if (payment.type === "SECURE_DEAL") {
+    throw errors.forbidden("Статус безопасной сделки меняется только платёжными операциями, а не вручную.");
+  }
   if (access.side === "DRIVER") throw errors.forbidden();
   if (payment.status === "CANCELLED") throw new AppError("INVALID_STATE_TRANSITION", "Отменённый платёж изменить нельзя.");
   if (payment.status === "PAID" && input.status !== "PAID" && access.side !== "ADMIN") {
@@ -147,7 +163,11 @@ export async function listMyPayments(actor: Actor, opts: { page: number; pageSiz
     prisma.paymentRecord.count({ where }),
     prisma.transportOrder.findMany({
       where: { AND: [orderWhere, { currentStatus: { notIn: ["CANCELLED"] } }] },
-      select: { agreedAmount: true, currency: true, payments: { select: { amount: true, status: true, type: true, currency: true } } },
+      select: {
+        agreedAmount: true,
+        currency: true,
+        payments: { select: { amount: true, status: true, type: true, currency: true, releasedAmount: true, refundedAmount: true } },
+      },
     }),
   ]);
   // Итоги по валютам
@@ -156,7 +176,12 @@ export async function listMyPayments(actor: Actor, opts: { page: number; pageSiz
     const s = financeSummary(
       Number(o.agreedAmount),
       o.currency,
-      o.payments.map((p) => ({ ...p, amount: Number(p.amount) })),
+      o.payments.map((p) => ({
+        ...p,
+        amount: Number(p.amount),
+        releasedAmount: Number(p.releasedAmount),
+        refundedAmount: Number(p.refundedAmount),
+      })),
     );
     const t = (totals[o.currency] ??= { contracted: 0, paid: 0, outstanding: 0 });
     t.contracted += s.total;

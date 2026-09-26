@@ -50,3 +50,6 @@ next-env.d.ts
 /playwright/.cache
 /storage-e2e
 /.local
+
+# MapLibre web worker копируется из node_modules (scripts/copy-maplibre-worker.mjs)
+/public/maplibre

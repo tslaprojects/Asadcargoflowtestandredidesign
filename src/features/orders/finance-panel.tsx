@@ -35,12 +35,15 @@ export function FinancePanel({
   payments,
   canEdit,
   closedOrCancelled,
+  secureDeal = false,
 }: {
   orderId: string;
   summary: FinanceSummary;
   payments: Payment[];
   canEdit: boolean;
   closedOrCancelled: boolean;
+  /** Расчёты ведутся через безопасную сделку — ручной учёт скрыт */
+  secureDeal?: boolean;
 }) {
   const { run, pending } = useAction();
   const [open, setOpen] = React.useState(false);
@@ -64,12 +67,19 @@ export function FinancePanel({
     }
   };
 
-  const tiles = [
-    { label: "Стоимость", value: summary.total },
-    { label: "Предоплата", value: summary.prepaymentPlanned },
-    { label: "Оплачено", value: summary.paid },
-    { label: "Остаток", value: summary.outstanding },
-  ];
+  const tiles = secureDeal
+    ? [
+        { label: "Стоимость", value: summary.total },
+        { label: "Обеспечено (удерживается)", value: summary.secured },
+        { label: "Выплачено перевозчику", value: summary.paid },
+        { label: "Не выплачено", value: summary.outstanding },
+      ]
+    : [
+        { label: "Стоимость", value: summary.total },
+        { label: "Предоплата", value: summary.prepaymentPlanned },
+        { label: "Оплачено", value: summary.paid },
+        { label: "Остаток", value: summary.outstanding },
+      ];
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="finance-summary">
@@ -81,107 +91,109 @@ export function FinancePanel({
         ))}
       </div>
       {summary.mismatchedCurrency && <p className="text-warning text-sm">Есть платежи в другой валюте — они не учитываются в сводке.</p>}
-      <Card>
-        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
-          <CardTitle>Платежи</CardTitle>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" size="sm" onClick={requestPriceChange}>
-              Изменить стоимость
-            </Button>
-            {canEdit && !closedOrCancelled && (
-              <Button size="sm" onClick={() => setOpen(true)}>
-                <Plus /> Добавить платёж
+      {!secureDeal && (
+        <Card>
+          <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
+            <CardTitle>Платежи</CardTitle>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="ghost" size="sm" onClick={requestPriceChange}>
+                Изменить стоимость
               </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          {payments.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Платежей пока нет. Зафиксируйте предоплату и окончательный расчёт.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Тип</TableHead>
-                  <TableHead>Сумма</TableHead>
-                  <TableHead>Статус</TableHead>
-                  <TableHead>Срок / оплачен</TableHead>
-                  <TableHead>Комментарий</TableHead>
-                  {canEdit && <TableHead className="text-right">Действия</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>{label("PaymentType", p.type)}</TableCell>
-                    <TableCell>
-                      <MoneyDisplay amount={p.amount} currency={p.currency} />
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge kind="PaymentStatus" value={p.status} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {p.paidAt ? `оплачен ${formatDate(p.paidAt)}` : p.dueDate ? `до ${formatDate(p.dueDate)}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground max-w-64 truncate">{p.note ?? "—"}</TableCell>
-                    {canEdit && (
-                      <TableCell className="text-right">
-                        {p.status !== "PAID" && p.status !== "CANCELLED" && (
-                          <div className="flex justify-end gap-1">
-                            {p.status === "PLANNED" && (
+              {canEdit && !closedOrCancelled && (
+                <Button size="sm" onClick={() => setOpen(true)}>
+                  <Plus /> Добавить платёж
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {payments.length === 0 ? (
+              <p className="text-muted-foreground text-sm">Платежей пока нет. Зафиксируйте предоплату и окончательный расчёт.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Тип</TableHead>
+                    <TableHead>Сумма</TableHead>
+                    <TableHead>Статус</TableHead>
+                    <TableHead>Срок / оплачен</TableHead>
+                    <TableHead>Комментарий</TableHead>
+                    {canEdit && <TableHead className="text-right">Действия</TableHead>}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {payments.map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell>{label("PaymentType", p.type)}</TableCell>
+                      <TableCell>
+                        <MoneyDisplay amount={p.amount} currency={p.currency} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge kind="PaymentStatus" value={p.status} />
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {p.paidAt ? `оплачен ${formatDate(p.paidAt)}` : p.dueDate ? `до ${formatDate(p.dueDate)}` : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground max-w-64 truncate">{p.note ?? "—"}</TableCell>
+                      {canEdit && (
+                        <TableCell className="text-right">
+                          {p.status !== "PAID" && p.status !== "CANCELLED" && (
+                            <div className="flex justify-end gap-1">
+                              {p.status === "PLANNED" && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={pending}
+                                  onClick={() =>
+                                    run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "INVOICED" } }), {
+                                      success: "Счёт выставлен",
+                                    })
+                                  }
+                                >
+                                  Счёт выставлен
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
-                                variant="ghost"
+                                variant="outline"
                                 disabled={pending}
                                 onClick={() =>
-                                  run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "INVOICED" } }), {
-                                    success: "Счёт выставлен",
+                                  run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "PAID" } }), {
+                                    success: "Платёж отмечен оплаченным",
                                   })
                                 }
                               >
-                                Счёт выставлен
+                                Оплачено
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={pending}
-                              onClick={() =>
-                                run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "PAID" } }), {
-                                  success: "Платёж отмечен оплаченным",
-                                })
-                              }
-                            >
-                              Оплачено
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-destructive"
-                              disabled={pending}
-                              onClick={() =>
-                                run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "CANCELLED" } }), {
-                                  success: "Платёж отменён",
-                                })
-                              }
-                            >
-                              Отменить
-                            </Button>
-                          </div>
-                        )}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-          <p className="text-muted-foreground mt-3 text-xs">
-            CargoFlow фиксирует финансовые договорённости, но не проводит платежи. Согласованная стоимость после подписания договора
-            меняется только через администратора.
-          </p>
-        </CardContent>
-      </Card>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-destructive"
+                                disabled={pending}
+                                onClick={() =>
+                                  run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "CANCELLED" } }), {
+                                    success: "Платёж отменён",
+                                  })
+                                }
+                              >
+                                Отменить
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+            <p className="text-muted-foreground mt-3 text-xs">
+              CargoFlow фиксирует финансовые договорённости, но не проводит платежи. Согласованная стоимость после подписания договора
+              меняется только через администратора.
+            </p>
+          </CardContent>
+        </Card>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent size="sm">
           <DialogHeader>
