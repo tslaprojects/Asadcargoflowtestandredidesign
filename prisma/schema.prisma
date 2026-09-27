@@ -293,6 +293,8 @@ enum NotificationType {
   PAYMENT_UPDATED
   REVIEW_RECEIVED
   NEXT_LOAD_SUGGESTIONS
+  FUEL_ANOMALY
+  FUEL_CARD_UPDATED
   SYSTEM
 }
 
@@ -371,6 +373,110 @@ enum DisputeStatus {
   IN_REVIEW
   RESOLVED
   REJECTED
+}
+
+// ───────────────────────────── Fuel Control: enums ─────────────────────────────
+
+enum FuelType {
+  DIESEL
+  PETROL
+  LNG
+  CNG
+  LPG
+  ADBLUE
+  OTHER
+}
+
+enum FuelCardStatus {
+  ACTIVE
+  BLOCKED
+  EXPIRED
+  SUSPENDED
+  LOST
+  CANCELLED
+}
+
+enum FuelTransactionStatus {
+  PENDING
+  AUTHORIZED
+  APPROVED
+  COMPLETED
+  DECLINED
+  REVERSED
+  REFUNDED
+  DISPUTED
+}
+
+/// Откуда пришла транзакция: провайдер топливных карт, ручной ввод, приложение водителя, демо-симуляция
+enum FuelTransactionSource {
+  PROVIDER
+  MANUAL
+  DRIVER_APP
+  DEMO
+}
+
+/// Результат сопоставления заправки с GPS и уровнем топлива
+enum FuelMatchStatus {
+  PENDING
+  MATCHED
+  PARTIALLY_VERIFIED
+  UNVERIFIED
+  MISMATCH
+}
+
+/// Источник уровня топлива — разные источники не смешиваются
+enum FuelLevelSource {
+  CAN_J1939
+  FUEL_SENSOR
+}
+
+enum TelemetrySource {
+  TELEMATICS
+  FUEL_SENSOR
+  GPS_TRACKER
+  DRIVER_APP
+  MANUAL
+  DEMO
+}
+
+enum FuelAccountEntryType {
+  TOP_UP
+  RESERVE
+  RELEASE
+  CHARGE
+  REFUND
+  ADJUSTMENT
+}
+
+enum FuelAnomalyType {
+  LOCATION_MISMATCH
+  FUEL_LEVEL_MISMATCH
+  TANK_CAPACITY_EXCEEDED
+  UNEXPECTED_FUEL_DROP
+  FREQUENT_REFUELING
+  ROUTE_DEVIATION
+}
+
+enum FuelAnomalySeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FuelAnomalyStatus {
+  OPEN
+  CONFIRMED
+  DISMISSED
+  INVESTIGATING
+  RESOLVED
+}
+
+enum FuelInvestigationStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
 }
 
 // ───────────────────────────── Identity ─────────────────────────────
@@ -486,6 +592,11 @@ model Company {
   paymentsOut          PaymentRecord[]             @relation("PaymentPayer")
   paymentsIn           PaymentRecord[]             @relation("PaymentPayee")
   plannedMovements     PlannedMovement[]
+  fuelAccounts         FuelAccount[]
+  fuelCards            FuelCard[]
+  fuelTransactions     FuelTransaction[]
+  fuelAnomalies        FuelAnomaly[]
+  fuelInvestigations   FuelInvestigation[]
   reviewsGiven         Review[]                    @relation("ReviewFrom")
   reviewsReceived      Review[]                    @relation("ReviewTo")
   auditLogs            AuditLog[]
@@ -575,27 +686,41 @@ model VerificationRequest {
 // ───────────────────────────── Fleet ─────────────────────────────
 
 model Vehicle {
-  id          String        @id @default(uuid()) @db.Uuid
-  companyId   String        @db.Uuid
-  plateNumber String
-  country     String
-  make        String
-  model       String
-  year        Int?
-  vehicleType VehicleType
-  bodyType    BodyType
-  capacityKg  Decimal       @db.Decimal(12, 2)
-  volumeM3    Decimal?      @db.Decimal(10, 2)
-  vin         String?
-  status      VehicleStatus @default(AVAILABLE)
-  gpsEnabled  Boolean       @default(false)
-  createdAt   DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime      @updatedAt @db.Timestamptz(3)
-  deletedAt   DateTime?     @db.Timestamptz(3)
+  id                 String        @id @default(uuid()) @db.Uuid
+  companyId          String        @db.Uuid
+  plateNumber        String
+  country            String
+  make               String
+  model              String
+  year               Int?
+  vehicleType        VehicleType
+  bodyType           BodyType
+  capacityKg         Decimal       @db.Decimal(12, 2)
+  volumeM3           Decimal?      @db.Decimal(10, 2)
+  vin                String?
+  status             VehicleStatus @default(AVAILABLE)
+  gpsEnabled         Boolean       @default(false)
+  // ── Топливо и телематика ──
+  engineType         String?
+  fuelType           FuelType?
+  tankCapacityLiters Decimal?      @db.Decimal(8, 1)
+  /// Нормативный расход, л/100 км (задаёт владелец; архитектура допускает более сложную модель нормы)
+  fuelNormPer100Km   Decimal?      @db.Decimal(5, 1)
+  /// Провайдер телематики и идентификатор устройства у провайдера (null — не подключено)
+  telematicsProvider String?
+  telematicsDeviceId String?
+  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime      @updatedAt @db.Timestamptz(3)
+  deletedAt          DateTime?     @db.Timestamptz(3)
 
-  company          Company           @relation(fields: [companyId], references: [id])
-  orders           TransportOrder[]
-  plannedMovements PlannedMovement[]
+  company            Company             @relation(fields: [companyId], references: [id])
+  orders             TransportOrder[]
+  plannedMovements   PlannedMovement[]
+  fuelCards          FuelCard[]
+  fuelTransactions   FuelTransaction[]
+  telemetry          TelemetryReading[]
+  fuelAnomalies      FuelAnomaly[]
+  fuelInvestigations FuelInvestigation[]
 
   @@unique([country, plateNumber])
   @@index([companyId, status])
@@ -621,6 +746,8 @@ model DriverProfile {
   company          Company           @relation(fields: [companyId], references: [id])
   orders           TransportOrder[]
   plannedMovements PlannedMovement[]
+  fuelCards        FuelCard[]
+  fuelTransactions FuelTransaction[]
 
   @@unique([companyId, userId])
   @@index([companyId, status])
@@ -847,23 +974,24 @@ model TransportOrder {
   createdAt            DateTime     @default(now()) @db.Timestamptz(3)
   updatedAt            DateTime     @updatedAt @db.Timestamptz(3)
 
-  load           Load                          @relation(fields: [loadId], references: [id])
-  shipper        Company                       @relation("OrderShipper", fields: [shipperCompanyId], references: [id])
-  carrier        Company                       @relation("OrderCarrier", fields: [carrierCompanyId], references: [id])
-  forwarder      Company?                      @relation("OrderForwarder", fields: [forwarderCompanyId], references: [id])
-  acceptedBid    Bid                           @relation(fields: [acceptedBidId], references: [id])
-  vehicle        Vehicle?                      @relation(fields: [vehicleId], references: [id])
-  driver         DriverProfile?                @relation(fields: [driverId], references: [id])
-  statusHistory  TransportOrderStatusHistory[]
-  participants   TransportOrderParticipant[]
-  contracts      Contract[]
-  documents      OrderDocument[]
-  trackingEvents TrackingEvent[]
-  chatThread     ChatThread?
-  payments       PaymentRecord[]
-  reviews        Review[]
-  disputes       Dispute[]
-  nextMovements  PlannedMovement[]
+  load             Load                          @relation(fields: [loadId], references: [id])
+  shipper          Company                       @relation("OrderShipper", fields: [shipperCompanyId], references: [id])
+  carrier          Company                       @relation("OrderCarrier", fields: [carrierCompanyId], references: [id])
+  forwarder        Company?                      @relation("OrderForwarder", fields: [forwarderCompanyId], references: [id])
+  acceptedBid      Bid                           @relation(fields: [acceptedBidId], references: [id])
+  vehicle          Vehicle?                      @relation(fields: [vehicleId], references: [id])
+  driver           DriverProfile?                @relation(fields: [driverId], references: [id])
+  statusHistory    TransportOrderStatusHistory[]
+  participants     TransportOrderParticipant[]
+  contracts        Contract[]
+  documents        OrderDocument[]
+  trackingEvents   TrackingEvent[]
+  chatThread       ChatThread?
+  payments         PaymentRecord[]
+  reviews          Review[]
+  disputes         Dispute[]
+  nextMovements    PlannedMovement[]
+  fuelTransactions FuelTransaction[]
 
   @@index([currentStatus])
   @@index([currentStatus, confirmationDueAt])
@@ -1351,4 +1479,295 @@ model PlatformSetting {
   value     Json
   createdAt DateTime @default(now()) @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @db.Timestamptz(3)
+}
+
+// ───────────────────────────── Fleet Fuel Control ─────────────────────────────
+// CargoFlow не хранит данные банковских карт (номер, PIN, CVV). Для карт хранится только безопасный
+// идентификатор провайдера (token/cardId) и последние 4 цифры для отображения.
+
+/// Корпоративный топливный счёт компании (баланс у провайдера топливных карт отражается здесь как учёт).
+model FuelAccount {
+  id                String   @id @default(uuid()) @db.Uuid
+  companyId         String   @db.Uuid
+  name              String
+  currency          Currency
+  balance           Decimal  @default(0) @db.Decimal(14, 2)
+  /// Зарезервировано авторизованными, но ещё не завершёнными заправками
+  reserved          Decimal  @default(0) @db.Decimal(14, 2)
+  provider          String
+  providerAccountId String?
+  isDemo            Boolean  @default(false)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  company      Company            @relation(fields: [companyId], references: [id])
+  entries      FuelAccountEntry[]
+  cards        FuelCard[]
+  transactions FuelTransaction[]
+
+  @@unique([companyId, currency])
+}
+
+/// Журнал движения по топливному счёту (только дополняется).
+model FuelAccountEntry {
+  id                String               @id @default(uuid()) @db.Uuid
+  accountId         String               @db.Uuid
+  type              FuelAccountEntryType
+  /// Сумма операции (положительная); направление определяется типом
+  amount            Decimal              @db.Decimal(14, 2)
+  balanceAfter      Decimal              @db.Decimal(14, 2)
+  reservedAfter     Decimal              @db.Decimal(14, 2)
+  fuelTransactionId String?              @db.Uuid
+  externalReference String?
+  note              String?
+  createdByUserId   String?              @db.Uuid
+  idempotencyKey    String               @unique
+  createdAt         DateTime             @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime             @updatedAt @db.Timestamptz(3)
+
+  account FuelAccount @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, createdAt])
+}
+
+model FuelCard {
+  id                    String         @id @default(uuid()) @db.Uuid
+  companyId             String         @db.Uuid
+  fuelAccountId         String         @db.Uuid
+  vehicleId             String?        @db.Uuid
+  driverId              String?        @db.Uuid
+  /// Внутренний номер карты в компании (например, FC-001)
+  label                 String
+  provider              String
+  /// Безопасный идентификатор карты у провайдера (token). Не номер карты.
+  providerCardId        String
+  /// Только последние 4 цифры для отображения
+  last4                 String?
+  status                FuelCardStatus @default(ACTIVE)
+  expiresAt             DateTime?      @db.Timestamptz(3)
+  // ── Лимиты (проверяются на сервере при каждой авторизации) ──
+  perTransactionLiters  Decimal?       @db.Decimal(8, 1)
+  dailyLiters           Decimal?       @db.Decimal(8, 1)
+  monthlyLiters         Decimal?       @db.Decimal(10, 1)
+  dailyAmount           Decimal?       @db.Decimal(14, 2)
+  monthlyAmount         Decimal?       @db.Decimal(14, 2)
+  allowedFuelTypes      FuelType[]     @default([])
+  /// Разрешённые сети АЗС (пусто — любые)
+  allowedStationBrands  String[]       @default([])
+  /// Разрешённые конкретные АЗС (id у провайдера; пусто — любые)
+  allowedStationIds     String[]       @default([])
+  /// Разрешённые страны/регионы (ISO-код страны, например KZ; пусто — любые)
+  allowedRegions        String[]       @default([])
+  /// Разрешённое время, минуты от полуночи в часовом поясе карты (null — круглосуточно)
+  allowedFromMinute     Int?
+  allowedToMinute       Int?
+  timezone              String         @default("Asia/Almaty")
+  /// Показывать водителю текущий уровень топлива
+  driverCanSeeFuelLevel Boolean        @default(true)
+  blockedReason         String?
+  isDemo                Boolean        @default(false)
+  createdByUserId       String         @db.Uuid
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
+
+  company      Company           @relation(fields: [companyId], references: [id])
+  account      FuelAccount       @relation(fields: [fuelAccountId], references: [id])
+  vehicle      Vehicle?          @relation(fields: [vehicleId], references: [id])
+  driver       DriverProfile?    @relation(fields: [driverId], references: [id])
+  transactions FuelTransaction[]
+
+  @@unique([provider, providerCardId])
+  @@unique([companyId, label])
+  @@index([companyId, status])
+  @@index([driverId])
+  @@index([vehicleId])
+}
+
+model FuelTransaction {
+  id                    String                @id @default(uuid()) @db.Uuid
+  companyId             String                @db.Uuid
+  fuelAccountId         String                @db.Uuid
+  fuelCardId            String                @db.Uuid
+  vehicleId             String?               @db.Uuid
+  driverId              String?               @db.Uuid
+  orderId               String?               @db.Uuid
+  provider              String
+  providerTransactionId String
+  stationId             String?
+  stationName           String
+  stationBrand          String?
+  stationAddress        String?
+  stationCountry        String?
+  latitude              Float?
+  longitude             Float?
+  fuelType              FuelType
+  liters                Decimal               @db.Decimal(8, 2)
+  pricePerLiter         Decimal               @db.Decimal(12, 2)
+  totalAmount           Decimal               @db.Decimal(14, 2)
+  /// Сумма, зарезервированная при авторизации
+  authorizedAmount      Decimal               @default(0) @db.Decimal(14, 2)
+  currency              Currency
+  transactionDate       DateTime              @db.Timestamptz(3)
+  status                FuelTransactionStatus @default(PENDING)
+  source                FuelTransactionSource
+  declineReason         String?
+  // ── Сопоставление с телематикой ──
+  matchStatus           FuelMatchStatus       @default(PENDING)
+  anomalyScore          Int                   @default(0)
+  levelBefore           Float?
+  levelAfter            Float?
+  levelSource           FuelLevelSource?
+  gpsDistanceKm         Float?
+  analyzedAt            DateTime?             @db.Timestamptz(3)
+  analysis              Json?
+  isDemo                Boolean               @default(false)
+  metadata              Json?
+  createdAt             DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime              @updatedAt @db.Timestamptz(3)
+
+  company        Company                        @relation(fields: [companyId], references: [id])
+  account        FuelAccount                    @relation(fields: [fuelAccountId], references: [id])
+  card           FuelCard                       @relation(fields: [fuelCardId], references: [id])
+  vehicle        Vehicle?                       @relation(fields: [vehicleId], references: [id])
+  driver         DriverProfile?                 @relation(fields: [driverId], references: [id])
+  order          TransportOrder?                @relation(fields: [orderId], references: [id])
+  anomalies      FuelAnomaly[]
+  investigations FuelInvestigationTransaction[]
+
+  @@unique([provider, providerTransactionId])
+  @@index([companyId, transactionDate])
+  @@index([vehicleId, transactionDate])
+  @@index([driverId, transactionDate])
+  @@index([fuelCardId, transactionDate])
+  @@index([orderId])
+}
+
+/// Показания телематики/датчиков. null в поле = параметр недоступен (NOT_AVAILABLE), значения не выдумываются.
+model TelemetryReading {
+  id              String           @id @default(uuid()) @db.Uuid
+  vehicleId       String           @db.Uuid
+  source          TelemetrySource
+  provider        String
+  recordedAt      DateTime         @db.Timestamptz(3)
+  latitude        Float?
+  longitude       Float?
+  speedKmh        Float?
+  heading         Float?
+  engineOn        Boolean?
+  odometerKm      Float?
+  fuelLevelLiters Float?
+  /// Обязателен, если указан уровень топлива
+  fuelLevelSource FuelLevelSource?
+  /// Накопительный счётчик израсходованного топлива (CAN), л
+  fuelUsedTotalL  Float?
+  isDemo          Boolean          @default(false)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(3)
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleId, source, recordedAt])
+  @@index([vehicleId, recordedAt])
+}
+
+model FuelAnomaly {
+  id                String              @id @default(uuid()) @db.Uuid
+  companyId         String              @db.Uuid
+  vehicleId         String              @db.Uuid
+  driverId          String?             @db.Uuid
+  fuelTransactionId String?             @db.Uuid
+  orderId           String?             @db.Uuid
+  investigationId   String?             @db.Uuid
+  type              FuelAnomalyType
+  severity          FuelAnomalySeverity
+  score             Int
+  /// Нейтральное объяснение («зарегистрирована заправка 300 л, увеличение уровня — 48 л»)
+  explanation       String
+  details           Json
+  status            FuelAnomalyStatus   @default(OPEN)
+  /// Ключ для идемпотентного повторного анализа
+  dedupeKey         String              @unique
+  detectedAt        DateTime            @default(now()) @db.Timestamptz(3)
+  reviewedByUserId  String?             @db.Uuid
+  reviewedAt        DateTime?           @db.Timestamptz(3)
+  reviewComment     String?
+  isDemo            Boolean             @default(false)
+  createdAt         DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime            @updatedAt @db.Timestamptz(3)
+
+  company       Company            @relation(fields: [companyId], references: [id])
+  vehicle       Vehicle            @relation(fields: [vehicleId], references: [id])
+  transaction   FuelTransaction?   @relation(fields: [fuelTransactionId], references: [id])
+  investigation FuelInvestigation? @relation(fields: [investigationId], references: [id])
+
+  @@index([companyId, status, detectedAt])
+  @@index([vehicleId, detectedAt])
+}
+
+model FuelInvestigation {
+  id             String                  @id @default(uuid()) @db.Uuid
+  companyId      String                  @db.Uuid
+  vehicleId      String                  @db.Uuid
+  driverId       String?                 @db.Uuid
+  title          String
+  status         FuelInvestigationStatus @default(OPEN)
+  openedByUserId String                  @db.Uuid
+  resolution     String?
+  closedByUserId String?                 @db.Uuid
+  closedAt       DateTime?               @db.Timestamptz(3)
+  createdAt      DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime                @updatedAt @db.Timestamptz(3)
+
+  company      Company                        @relation(fields: [companyId], references: [id])
+  vehicle      Vehicle                        @relation(fields: [vehicleId], references: [id])
+  anomalies    FuelAnomaly[]
+  transactions FuelInvestigationTransaction[]
+  comments     FuelInvestigationComment[]
+  attachments  FuelInvestigationAttachment[]
+
+  @@index([companyId, status])
+}
+
+model FuelInvestigationTransaction {
+  id                String   @id @default(uuid()) @db.Uuid
+  investigationId   String   @db.Uuid
+  fuelTransactionId String   @db.Uuid
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  investigation FuelInvestigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+  transaction   FuelTransaction   @relation(fields: [fuelTransactionId], references: [id])
+
+  @@unique([investigationId, fuelTransactionId])
+}
+
+model FuelInvestigationComment {
+  id              String   @id @default(uuid()) @db.Uuid
+  investigationId String   @db.Uuid
+  authorUserId    String   @db.Uuid
+  message         String
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  investigation FuelInvestigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  @@index([investigationId, createdAt])
+}
+
+model FuelInvestigationAttachment {
+  id               String    @id @default(uuid()) @db.Uuid
+  investigationId  String    @db.Uuid
+  uploadedByUserId String    @db.Uuid
+  filename         String
+  mimeType         String
+  size             Int
+  storageKey       String
+  note             String?
+  createdAt        DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt        DateTime? @db.Timestamptz(3)
+
+  investigation FuelInvestigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  @@index([investigationId])
 }

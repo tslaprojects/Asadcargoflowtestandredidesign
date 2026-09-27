@@ -29,6 +29,8 @@ import { unreadForOrder } from "@/server/services/chat.service";
 import { DRIVER_DOCUMENT_TYPES, listOrderDocuments } from "@/server/services/document.service";
 import { getOrderAuditTrail, getOrderDetail } from "@/server/services/order.service";
 import { getSecureDealView } from "@/server/services/secure-deal.service";
+import { tripFuelReport } from "@/server/services/fuel-report.service";
+import { TripFuelReport } from "@/features/fuel/trip-fuel-report";
 import { listTracking } from "@/server/services/tracking.service";
 
 export const metadata: Metadata = { title: "Перевозка" };
@@ -56,12 +58,14 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const side = access.side;
   const isDriver = side === "DRIVER";
 
-  const [docs, tracking, unread, audit, secureDeal] = await Promise.all([
+  const showFuel = (side === "CARRIER" && can("FUEL_VIEW")) || (side === "ADMIN" && actor.permissions.has("FUEL_VIEW"));
+  const [docs, tracking, unread, audit, secureDeal, fuel] = await Promise.all([
     listOrderDocuments(actor, id, { includeHistory: true }).then(toPlain),
     listTracking(actor, id, { limit: 30 }).then(toPlain),
     unreadForOrder(actor, id),
     isDriver ? Promise.resolve(null) : getOrderAuditTrail(actor, id, { page: 1, pageSize: 100 }).then(toPlain),
     finance ? getSecureDealView(actor, id).then((v) => toPlain(v) as unknown as SecureDealPanelView) : Promise.resolve(null),
+    showFuel ? tripFuelReport(actor, id).then(toPlain) : Promise.resolve(null),
   ]);
   const secureStatus = secureDeal?.payment?.status ?? null;
   const secureLive = !!secureStatus && !["PAYMENT_CANCELLED", "PAYMENT_FAILED"].includes(secureStatus);
@@ -459,6 +463,12 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                     )}
                   </div>
                 ),
+              },
+              {
+                value: "fuel",
+                label: "Топливо",
+                hidden: !fuel,
+                content: fuel && <TripFuelReport r={fuel} canFinance={side === "ADMIN" || can("FUEL_FINANCE_VIEW")} />,
               },
               {
                 value: "history",

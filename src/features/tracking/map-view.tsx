@@ -7,7 +7,7 @@ export type MapPoint = {
   lat: number;
   lng: number;
   label: string;
-  kind: "PICKUP" | "BORDER" | "TRANSIT" | "DELIVERY" | "VEHICLE" | "TARGET" | "CANDIDATE";
+  kind: "PICKUP" | "BORDER" | "TRANSIT" | "DELIVERY" | "VEHICLE" | "TARGET" | "CANDIDATE" | "FUEL_OK" | "FUEL_ALERT" | "FUEL_UNVERIFIED";
 };
 
 /** Линия на карте: коридор движения или маршрут груза. */
@@ -39,6 +39,10 @@ const COLORS: Record<MapPoint["kind"], string> = {
   VEHICLE: "#dc2626",
   TARGET: "#7c3aed",
   CANDIDATE: "#0891b2",
+  // Заправки: совпадает / требует проверки / нет данных для проверки
+  FUEL_OK: "#15803d",
+  FUEL_ALERT: "#c2410c",
+  FUEL_UNVERIFIED: "#64748b",
 };
 
 export function MapView({

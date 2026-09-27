@@ -105,6 +105,50 @@ const STATUS_STYLES: Record<string, Record<string, Cfg>> = {
     PAYMENT_FAILED: { tone: "danger", icon: ShieldX },
     PAYMENT_CANCELLED: { tone: "neutral", icon: Ban },
   },
+  FuelCardStatus: {
+    ACTIVE: { tone: "success", icon: CheckCircle2 },
+    BLOCKED: { tone: "danger", icon: Ban },
+    EXPIRED: { tone: "neutral", icon: Clock },
+    SUSPENDED: { tone: "warning", icon: PauseCircle },
+    LOST: { tone: "danger", icon: AlertTriangle },
+    CANCELLED: { tone: "neutral", icon: Ban },
+  },
+  FuelTransactionStatus: {
+    PENDING: { tone: "neutral", icon: Clock },
+    AUTHORIZED: { tone: "info", icon: Loader },
+    APPROVED: { tone: "info", icon: CheckCircle2 },
+    COMPLETED: { tone: "success", icon: CheckCircle2 },
+    DECLINED: { tone: "danger", icon: Ban },
+    REVERSED: { tone: "neutral", icon: Ban },
+    REFUNDED: { tone: "neutral", icon: CheckCircle2 },
+    DISPUTED: { tone: "warning", icon: AlertTriangle },
+  },
+  FuelMatchStatus: {
+    PENDING: { tone: "neutral", icon: Loader },
+    MATCHED: { tone: "success", icon: ShieldCheck },
+    PARTIALLY_VERIFIED: { tone: "info", icon: ShieldQuestion },
+    UNVERIFIED: { tone: "neutral", icon: ShieldQuestion },
+    MISMATCH: { tone: "danger", icon: AlertTriangle },
+  },
+  FuelAnomalySeverity: {
+    LOW: { tone: "neutral", icon: CircleDot },
+    MEDIUM: { tone: "warning", icon: AlertTriangle },
+    HIGH: { tone: "warning", icon: AlertTriangle },
+    CRITICAL: { tone: "danger", icon: AlertTriangle },
+  },
+  FuelAnomalyStatus: {
+    OPEN: { tone: "warning", icon: AlertTriangle },
+    CONFIRMED: { tone: "danger", icon: ShieldX },
+    DISMISSED: { tone: "neutral", icon: CheckCircle2 },
+    INVESTIGATING: { tone: "info", icon: Loader },
+    RESOLVED: { tone: "success", icon: CheckCircle2 },
+  },
+  FuelInvestigationStatus: {
+    OPEN: { tone: "warning", icon: AlertTriangle },
+    UNDER_REVIEW: { tone: "info", icon: Loader },
+    RESOLVED: { tone: "success", icon: CheckCircle2 },
+    DISMISSED: { tone: "neutral", icon: CheckCircle2 },
+  },
   PaymentTransactionStatus: {
     PENDING: { tone: "warning", icon: Loader },
     SUCCEEDED: { tone: "success", icon: CheckCircle2 },
@@ -153,6 +197,12 @@ export type StatusKind =
   | "VerificationRequestStatus"
   | "PaymentStatus"
   | "PaymentTransactionStatus"
+  | "FuelCardStatus"
+  | "FuelTransactionStatus"
+  | "FuelMatchStatus"
+  | "FuelAnomalySeverity"
+  | "FuelAnomalyStatus"
+  | "FuelInvestigationStatus"
   | "DisputeStatus"
   | "VehicleStatus"
   | "DriverStatus"

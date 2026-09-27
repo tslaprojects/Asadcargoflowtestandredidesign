@@ -18,6 +18,8 @@ const DEMO = [
   { label: "Перевозчик", email: "carrier@cargoflow.demo" },
   { label: "Экспедитор", email: "forwarder@cargoflow.demo" },
   { label: "Водитель", email: "driver@cargoflow.demo" },
+  { label: "Автопарк (топливо)", email: "fleet@cargoflow.demo" },
+  { label: "Водитель Ivan", email: "ivan@cargoflow.demo" },
   { label: "Администратор", email: "admin@cargoflow.demo" },
 ];
 

@@ -30,6 +30,7 @@ import { openDispute } from "@/server/services/dispute.service";
 import { DEFAULT_SETTINGS } from "@/server/services/settings.service";
 import { initiateSecureDeal } from "@/server/services/secure-deal.service";
 import { createMovement } from "@/server/services/next-load.service";
+import { seedFuelDemo } from "./seed-fuel";
 
 export const DEMO_PASSWORD = "Demo1234!";
 const META = { ip: "127.0.0.1", userAgent: "cargoflow-seed" };
@@ -944,6 +945,16 @@ async function main() {
     { publish: false },
   );
 
+  // ───────── Fleet Fuel Control: ABC Logistics ─────────
+  console.log("→ Топливо: ABC Logistics, MAN TGX, рейс Алматы → Москва");
+  await seedFuelDemo({
+    shipper: aShipper,
+    password: DEMO_PASSWORD,
+    createUser: (email, firstName, lastName, phone) => user(email, firstName, lastName, phone),
+    shiftOrderToPast,
+    meta: META,
+  });
+
   // Уведомления seed-процесса помечаем прочитанными, чтобы не шуметь при первом входе
   await prisma.notification.updateMany({ where: { createdAt: { lt: new Date(Date.now() - 60 * 60_000) } }, data: { readAt: new Date() } });
 
@@ -956,6 +967,8 @@ async function main() {
     { role: "DRIVER (доставил в Алматы)", email: "driver@cargoflow.demo", company: "Demo Trans Logistics" },
     { role: "DRIVER (в рейсе)", email: "driver2@cargoflow.demo", company: "Demo Trans Logistics" },
     { role: "CARRIER_ADMIN", email: "carrier2@cargoflow.demo", company: "Demo Silk Road Carriers" },
+    { role: "CARRIER_ADMIN (топливо)", email: "fleet@cargoflow.demo", company: "ABC Logistics" },
+    { role: "DRIVER (топливо)", email: "ivan@cargoflow.demo", company: "ABC Logistics" },
     { role: "PLATFORM_ADMIN", email: "admin@cargoflow.demo", company: "—" },
   ]);
 }

@@ -49,6 +49,12 @@ export const Permission = {
   // Следующий рейс
   NEXT_LOAD_VIEW: "NEXT_LOAD_VIEW",
   NEXT_LOAD_PLAN: "NEXT_LOAD_PLAN",
+  // Топливо (Fleet Fuel Control)
+  FUEL_VIEW: "FUEL_VIEW",
+  FUEL_MANAGE: "FUEL_MANAGE",
+  FUEL_FINANCE_VIEW: "FUEL_FINANCE_VIEW",
+  FUEL_INVESTIGATE: "FUEL_INVESTIGATE",
+  FUEL_DRIVER: "FUEL_DRIVER",
   // Отзывы и споры
   REVIEW_CREATE: "REVIEW_CREATE",
   DISPUTE_CREATE: "DISPUTE_CREATE",
@@ -138,6 +144,8 @@ const CARRIER_DISPATCHER_PERMISSIONS: Permission[] = [
   P.DRIVER_MANAGE,
   P.NEXT_LOAD_VIEW,
   P.NEXT_LOAD_PLAN,
+  P.FUEL_VIEW,
+  P.FUEL_INVESTIGATE,
 ];
 
 export const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
@@ -148,6 +156,9 @@ export const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
     P.CONTRACT_SIGN,
     P.ORDER_CANCEL,
     P.PAYMENT_EDIT,
+    // Владелец автопарка: карты, лимиты, нормы, топливный счёт
+    P.FUEL_MANAGE,
+    P.FUEL_FINANCE_VIEW,
     P.COMPANY_MANAGE,
     P.COMPANY_MEMBERS_MANAGE,
   ],
@@ -156,6 +167,8 @@ export const ROLE_PERMISSIONS: Record<MemberRole, readonly Permission[]> = {
     P.DRIVER_TRIP_VIEW,
     // Водитель может указать, куда планирует ехать после доставки (только для своего автомобиля)
     P.NEXT_LOAD_PLAN,
+    // Своя машина и своя топливная карта — без финансов компании
+    P.FUEL_DRIVER,
     P.ORDER_STATUS_UPDATE,
     P.TRACKING_UPDATE,
     P.TRACKING_VIEW,
