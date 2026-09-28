@@ -69,3 +69,14 @@ export const optionalUuidParam = z
   .optional()
   .transform((v) => (v ? v : undefined))
   .optional();
+
+/**
+ * Булево значение из JSON или формы. В отличие от z.coerce.boolean(), строка "false" даёт false
+ * (coerce превращает любую непустую строку в true).
+ */
+export const booleanish = z.union([
+  z.boolean(),
+  z
+    .enum(["true", "false", "1", "0", "on", "off"], { message: "Ожидается да/нет" })
+    .transform((v) => v === "true" || v === "1" || v === "on"),
+]);

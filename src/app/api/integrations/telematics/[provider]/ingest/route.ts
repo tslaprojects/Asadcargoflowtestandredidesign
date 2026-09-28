@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/response";
 import { isAppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
-import { verifyWebhookSignature } from "@/lib/payments/provider";
+import { verifySignedWebhook, webhookSecret } from "@/lib/payments/provider";
 import { telemetryIngestSchema } from "@/lib/validation/fuel";
 import { ingestFromDevice } from "@/server/services/telemetry.service";
 
@@ -12,10 +12,11 @@ import { ingestFromDevice } from "@/server/services/telemetry.service";
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: string }> }) {
   const { provider } = await ctx.params;
-  const secret = process.env.TELEMATICS_WEBHOOK_SECRET;
+  const secret = webhookSecret("TELEMATICS_WEBHOOK_SECRET", provider);
   if (!secret) return fail("FORBIDDEN", "Приём телематики не настроен.", 403);
   const raw = await req.text();
-  if (!verifyWebhookSignature(raw, req.headers.get("x-cargoflow-signature"), secret)) return fail("UNAUTHORIZED", "Неверная подпись.", 401);
+  const check = verifySignedWebhook(raw, req.headers, secret);
+  if (!check.ok) return fail("UNAUTHORIZED", "Неверная подпись.", 401);
   let body: unknown;
   try {
     body = JSON.parse(raw);

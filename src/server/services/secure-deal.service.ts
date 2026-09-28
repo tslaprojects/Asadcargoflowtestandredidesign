@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import type { OrderStatus, PaymentTransactionKind } from "@/generated/prisma/enums";
-import { audit, AuditAction } from "@/lib/audit/audit";
+import { actorCompanyIn, audit, AuditAction } from "@/lib/audit/audit";
 import type { Actor } from "@/lib/auth/actor";
 import { prisma, type Tx } from "@/lib/db/prisma";
 import { AppError, errors } from "@/lib/errors";
@@ -119,7 +119,7 @@ async function transitionPayment(
       action: AuditAction.PAYMENT_STATUS_CHANGED,
       entityType: "TransportOrder",
       entityId: payment.orderId,
-      companyId: opts.actor?.active?.companyId ?? null,
+      companyId: actorCompanyIn(opts.actor, [payment.payerCompanyId, payment.payeeCompanyId]),
       oldValue: { paymentId: payment.id, status: from },
       newValue: { paymentId: payment.id, status: to, by, reason: opts.reason ?? undefined },
     },
@@ -250,7 +250,7 @@ export async function requestOperation(input: OperationInput) {
           action: AuditAction.PAYMENT_OPERATION_REQUESTED,
           entityType: "TransportOrder",
           entityId: p.orderId,
-          companyId: input.actor?.active?.companyId ?? null,
+          companyId: actorCompanyIn(input.actor, [p.payerCompanyId, p.payeeCompanyId]),
           newValue: { paymentId: p.id, transactionId: t.id, kind: input.kind, amount, fee, currency: p.currency, provider: provider.code },
         },
         tx,
@@ -663,9 +663,6 @@ export async function confirmReceiptWithSecureDeal(actor: Actor, orderId: string
       throw new AppError("DELIVERY_NOT_ALLOWED", "Подтвердить получение можно после того, как перевозчик отметит доставку.");
     }
     await tx.transportOrder.update({ where: { id: orderId }, data: { receiptConfirmedAt: new Date() } });
-    await tx.trackingEvent.create({
-      data: { orderId, userId: actor.userId, type: "DELIVERED", source: "WEB", note: "Получение подтверждено заказчиком" },
-    });
     await audit(
       actor,
       { action: AuditAction.DELIVERY_CONFIRMED, entityType: "TransportOrder", entityId: orderId, newValue: { comment, secureDeal: true } },

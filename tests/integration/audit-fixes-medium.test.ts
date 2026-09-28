@@ -158,4 +158,9 @@ describe("Исправления аудита: MEDIUM", () => {
     expect(p.status).toBe("PAYMENT_REFUNDED");
     expect(Number(p.refundedAmount)).toBe(3000);
   });
+
+  it("BIZ-002: ставка — только в валюте груза", async () => {
+    const load = await createLoad(s.shipper, loadInput(), { publish: true });
+    await expectAppError(createBid(s.carrier, load.id, { ...bidInput(), currency: "KZT" }), "VALIDATION_ERROR");
+  });
 });

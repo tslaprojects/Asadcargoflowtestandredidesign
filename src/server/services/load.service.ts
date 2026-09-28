@@ -169,6 +169,18 @@ export async function updateLoad(actor: Actor, loadId: string, input: LoadParsed
     if (!EDITABLE_LOAD_STATUSES.includes(current.status)) {
       throw new AppError("INVALID_STATE_TRANSITION", "Груз в текущем статусе изменить нельзя.");
     }
+    if (current.status === "PUBLISHED") {
+      // Опубликованный груз после правки должен по-прежнему проходить проверки публикации
+      const settings = await getSettings(tx);
+      if (settings.restrictedCargoTypes.includes(input.cargoType)) {
+        throw new AppError("FORBIDDEN", "Публикация грузов этого типа временно ограничена администратором платформы.");
+      }
+      const first = input.stops[0];
+      const latestLoading = first.plannedDateTo ?? first.plannedDateFrom;
+      if (latestLoading && latestLoading.getTime() < Date.now() - 24 * 60 * 60_000) {
+        throw errors.validation("Дата загрузки уже прошла. Укажите актуальные даты.", { "stops.0.plannedDateFrom": ["Дата в прошлом"] });
+      }
+    }
     const invitees = await validateInvitees(tx, input.visibility === "INVITE_ONLY" ? input.invitedCarrierIds : []);
     await tx.loadStop.deleteMany({ where: { loadId } });
     await tx.loadInvitation.deleteMany({ where: { loadId } });

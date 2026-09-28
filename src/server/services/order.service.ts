@@ -838,9 +838,6 @@ export async function confirmDelivery(actor: Actor, orderId: string, comment: st
       expectedFrom: "DELIVERED",
       silent: true,
     });
-    await tx.trackingEvent.create({
-      data: { orderId, userId: actor.userId, type: "DELIVERED", source: "WEB", note: "Получение подтверждено заказчиком" },
-    });
     // Финансы: фиксируем окончательный расчёт на остаток, если он ещё не запланирован
     const payments = await tx.paymentRecord.findMany({ where: { orderId, type: { not: "SECURE_DEAL" }, status: { not: "CANCELLED" } } });
     const summary = financeSummary(

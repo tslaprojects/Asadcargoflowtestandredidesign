@@ -22,6 +22,8 @@ export type PlatformSettings = {
   requirePodForClose: boolean;
   restrictedCargoTypes: CargoType[];
   requireVerifiedToPublish: boolean;
+  /** Ставки и сделки — только с проверенными перевозчиками */
+  requireVerifiedToBid: boolean;
   supportEmail: string;
 };
 
@@ -35,13 +37,26 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
   requirePodForClose: true,
   restrictedCargoTypes: [],
   requireVerifiedToPublish: false,
+  requireVerifiedToBid: false,
   supportEmail: "",
 };
 
+/** Короткий кэш: настройки читаются почти в каждой операции, а меняются редко. */
+const CACHE_MS = 5_000;
+const g = globalThis as unknown as { __cfSettings?: { at: number; value: PlatformSettings } };
+
 export async function getSettings(tx: Tx = prisma): Promise<PlatformSettings> {
+  const cached = g.__cfSettings;
+  if (cached && Date.now() - cached.at < CACHE_MS && process.env.NODE_ENV !== "test") return cached.value;
   const rows = await tx.platformSetting.findMany();
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return { ...DEFAULT_SETTINGS, ...(map as Partial<PlatformSettings>) };
+  const value = { ...DEFAULT_SETTINGS, ...(map as Partial<PlatformSettings>) };
+  g.__cfSettings = { at: Date.now(), value };
+  return value;
+}
+
+export function invalidateSettingsCache() {
+  g.__cfSettings = undefined;
 }
 
 export async function updateSettings(actor: Actor, input: PlatformSettings) {
@@ -66,5 +81,6 @@ export async function updateSettings(actor: Actor, input: PlatformSettings) {
       tx,
     );
   });
+  invalidateSettingsCache();
   return getSettings();
 }

@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Building2, Check, Package, Truck, Users } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
-import { useForm, type FieldPath } from "react-hook-form";
+import { useForm, useWatch, type FieldPath } from "react-hook-form";
 import type { z } from "zod";
 import { Field, FormError } from "@/components/common/field";
 import { Button } from "@/components/ui/button";
@@ -48,8 +48,8 @@ export function RegisterWizard({
     mode: "onTouched",
   });
   const { errors, isSubmitting } = form.formState;
-  const activity = form.watch("activity");
-  const companyMode = form.watch("companyMode");
+  const activity = useWatch({ control: form.control, name: "activity" });
+  const companyMode = useWatch({ control: form.control, name: "companyMode" });
 
   const next = async () => {
     const fields: FieldPath<Values>[][] = [["firstName", "lastName", "phone", "email", "password"], ["activity"]];

@@ -114,3 +114,38 @@ export function verifyWebhookSignature(body: string, signature: string | null, s
   const b = Buffer.from(signature.replace(/^sha256=/, ""), "hex");
   return a.length === b.length && timingSafeEqual(a, b);
 }
+
+const WEBHOOK_TOLERANCE_MS = 5 * 60_000;
+
+/**
+ * Секрет webhook: отдельный для провайдера (`<BASE>_<PROVIDER>`, например PAYMENT_WEBHOOK_SECRET_KASPI),
+ * иначе общий (`<BASE>`). Имя провайдера в URL не аутентифицировано, поэтому отдельные секреты не дают одному
+ * интегратору выдавать себя за другого.
+ */
+export function webhookSecret(base: string, provider: string): string | undefined {
+  const key = `${base}_${provider.toUpperCase().replace(/[^A-Z0-9]/g, "_")}`;
+  return process.env[key] || process.env[base] || undefined;
+}
+
+/**
+ * Проверка подписи входящего webhook.
+ * Рекомендуемый формат: X-CargoFlow-Timestamp (unix, секунды) + подпись HMAC-SHA256(`${timestamp}.${body}`) —
+ * старые запросы (старше 5 минут) отклоняются, поэтому перехваченный запрос нельзя повторить.
+ * Формат без метки времени (HMAC тела) поддерживается для совместимости, пока не задан WEBHOOK_REQUIRE_TIMESTAMP=1.
+ */
+export function verifySignedWebhook(
+  body: string,
+  headers: { get(name: string): string | null },
+  secret: string,
+  now = Date.now(),
+): { ok: true } | { ok: false; reason: string } {
+  const signature = headers.get("x-cargoflow-signature");
+  const ts = headers.get("x-cargoflow-timestamp");
+  if (ts) {
+    const seconds = Number(ts);
+    if (!Number.isFinite(seconds) || Math.abs(now - seconds * 1000) > WEBHOOK_TOLERANCE_MS) return { ok: false, reason: "stale" };
+    return verifyWebhookSignature(`${ts}.${body}`, signature, secret) ? { ok: true } : { ok: false, reason: "signature" };
+  }
+  if (process.env.WEBHOOK_REQUIRE_TIMESTAMP === "1") return { ok: false, reason: "timestamp-required" };
+  return verifyWebhookSignature(body, signature, secret) ? { ok: true } : { ok: false, reason: "signature" };
+}

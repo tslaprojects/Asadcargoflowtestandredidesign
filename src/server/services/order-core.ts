@@ -1,6 +1,6 @@
 import "server-only";
 import type { ActionSource, ActorType, OrderStatus } from "@/generated/prisma/enums";
-import { audit, AuditAction } from "@/lib/audit/audit";
+import { actorCompanyIn, audit, AuditAction } from "@/lib/audit/audit";
 import type { Actor } from "@/lib/auth/actor";
 import type { Tx } from "@/lib/db/prisma";
 import { AppError, errors } from "@/lib/errors";
@@ -109,7 +109,7 @@ export async function performTransitionInTx(tx: Tx, input: TransitionInput) {
       action: AuditAction.STATUS_CHANGED,
       entityType: "TransportOrder",
       entityId: order.id,
-      companyId: input.actor?.active?.companyId ?? null,
+      companyId: actorCompanyIn(input.actor, [order.shipperCompanyId, order.carrierCompanyId, order.forwarderCompanyId]),
       oldValue: { status: from },
       newValue: { status: input.to, comment: input.comment ?? undefined, source: input.source },
     },

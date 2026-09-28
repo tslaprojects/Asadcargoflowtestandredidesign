@@ -503,7 +503,13 @@ export async function getMovementMatches(actor: Actor, movementId: string, sort:
   const scope = scopeFor(actor, scopeNeed(actor));
   const m = await prisma.plannedMovement.findFirst({ where: { id: movementId, companyId: scope.companyId } });
   if (!m) throw errors.notFound("План не найден.");
-  if (scope.driverUserId && m.createdByUserId !== actor.userId && m.driverId === null) throw errors.forbidden();
+  if (scope.driverUserId && m.createdByUserId !== actor.userId) {
+    // Водитель видит только планы своего автомобиля (где он указан водителем)
+    const own = m.driverId
+      ? await prisma.driverProfile.count({ where: { id: m.driverId, userId: actor.userId, companyId: scope.companyId } })
+      : 0;
+    if (!own) throw errors.forbidden();
+  }
   const { movement, matches, rejected, byId } = await computeMatches(movementId, scope.companyId, sort);
   const hidePrices = Boolean(scope.driverUserId);
   return {

@@ -98,7 +98,7 @@ export const chatMessageSchema = z.object({
 
 export const paymentCreateSchema = z.object({
   type: z.enum(["PREPAYMENT", "FINAL_PAYMENT", "OTHER"]),
-  amount: z.coerce.number({ message: "Укажите сумму" }).positive("Сумма должна быть больше 0"),
+  amount: z.coerce.number({ message: "Укажите сумму" }).positive("Сумма должна быть больше 0").max(1e11, "Слишком большая сумма"),
   currency: currencySchema,
   status: z.enum(["PLANNED", "INVOICED", "PAID"]).default("PLANNED"),
   dueDate: optionalDate,
@@ -201,5 +201,3 @@ export const orderListQuerySchema = z.object({
   dateTo: filterDate,
   sort: z.enum(["updated", "created", "loading", "amount"]).default("updated"),
 });
-
-export const priceChangeSchema = z.object({ amount: z.coerce.number().positive(), currency: currencySchema });

@@ -12,6 +12,8 @@ import { fuelCardProviderByCode } from "@/lib/fuel/providers";
 import { canFuelTxTransition, FUEL_TX_COUNTED } from "@/lib/fuel/transaction-state-machine";
 import { logger } from "@/lib/logger";
 import { fromMinor, toMinor } from "@/lib/money";
+import { DEFAULT_TZ as REPORT_TZ } from "@/lib/format";
+import { zonedToUtc } from "@/lib/tz";
 import type { driverFuelPurchaseSchema, fuelListQuerySchema, fuelPurchaseSchema } from "@/lib/validation/fuel";
 import { analyzeTransaction } from "./fuel-analysis.service";
 import { cardLimits, lockAccount, postAccountEntry } from "./fuel-card.service";
@@ -455,8 +457,9 @@ export function fuelTxWhere(companyId: string, q: Partial<z.output<typeof fuelLi
     ...(q.from || q.to
       ? {
           transactionDate: {
-            ...(q.from ? { gte: new Date(`${q.from}T00:00:00+05:00`) } : {}),
-            ...(q.to ? { lte: new Date(`${q.to}T23:59:59+05:00`) } : {}),
+            // Границы дня — в часовом поясе отчёта (с учётом перехода на летнее время), а не фиксированное +05:00
+            ...(q.from ? { gte: zonedToUtc(q.from, "00:00", REPORT_TZ) } : {}),
+            ...(q.to ? { lt: new Date(zonedToUtc(q.to, "00:00", REPORT_TZ).getTime() + 24 * 60 * 60_000) } : {}),
           },
         }
       : {}),

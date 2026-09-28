@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  booleanish,
   countrySchema,
   currencySchema,
   filterDate,
@@ -44,7 +45,10 @@ export const loadStopSchema = z
     latitude: optionalCoord(-90, 90),
     longitude: optionalCoord(-180, 180),
     contactName: optionalText(100),
-    contactPhone: optionalText(30),
+    contactPhone: optionalText(30).refine(
+      (v) => v === null || /^\+?[0-9 ()-]{7,20}$/.test(v),
+      "Телефон в международном формате, например +7 700 000 00 00",
+    ),
     plannedDateFrom: optionalDate,
     plannedDateTo: optionalDate,
     timezone: optionalText(64),
@@ -85,7 +89,7 @@ export const loadInputSchema = z
       .union([z.literal(""), z.null(), z.undefined(), z.coerce.number().min(-40).max(40)])
       .optional()
       .transform((v) => (v === "" || v === undefined ? null : v)),
-    requiresGps: z.coerce.boolean().default(false),
+    requiresGps: booleanish.default(false),
     requirements: optionalText(2000),
     priceType: z.enum(["FIXED", "NEGOTIABLE", "REQUEST_QUOTE"], { message: "Выберите тип цены" }),
     targetPrice: z

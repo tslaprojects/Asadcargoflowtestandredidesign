@@ -85,3 +85,38 @@ describe("ERR-001: фильтры списков валидируются, а н
     ]);
   });
 });
+
+describe("SEC-010: подпись webhook с меткой времени", async () => {
+  const { createHmac } = await import("node:crypto");
+  const { verifySignedWebhook } = await import("@/lib/payments/provider");
+  const secret = "whsec_test";
+  const sign = (s: string) => createHmac("sha256", secret).update(s).digest("hex");
+  const headers = (h: Record<string, string>) => ({ get: (n: string) => h[n.toLowerCase()] ?? null });
+  it("принимает свежую подпись и отклоняет повтор старого запроса", () => {
+    const body = '{"a":1}';
+    const now = Date.now();
+    const ts = String(Math.floor(now / 1000));
+    expect(
+      verifySignedWebhook(body, headers({ "x-cargoflow-timestamp": ts, "x-cargoflow-signature": sign(`${ts}.${body}`) }), secret, now).ok,
+    ).toBe(true);
+    const old = String(Math.floor((now - 10 * 60_000) / 1000));
+    expect(
+      verifySignedWebhook(body, headers({ "x-cargoflow-timestamp": old, "x-cargoflow-signature": sign(`${old}.${body}`) }), secret, now).ok,
+    ).toBe(false);
+  });
+  it("формат без метки времени можно запретить", () => {
+    const body = "{}";
+    vi.stubEnv("WEBHOOK_REQUIRE_TIMESTAMP", "1");
+    expect(verifySignedWebhook(body, headers({ "x-cargoflow-signature": sign(body) }), secret).ok).toBe(false);
+  });
+});
+
+describe('VAL-001: строка "false" — это false', async () => {
+  const { booleanish } = await import("@/lib/validation/common");
+  it("строгий разбор булевых значений", () => {
+    expect(booleanish.parse("false")).toBe(false);
+    expect(booleanish.parse("true")).toBe(true);
+    expect(booleanish.parse(false)).toBe(false);
+    expect(booleanish.safeParse("maybe").success).toBe(false);
+  });
+});

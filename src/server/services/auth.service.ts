@@ -35,12 +35,17 @@ export async function register(input: RegisterInput, meta: RequestMeta) {
     throw errors.forbidden("Это демонстрационный стенд: регистрация новых пользователей отключена.");
   }
   enforceRateLimit("register", meta.ip ?? "anon");
+  if (process.env.NODE_ENV === "production" && input.email.endsWith("@cargoflow.demo")) {
+    // Домен демо-аккаунтов зарезервирован: такие пользователи считаются демо и могут быть удалены при загрузке демо-данных
+    throw errors.validation("Этот email-домен зарезервирован.", { email: ["Используйте рабочий email"] });
+  }
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) {
     throw errors.validation("Пользователь с таким email уже зарегистрирован.", {
       email: ["Пользователь с таким email уже зарегистрирован"],
     });
   }
+  if (input.companyMode === "invite" && input.inviteToken) await expireInviteIfNeeded(input.inviteToken);
   const passwordHash = await hashPassword(input.password);
 
   const result = await prisma.$transaction(async (tx) => {
@@ -120,15 +125,22 @@ export async function register(input: RegisterInput, meta: RequestMeta) {
 
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
+/** Просроченное приглашение помечается EXPIRED вне транзакции принятия (иначе статус откатится вместе с ошибкой). */
+async function expireInviteIfNeeded(token: string) {
+  await prisma.companyInvite.updateMany({
+    where: { tokenHash: sha256(token), status: "PENDING", expiresAt: { lt: new Date() } },
+    data: { status: "EXPIRED" },
+  });
+}
+
 /** Принимает приглашение: создаёт членство (и связывает профиль водителя, если приглашали водителя). */
 async function consumeInvite(tx: TxClient, token: string, userId: string, email: string, meta: RequestMeta) {
   const invite = await tx.companyInvite.findUnique({ where: { tokenHash: sha256(token) }, include: { company: true } });
-  if (!invite || invite.status !== "PENDING")
-    throw errors.validation("Приглашение недействительно или уже использовано.", { inviteToken: ["Приглашение недействительно"] });
-  if (invite.expiresAt < new Date()) {
-    await tx.companyInvite.update({ where: { id: invite.id }, data: { status: "EXPIRED" } });
+  if (invite?.status === "EXPIRED" || (invite && invite.status === "PENDING" && invite.expiresAt < new Date())) {
     throw errors.validation("Срок действия приглашения истёк. Попросите новое.", { inviteToken: ["Приглашение истекло"] });
   }
+  if (!invite || invite.status !== "PENDING")
+    throw errors.validation("Приглашение недействительно или уже использовано.", { inviteToken: ["Приглашение недействительно"] });
   if (invite.email.toLowerCase() !== email.toLowerCase()) {
     throw errors.validation("Приглашение выписано на другой email.", { email: ["Используйте email, на который пришло приглашение"] });
   }
@@ -181,6 +193,7 @@ async function consumeInvite(tx: TxClient, token: string, userId: string, email:
 }
 
 export async function acceptInviteForExistingUser(actor: Actor, token: string) {
+  await expireInviteIfNeeded(token);
   const companyId = await prisma.$transaction((tx) =>
     consumeInvite(tx, token, actor.userId, actor.email, { ip: actor.ip, userAgent: actor.userAgent }),
   );

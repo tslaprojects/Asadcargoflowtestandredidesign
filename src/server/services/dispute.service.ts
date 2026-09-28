@@ -162,6 +162,21 @@ export async function updateDispute(actor: Actor, disputeId: string, input: Disp
           source: "WEB",
           comment: `Спор ${input.status === "RESOLVED" ? "решён" : "отклонён"}: ${input.resolution}`,
         });
+        if (to === "CANCELLED") {
+          // Те же последствия, что и при обычной отмене перевозки
+          await tx.contract.updateMany({
+            where: { orderId: order.id, status: { in: ["PENDING_SIGNATURES", "PARTIALLY_SIGNED", "DRAFT"] } },
+            data: { status: "CANCELLED" },
+          });
+          await tx.load.update({
+            where: { id: order.loadId },
+            data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: `Решение по спору: ${input.resolution}` },
+          });
+          await tx.paymentRecord.updateMany({
+            where: { orderId: order.id, type: { not: "SECURE_DEAL" }, status: { in: ["PLANNED", "INVOICED"] } },
+            data: { status: "CANCELLED" },
+          });
+        }
       }
       if (money?.payment && money.outcome === "KEEP") {
         await unfreezeInTx(tx, money.payment.id, actor, `Спор закрыт, перевозка возобновлена: ${input.resolution}`);

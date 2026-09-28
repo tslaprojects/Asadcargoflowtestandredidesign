@@ -13,6 +13,7 @@ import { requireLoadRelation } from "./access";
 import { createContractInTx } from "./contract.service";
 import { CARRIER_OFFICE_ROLES, companyUserIds, CUSTOMER_ROLES, notify } from "./notification.service";
 import { performTransitionInTx } from "./order-core";
+import { getSettings } from "./settings.service";
 
 type BidCreate = z.output<typeof bidCreateSchema>;
 
@@ -74,6 +75,19 @@ export async function createBid(actor: Actor, loadId: string, input: BidCreate) 
       await expireStaleBids(tx, loadId);
       const load = await tx.load.findUniqueOrThrow({ where: { id: loadId } });
       if (!loadAcceptsBids(load.status)) throw new AppError("INVALID_STATE_TRANSITION", loadClosedMessage(load.status));
+      const settings = await getSettings(tx);
+      if (settings.requireVerifiedToBid && membership.company.verificationStatus !== "VERIFIED") {
+        throw errors.forbidden("Предлагать цену могут только проверенные перевозчики. Пройдите проверку в разделе «Компания».");
+      }
+      // Сделка заключается в валюте груза; при фиксированной цене перевозчик соглашается с ценой заказчика
+      if (input.currency !== load.currency) {
+        throw errors.validation(`Предложение должно быть в валюте груза (${load.currency}).`, { currency: ["Валюта груза"] });
+      }
+      if (load.priceType === "FIXED" && load.targetPrice && toMinor(input.amount) !== toMinor(Number(load.targetPrice))) {
+        throw errors.validation(`Цена груза фиксированная: ${formatMoney(Number(load.targetPrice), load.currency)}.`, {
+          amount: ["Фиксированная цена заказчика"],
+        });
+      }
       if (isLoadStale(load))
         throw new AppError("INVALID_STATE_TRANSITION", "Дата загрузки по грузу уже прошла — предложения не принимаются.");
       if (load.companyId === membership.companyId) throw errors.forbidden("Нельзя предлагать цену на собственный груз.");
@@ -386,6 +400,9 @@ export async function acceptBid(actor: Actor, bidId: string, expected?: { amount
         if (bid.status !== "PENDING") throw new AppError("INVALID_STATE_TRANSITION", "Предложение уже неактивно.");
         if (bid.carrier.verificationStatus === "SUSPENDED") throw errors.forbidden("Деятельность перевозчика приостановлена.");
         await assertNotSelfDealing(tx, load.companyId, bid.carrierCompanyId);
+        if ((await getSettings(tx)).requireVerifiedToBid && bid.carrier.verificationStatus !== "VERIFIED") {
+          throw errors.forbidden("Перевозчик не прошёл проверку платформы — принять его предложение нельзя.");
+        }
         // Заказчик принимает ту цену, которую видел: если перевозчик успел её изменить — сделка не создаётся
         if (expected && (toMinor(Number(bid.amount)) !== toMinor(expected.amount) || bid.currency !== expected.currency)) {
           throw new AppError(

@@ -54,7 +54,7 @@ export function BidDialog({ loadId, currency, targetPrice }: { loadId: string; c
       await api(`/api/loads/${loadId}/bids`, {
         body: {
           amount: Number(v.amount),
-          currency: v.currency,
+          currency,
           comment: v.comment,
           terms: v.terms,
           readyDate: v.readyDate || null,
@@ -91,7 +91,8 @@ export function BidDialog({ loadId, currency, targetPrice }: { loadId: string; c
                 <Input type="number" inputMode="decimal" min={0} step="any" {...form.register("amount")} />
               </Field>
               <Field id="bid-currency" label="Валюта" required>
-                <NativeSelect {...form.register("currency")}>
+                {/* Валюта сделки — валюта груза */}
+                <NativeSelect disabled {...form.register("currency")}>
                   {CURRENCIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
