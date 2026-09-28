@@ -41,7 +41,10 @@ export function LoginForm() {
     }
   });
 
-  const showDemo = process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_SHOW_DEMO === "1";
+  const isProduction = process.env.NODE_ENV === "production";
+  const showDemo = !isProduction || process.env.NEXT_PUBLIC_SHOW_DEMO === "1";
+  // В production у администратора нет общеизвестного пароля — кнопку не показываем
+  const demoAccounts = isProduction ? DEMO.filter((d) => d.email !== "admin@cargoflow.demo") : DEMO;
 
   return (
     <div>
@@ -72,10 +75,10 @@ export function LoginForm() {
       </p>
       {showDemo && (
         <div className="border-border bg-card mt-8 rounded-xl border border-dashed p-4">
-          <p className="text-sm font-medium">Демо-доступ (локальная среда)</p>
+          <p className="text-sm font-medium">Демо-доступ {isProduction ? "(демо-стенд: данные публичны)" : "(локальная среда)"}</p>
           <p className="text-muted-foreground mb-3 text-xs">Пароль для всех: Demo1234!</p>
           <div className="flex flex-wrap gap-2">
-            {DEMO.map((d) => (
+            {demoAccounts.map((d) => (
               <Button
                 key={d.email}
                 type="button"

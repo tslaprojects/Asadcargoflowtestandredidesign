@@ -22,7 +22,18 @@ const ROLE_BY_ACTIVITY: Record<"SHIPPER" | "CARRIER" | "FORWARDER", MemberRole> 
 
 type RegisterInput = z.output<typeof registerSchema>;
 
+/**
+ * Демо-стенд (DEMO_SEED=1 в production) содержит общедоступные демо-аккаунты — регистрация реальных
+ * пользователей там закрыта, чтобы их данные не оказались рядом с публичными учётными записями.
+ */
+export function registrationClosed() {
+  return process.env.NODE_ENV === "production" && process.env.DEMO_SEED === "1" && process.env.ALLOW_PUBLIC_REGISTRATION !== "1";
+}
+
 export async function register(input: RegisterInput, meta: RequestMeta) {
+  if (registrationClosed()) {
+    throw errors.forbidden("Это демонстрационный стенд: регистрация новых пользователей отключена.");
+  }
   enforceRateLimit("register", meta.ip ?? "anon");
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) {

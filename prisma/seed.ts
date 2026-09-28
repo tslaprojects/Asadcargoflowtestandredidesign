@@ -8,6 +8,7 @@
  * Запуск: npm run db:seed   (ВНИМАНИЕ: очищает базу данных!)
  */
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 
 // Не отправлять dev-письма при генерации демо-данных
 process.env.EMAIL_DRIVER = "none";
@@ -62,10 +63,29 @@ async function truncateAll() {
   }
 }
 
-async function user(email: string, firstName: string, lastName: string, phone: string, platformRole: "USER" | "PLATFORM_ADMIN" = "USER") {
+async function user(
+  email: string,
+  firstName: string,
+  lastName: string,
+  phone: string,
+  platformRole: "USER" | "PLATFORM_ADMIN" = "USER",
+  password = DEMO_PASSWORD,
+) {
   return prisma.user.create({
-    data: { email, firstName, lastName, phone, platformRole, passwordHash: await hashPassword(DEMO_PASSWORD) },
+    data: { email, firstName, lastName, phone, platformRole, passwordHash: await hashPassword(password) },
   });
+}
+
+/**
+ * Пароль демо-администратора платформы. Вне production — общий демо-пароль.
+ * В production общеизвестный пароль администратора недопустим: берётся DEMO_ADMIN_PASSWORD,
+ * а если он не задан — случайный пароль, который нигде не выводится (доступ — через сброс пароля или переменную).
+ */
+function demoAdminPassword(): { password: string; note: string } {
+  if (process.env.NODE_ENV !== "production") return { password: DEMO_PASSWORD, note: DEMO_PASSWORD };
+  const fromEnv = process.env.DEMO_ADMIN_PASSWORD;
+  if (fromEnv && fromEnv.length >= 12 && fromEnv !== DEMO_PASSWORD) return { password: fromEnv, note: "из DEMO_ADMIN_PASSWORD" };
+  return { password: randomBytes(24).toString("base64url"), note: "случайный (задайте DEMO_ADMIN_PASSWORD, не короче 12 символов)" };
 }
 
 const actor = (userId: string, companyId?: string) => buildActor(userId, { activeCompanyId: companyId ?? null, meta: META });
@@ -236,7 +256,8 @@ async function main() {
   const uDriver = await user("driver@cargoflow.demo", "Demo", "Driver", "+7 700 000 00 05");
   const uDriver2 = await user("driver2@cargoflow.demo", "Нурлан", "Рейсов", "+7 700 000 00 06");
   const uCarrier2 = await user("carrier2@cargoflow.demo", "Ли", "Демо", "+86 138 0000 0007");
-  const uAdmin = await user("admin@cargoflow.demo", "Demo", "Admin", "+7 700 000 00 99", "PLATFORM_ADMIN");
+  const adminPassword = demoAdminPassword();
+  const uAdmin = await user("admin@cargoflow.demo", "Demo", "Admin", "+7 700 000 00 99", "PLATFORM_ADMIN", adminPassword.password);
 
   const shipperCo = await prisma.company.create({
     data: {
@@ -958,7 +979,7 @@ async function main() {
   // Уведомления seed-процесса помечаем прочитанными, чтобы не шуметь при первом входе
   await prisma.notification.updateMany({ where: { createdAt: { lt: new Date(Date.now() - 60 * 60_000) } }, data: { readAt: new Date() } });
 
-  console.log("\n✓ Демо-данные созданы. Пароль для всех демо-аккаунтов:", DEMO_PASSWORD);
+  console.log("\n✓ Демо-данные созданы. Пароль демо-аккаунтов:", DEMO_PASSWORD, "· администратор:", adminPassword.note);
   console.table([
     { role: "SHIPPER", email: "shipper@cargoflow.demo", company: "Demo Cargo Kazakhstan" },
     { role: "CARRIER_ADMIN", email: "carrier@cargoflow.demo", company: "Demo Trans Logistics" },
