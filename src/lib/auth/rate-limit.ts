@@ -30,7 +30,10 @@ const g = globalThis as unknown as { __cfRateLimiter?: RateLimiter };
 export const rateLimiter: RateLimiter = g.__cfRateLimiter ?? (g.__cfRateLimiter = new MemoryRateLimiter());
 
 export const RATE_LIMITS = {
-  login: { limit: 10, windowMs: 15 * 60_000 },
+  login: { limit: 50, windowMs: 15 * 60_000 },
+  /** Попытки входа в одну учётную запись с любых адресов (защита от перебора с ротацией IP) */
+  loginAccount: { limit: 10, windowMs: 15 * 60_000 },
+  passwordResetAccount: { limit: 5, windowMs: 60 * 60_000 },
   register: { limit: 10, windowMs: 60 * 60_000 },
   passwordReset: { limit: 5, windowMs: 60 * 60_000 },
   critical: { limit: 60, windowMs: 60_000 },

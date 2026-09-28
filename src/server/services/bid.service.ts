@@ -2,10 +2,10 @@ import "server-only";
 import type { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { audit, AuditAction } from "@/lib/audit/audit";
-import { requirePermission, type Actor } from "@/lib/auth/actor";
+import { requireCompanyPermission, type Actor } from "@/lib/auth/actor";
 import { prisma, type Tx } from "@/lib/db/prisma";
 import { AppError, errors } from "@/lib/errors";
-import { formatMoney } from "@/lib/money";
+import { formatMoney, toMinor } from "@/lib/money";
 import { nextPublicNumber } from "@/lib/numbering";
 import { isCarrierRole } from "@/lib/permissions";
 import { isBidExpired, loadAcceptsBids, type bidCreateSchema } from "@/lib/validation/bid";
@@ -35,11 +35,11 @@ function loadClosedMessage(status: string) {
 }
 
 export async function createBid(actor: Actor, loadId: string, input: BidCreate) {
-  requirePermission(actor, "BID_CREATE", "Предлагать цену могут только перевозчики.");
   const { relation, membership } = await requireLoadRelation(actor, loadId);
   if (relation !== "CARRIER" || !membership || !isCarrierRole(membership.role)) {
     throw errors.forbidden("Предлагать цену могут только перевозчики.");
   }
+  requireCompanyPermission(actor, membership.companyId, "BID_CREATE", "Предлагать цену могут только перевозчики.");
   if (membership.company.verificationStatus === "SUSPENDED") throw errors.forbidden("Деятельность компании приостановлена.");
   if (input.validUntil && input.validUntil < new Date()) {
     throw errors.validation("Срок действия предложения уже истёк.", { validUntil: ["Укажите дату в будущем"] });
@@ -136,8 +136,8 @@ async function loadBidForCarrier(actor: Actor, bidId: string) {
 
 /** Встречное предложение заказчика. История переговоров сохраняется в BidMessage. */
 export async function counterBid(actor: Actor, bidId: string, amount: number, message: string | null) {
-  requirePermission(actor, "BID_COUNTER");
   const { loadId, membership } = await loadBidForCustomer(actor, bidId);
+  requireCompanyPermission(actor, membership.companyId, "BID_COUNTER");
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
     const bid = await tx.bid.findUniqueOrThrow({ where: { id: bidId }, include: { load: true } });
@@ -189,16 +189,20 @@ export async function respondToCounter(
   bidId: string,
   input: { action: "agree"; message: string | null } | { action: "propose"; amount: number; message: string | null },
 ) {
-  requirePermission(actor, "BID_CREATE");
   const { loadId, membership } = await loadBidForCarrier(actor, bidId);
+  requireCompanyPermission(actor, membership.companyId, "BID_CREATE");
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
     const bid = await tx.bid.findUniqueOrThrow({ where: { id: bidId }, include: { load: true } });
     if (bid.status !== "PENDING") throw new AppError("INVALID_STATE_TRANSITION", "Предложение уже неактивно.");
+    if (isBidExpired(bid)) throw new AppError("INVALID_STATE_TRANSITION", "Срок действия предложения истёк.");
     if (!loadAcceptsBids(bid.load.status)) throw new AppError("INVALID_STATE_TRANSITION", loadClosedMessage(bid.load.status));
+    // Отвечать можно только на встречное предложение заказчика: менять цену «втихую» перед принятием нельзя
+    if (bid.awaitingSide !== "CARRIER" || bid.counterAmount === null) {
+      throw new AppError("INVALID_STATE_TRANSITION", "Заказчик не делал встречного предложения. Чтобы изменить цену, отзовите предложение и отправьте новое.");
+    }
     let newAmount: number;
     if (input.action === "agree") {
-      if (bid.counterAmount === null) throw errors.validation("Встречного предложения нет.");
       newAmount = Number(bid.counterAmount);
     } else {
       newAmount = input.amount;
@@ -248,8 +252,8 @@ export async function respondToCounter(
 }
 
 export async function withdrawBid(actor: Actor, bidId: string) {
-  requirePermission(actor, "BID_WITHDRAW");
   const { loadId, membership } = await loadBidForCarrier(actor, bidId);
+  requireCompanyPermission(actor, membership.companyId, "BID_WITHDRAW");
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
     const bid = await tx.bid.findUniqueOrThrow({ where: { id: bidId }, include: { load: true } });
@@ -281,8 +285,8 @@ export async function withdrawBid(actor: Actor, bidId: string) {
 }
 
 export async function rejectBid(actor: Actor, bidId: string, reason: string | null) {
-  requirePermission(actor, "BID_REJECT");
   const { loadId, membership } = await loadBidForCustomer(actor, bidId);
+  requireCompanyPermission(actor, membership.companyId, "BID_REJECT");
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
     const bid = await tx.bid.findUniqueOrThrow({ where: { id: bidId }, include: { load: true } });
@@ -329,9 +333,9 @@ export async function rejectBid(actor: Actor, bidId: string, reason: string | nu
  * Защита от гонок: блокировка строки груза (SELECT … FOR UPDATE) + уникальные индексы
  * (один ACCEPTED bid на груз, один заказ на груз).
  */
-export async function acceptBid(actor: Actor, bidId: string) {
-  requirePermission(actor, "BID_ACCEPT", "Принимать предложения может только владелец груза.");
+export async function acceptBid(actor: Actor, bidId: string, expected?: { amount: number; currency: string }) {
   const { loadId, membership } = await loadBidForCustomer(actor, bidId);
+  requireCompanyPermission(actor, membership.companyId, "BID_ACCEPT", "Принимать предложения может только владелец груза.");
   // Актуализируем просроченные ставки вне транзакции, чтобы статус EXPIRED сохранился даже при отказе
   await expireStaleBids(prisma, loadId);
 
@@ -352,6 +356,13 @@ export async function acceptBid(actor: Actor, bidId: string) {
         if (bid.status === "EXPIRED") throw new AppError("INVALID_STATE_TRANSITION", "Срок действия предложения истёк.");
         if (bid.status !== "PENDING") throw new AppError("INVALID_STATE_TRANSITION", "Предложение уже неактивно.");
         if (bid.carrier.verificationStatus === "SUSPENDED") throw errors.forbidden("Деятельность перевозчика приостановлена.");
+        // Заказчик принимает ту цену, которую видел: если перевозчик успел её изменить — сделка не создаётся
+        if (expected && (toMinor(Number(bid.amount)) !== toMinor(expected.amount) || bid.currency !== expected.currency)) {
+          throw new AppError(
+            "CONFLICT",
+            `Цена предложения изменилась: сейчас ${formatMoney(Number(bid.amount), bid.currency)}. Обновите страницу и проверьте условия.`,
+          );
+        }
 
         const now = new Date();
         await tx.bid.update({

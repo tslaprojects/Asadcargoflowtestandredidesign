@@ -351,7 +351,11 @@ export function BidCard({
             pendingLabel="Оформляем сделку..."
             onConfirm={async () => {
               const r = await run<{ orderId: string }>(
-                (key) => api(`/api/bids/${bid.id}/accept`, { method: "POST", idempotencyKey: key }),
+                (key) =>
+                  api(`/api/bids/${bid.id}/accept`, {
+                    body: { expectedAmount: bid.amount, expectedCurrency: bid.currency },
+                    idempotencyKey: key,
+                  }),
                 {
                   success: (d) => `Предложение принято. Создана перевозка — подпишите договор.${d ? "" : ""}`,
                   refresh: false,

@@ -389,6 +389,9 @@ export async function applyProviderResult(transactionId: string, result: Provide
           data: { reservedAt: now, providerTransactionId: result.providerTransactionId, failureReason: null },
         });
         await notifyParties(tx, p.orderId, "оплата обеспечена", `${moneyText} зарезервировано по безопасной сделке.`);
+        // Резерв подтверждён уже после доставки (например, ручное подтверждение банка) — запускаем срок проверки,
+        // иначе автоподтверждение никогда не сработает и деньги останутся замороженными
+        await ensureConfirmationWindow(tx, p.orderId, now);
         break;
       case "VOID":
         p = await transitionPayment(tx, p, "PAYMENT_CANCELLED", by, { ...common, reason: t.reason, data: { cancelledAt: now } });
@@ -683,6 +686,20 @@ export async function confirmReceiptWithSecureDeal(actor: Actor, orderId: string
   return prisma.transportOrder.findUniqueOrThrow({ where: { id: orderId } });
 }
 
+/** Срок проверки для уже доставленной перевозки, у которой он ещё не выставлен (или истёк до резерва). */
+async function ensureConfirmationWindow(tx: Tx, orderId: string, from: Date) {
+  const order = await tx.transportOrder.findUniqueOrThrow({
+    where: { id: orderId },
+    select: { currentStatus: true, confirmationDueAt: true, receiptConfirmedAt: true },
+  });
+  if (order.currentStatus !== "DELIVERED" || order.receiptConfirmedAt) return null;
+  if (order.confirmationDueAt && order.confirmationDueAt > from) return order.confirmationDueAt;
+  const settings = await getSettings(tx);
+  const due = new Date(from.getTime() + settings.confirmationWindowHours * 60 * 60_000);
+  await tx.transportOrder.update({ where: { id: orderId }, data: { confirmationDueAt: due } });
+  return due;
+}
+
 /** Вызывается при отметке доставки: запускает период проверки. */
 export async function startConfirmationWindow(tx: Tx, orderId: string, deliveredAt: Date) {
   const payment = await findLiveSecureDeal(tx, orderId);
@@ -763,7 +780,14 @@ export async function validateDisputePaymentOutcome(
 export async function unfreezeInTx(tx: Tx, paymentId: string, actor: Actor, reason: string) {
   const p = await lockPayment(tx, paymentId);
   if (p.status !== "PAYMENT_DISPUTED") return p;
-  return transitionPayment(tx, p, "PAYMENT_RESERVED", "ADMIN", { actor, reason });
+  const updated = await transitionPayment(tx, p, "PAYMENT_RESERVED", "ADMIN", { actor, reason });
+  // После спора по доставленной перевозке у заказчика снова есть полный срок проверки
+  await tx.transportOrder.updateMany({
+    where: { id: p.orderId, currentStatus: "DELIVERED", receiptConfirmedAt: null },
+    data: { confirmationDueAt: null },
+  });
+  await ensureConfirmationWindow(tx, p.orderId, new Date());
+  return updated;
 }
 
 /** После фиксации решения по спору — операции у провайдера. */
@@ -809,22 +833,40 @@ export async function settleOnOrderCancel(orderId: string, actor: Actor | null, 
  */
 export async function processConfirmationTimeouts(now = new Date(), actor: Actor | null = null) {
   const settings = await getSettings();
+  const heldDeal = { some: { type: "SECURE_DEAL" as const, status: { in: ["PAYMENT_RESERVED" as const, "PAYMENT_PARTIALLY_RELEASED" as const] } } };
   const due = await prisma.transportOrder.findMany({
     where: {
       currentStatus: "DELIVERED",
       receiptConfirmedAt: null,
       confirmationDueAt: { lte: now },
-      payments: { some: { type: "SECURE_DEAL", status: { in: ["PAYMENT_RESERVED", "PAYMENT_PARTIALLY_RELEASED"] } } },
+      payments: heldDeal,
     },
     select: { id: true, publicNumber: true },
+    // Самые старые сроки — первыми, чтобы пропущенные заказы не вытесняли остальные
+    orderBy: { confirmationDueAt: "asc" },
     take: 200,
   });
-  const result = { checked: due.length, confirmed: 0, released: 0, skipped: [] as { order: string; reason: string }[] };
+  // Получение уже подтверждено, но выплата не запрошена (не было документов, операция провайдера не прошла)
+  const pendingRelease = await prisma.transportOrder.findMany({
+    where: {
+      currentStatus: "DELIVERED",
+      receiptConfirmedAt: { not: null },
+      payments: { some: { ...heldDeal.some, transactions: { none: { status: "PENDING" } } } },
+    },
+    select: { id: true, publicNumber: true },
+    orderBy: { receiptConfirmedAt: "asc" },
+    take: 200,
+  });
+  const result = {
+    checked: due.length + pendingRelease.length,
+    confirmed: 0,
+    released: 0,
+    skipped: [] as { order: string; reason: string }[],
+  };
   if (!settings.autoConfirmOnTimeout) {
-    result.skipped = due.map((o) => ({ order: o.publicNumber, reason: "Автоподтверждение отключено в настройках" }));
-    return result;
+    result.skipped.push(...due.map((o) => ({ order: o.publicNumber, reason: "Автоподтверждение отключено в настройках" })));
   }
-  for (const o of due) {
+  for (const o of settings.autoConfirmOnTimeout ? due : []) {
     if (settings.requirePodForClose) {
       const pod = await prisma.orderDocument.count({
         where: { orderId: o.id, status: "ACTIVE", type: { in: ["PROOF_OF_DELIVERY", "CMR"] } },
@@ -870,6 +912,16 @@ export async function processConfirmationTimeouts(now = new Date(), actor: Actor
       if (p) result.released += 1;
     } catch (e) {
       logger.error("secure-deal.auto-release.failed", { orderId: o.id, error: e });
+      result.skipped.push({ order: o.publicNumber, reason: e instanceof AppError ? e.message : "Ошибка запроса выплаты" });
+    }
+  }
+  for (const o of pendingRelease) {
+    try {
+      const p = await releaseIfConditionsMet(o.id, actor, "Повторный запрос выплаты: получение подтверждено, условия выполнены");
+      if (p) result.released += 1;
+      else result.skipped.push({ order: o.publicNumber, reason: "Условия выплаты не выполнены (документы / спор)" });
+    } catch (e) {
+      logger.error("secure-deal.retry-release.failed", { orderId: o.id, error: e });
       result.skipped.push({ order: o.publicNumber, reason: e instanceof AppError ? e.message : "Ошибка запроса выплаты" });
     }
   }

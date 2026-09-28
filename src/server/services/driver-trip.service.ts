@@ -4,8 +4,11 @@ import { prisma } from "@/lib/db/prisma";
 import { errors } from "@/lib/errors";
 import { RESOURCE_BUSY_STATUSES } from "@/lib/state-machine/order-state-machine";
 
-function requireDriver(actor: Actor) {
-  if (!actor.memberships.some((m) => m.role === "DRIVER")) throw errors.forbidden("Раздел доступен водителям.");
+/** Компании, в которых пользователь — водитель. Рейсы ищутся только у этих перевозчиков. */
+function requireDriver(actor: Actor): string[] {
+  const companyIds = actor.memberships.filter((m) => m.role === "DRIVER").map((m) => m.companyId);
+  if (companyIds.length === 0) throw errors.forbidden("Раздел доступен водителям.");
+  return companyIds;
 }
 
 const tripInclude = {
@@ -30,16 +33,17 @@ const tripInclude = {
 
 /** Текущий рейс водителя (без финансовых данных). */
 export async function getMyTrip(actor: Actor) {
-  requireDriver(actor);
+  const companyIds = requireDriver(actor);
+  const mine = { driver: { userId: actor.userId }, carrierCompanyId: { in: companyIds } };
   // Сначала — активный рейс; доставленный (ждёт подтверждения заказчиком) показывается, пока нового рейса нет
   const order =
     (await prisma.transportOrder.findFirst({
-      where: { driver: { userId: actor.userId }, currentStatus: { in: RESOURCE_BUSY_STATUSES }, deliveredAt: null },
+      where: { ...mine, currentStatus: { in: RESOURCE_BUSY_STATUSES }, deliveredAt: null },
       orderBy: [{ loadingDate: "asc" }],
       include: tripInclude,
     })) ??
     (await prisma.transportOrder.findFirst({
-      where: { driver: { userId: actor.userId }, currentStatus: "DELIVERED" },
+      where: { ...mine, currentStatus: "DELIVERED" },
       orderBy: [{ deliveredAt: "desc" }],
       include: tripInclude,
     }));
@@ -66,8 +70,8 @@ export async function getMyTrip(actor: Actor) {
 }
 
 export async function listMyTrips(actor: Actor, opts: { page: number; pageSize: number }) {
-  requireDriver(actor);
-  const where = { driver: { userId: actor.userId } };
+  const companyIds = requireDriver(actor);
+  const where = { driver: { userId: actor.userId }, carrierCompanyId: { in: companyIds } };
   const [items, total] = await Promise.all([
     prisma.transportOrder.findMany({
       where,

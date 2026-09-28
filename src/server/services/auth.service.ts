@@ -138,7 +138,16 @@ async function consumeInvite(tx: TxClient, token: string, userId: string, email:
   await tx.companyMember.create({ data: { companyId: invite.companyId, userId, role: invite.role } });
   if (invite.role === "DRIVER") {
     if (invite.driverProfileId) {
-      await tx.driverProfile.update({ where: { id: invite.driverProfileId }, data: { userId } });
+      // Привязываем только свободный профиль водителя той же компании
+      const linked = await tx.driverProfile.updateMany({
+        where: { id: invite.driverProfileId, companyId: invite.companyId, userId: null, deletedAt: null },
+        data: { userId },
+      });
+      if (linked.count !== 1) {
+        throw errors.validation("Профиль водителя из приглашения недоступен. Попросите новое приглашение.", {
+          inviteToken: ["Приглашение недействительно"],
+        });
+      }
     } else {
       const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
       await tx.driverProfile.create({
@@ -189,7 +198,8 @@ export async function getInvitePreview(token: string) {
 }
 
 export async function login(input: z.output<typeof loginSchema>, meta: RequestMeta) {
-  enforceRateLimit("login", `${meta.ip ?? "anon"}:${input.email}`);
+  enforceRateLimit("login", meta.ip ?? "anon");
+  enforceRateLimit("loginAccount", input.email);
   const user = await prisma.user.findUnique({
     where: { email: input.email },
     include: { memberships: { where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" }, take: 1 } },
@@ -237,7 +247,8 @@ export async function logout(actor: Actor | null) {
 }
 
 export async function requestPasswordReset(email: string, meta: RequestMeta) {
-  enforceRateLimit("passwordReset", `${meta.ip ?? "anon"}:${email}`);
+  enforceRateLimit("passwordReset", meta.ip ?? "anon");
+  enforceRateLimit("passwordResetAccount", email);
   const user = await prisma.user.findUnique({ where: { email } });
   // Ответ всегда одинаковый — не раскрываем, существует ли email
   if (!user || user.status === "BLOCKED" || user.deletedAt) return { ok: true };
@@ -304,7 +315,7 @@ export async function updateProfile(actor: Actor, input: z.output<typeof profile
 
 /** Повторная аутентификация перед критическим действием (подписание). */
 export async function reauthenticate(actor: Actor, password: string) {
-  enforceRateLimit("login", `reauth:${actor.userId}`);
+  enforceRateLimit("loginAccount", `reauth:${actor.userId}`);
   const user = await prisma.user.findUniqueOrThrow({ where: { id: actor.userId } });
   if (!(await verifyPassword(password, user.passwordHash))) {
     throw new AppError("FORBIDDEN", "Неверный пароль. Подтверждение личности не пройдено.", {

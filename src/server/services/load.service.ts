@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { LoadStatus } from "@/generated/prisma/enums";
 import { audit, AuditAction } from "@/lib/audit/audit";
-import { requireActiveCompany, requirePermission, type Actor } from "@/lib/auth/actor";
+import { requireActiveCompany, requireCompanyPermission, requirePermission, type Actor } from "@/lib/auth/actor";
 import { prisma, type Tx } from "@/lib/db/prisma";
 import { AppError, errors } from "@/lib/errors";
 import { defaultTimezone } from "@/lib/geo/countries";
@@ -152,9 +152,9 @@ export async function createLoad(actor: Actor, input: LoadParsed, opts: { publis
 }
 
 export async function updateLoad(actor: Actor, loadId: string, input: LoadParsed) {
-  requirePermission(actor, "LOAD_EDIT");
   const { load, relation } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER") throw errors.forbidden("Редактировать груз может только его владелец.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   const stops = await buildStops(input);
 
   return prisma.$transaction(async (tx) => {
@@ -278,17 +278,17 @@ async function publishInTx(tx: Tx, actor: Actor, loadId: string) {
 }
 
 export async function publishLoad(actor: Actor, loadId: string) {
-  requirePermission(actor, "LOAD_PUBLISH", "Публиковать грузы могут только грузовладельцы и экспедиторы.");
-  const { relation } = await requireLoadRelation(actor, loadId);
+  const { relation, load } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER") throw errors.forbidden("Опубликовать груз может только его владелец.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_PUBLISH", "Публиковать грузы могут только грузовладельцы и экспедиторы.");
   await prisma.$transaction((tx) => publishInTx(tx, actor, loadId));
   return prisma.load.findUniqueOrThrow({ where: { id: loadId }, select: { id: true, publicNumber: true, status: true } });
 }
 
 export async function cancelLoad(actor: Actor, loadId: string, reason: string | null) {
-  requirePermission(actor, "LOAD_CANCEL");
-  const { relation } = await requireLoadRelation(actor, loadId);
+  const { relation, load: rel } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER" && relation !== "ADMIN") throw errors.forbidden("Отменить груз может только его владелец.");
+  requireCompanyPermission(actor, rel.companyId, "LOAD_CANCEL");
 
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
@@ -468,9 +468,9 @@ export async function listLoads(actor: Actor, q: ListQuery) {
 // ─────────── Вопросы по грузу ───────────
 
 export async function askQuestion(actor: Actor, loadId: string, question: string) {
-  requirePermission(actor, "LOAD_ASK_QUESTION", "Задавать вопросы по грузу могут перевозчики.");
   const { relation, membership, load } = await requireLoadRelation(actor, loadId);
   if (relation !== "CARRIER" || !membership) throw errors.forbidden("Задавать вопросы по грузу могут перевозчики.");
+  requireCompanyPermission(actor, membership.companyId, "LOAD_ASK_QUESTION", "Задавать вопросы по грузу могут перевозчики.");
   return prisma.$transaction(async (tx) => {
     const q = await tx.loadQuestion.create({ data: { loadId, companyId: membership.companyId, askedByUserId: actor.userId, question } });
     const full = await tx.load.findUniqueOrThrow({ where: { id: loadId }, select: { publicNumber: true } });
@@ -499,11 +499,11 @@ export async function askQuestion(actor: Actor, loadId: string, question: string
 }
 
 export async function answerQuestion(actor: Actor, questionId: string, answer: string) {
-  requirePermission(actor, "LOAD_ANSWER_QUESTION");
   const q = await prisma.loadQuestion.findUnique({ where: { id: questionId } });
   if (!q) throw errors.notFound("Вопрос не найден.");
-  const { relation } = await requireLoadRelation(actor, q.loadId);
+  const { relation, load: rel } = await requireLoadRelation(actor, q.loadId);
   if (relation !== "OWNER") throw errors.forbidden("Отвечать на вопросы может владелец груза.");
+  requireCompanyPermission(actor, rel.companyId, "LOAD_ANSWER_QUESTION");
   return prisma.$transaction(async (tx) => {
     const updated = await tx.loadQuestion.update({
       where: { id: questionId },
@@ -526,8 +526,9 @@ export async function answerQuestion(actor: Actor, questionId: string, answer: s
 
 /** Данные груза для формы редактирования. */
 export async function getLoadForEdit(actor: Actor, loadId: string) {
-  const { relation } = await requireLoadRelation(actor, loadId);
+  const { relation, load } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER") throw errors.forbidden("Редактировать груз может только его владелец.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   return prisma.load.findUniqueOrThrow({
     where: { id: loadId },
     include: { stops: { orderBy: { sequence: "asc" } }, invitations: true },
@@ -547,9 +548,9 @@ export async function listCarrierOptions() {
 // ─────────── Документы груза ───────────
 
 export async function uploadLoadDocument(actor: Actor, loadId: string, type: import("@/generated/prisma/enums").DocumentType, file: File) {
-  requirePermission(actor, "LOAD_EDIT");
   const { relation, load } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER") throw errors.forbidden("Загружать документы груза может его владелец.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   if (load.status === "CANCELLED") throw new AppError("DOCUMENT_NOT_ALLOWED", "Груз отменён.");
   const { validateUpload } = await import("@/lib/storage/file-validation");
   const { storage, buildStorageKey } = await import("@/lib/storage/storage");
@@ -587,6 +588,7 @@ export async function deleteLoadDocument(actor: Actor, documentId: string) {
   if (!doc || doc.deletedAt) throw errors.notFound("Документ не найден.");
   const { relation, load } = await requireLoadRelation(actor, doc.loadId);
   if (relation !== "OWNER") throw errors.forbidden("Удалить документ может владелец груза.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   return prisma.$transaction(async (tx) => {
     await tx.loadDocument.update({ where: { id: documentId }, data: { deletedAt: new Date() } });
     await audit(
