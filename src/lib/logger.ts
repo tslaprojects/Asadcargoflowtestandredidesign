@@ -5,7 +5,7 @@
 type Level = "debug" | "info" | "warn" | "error";
 const order: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 };
 
-const SENSITIVE_KEYS = /pass(word)?|token|secret|authorization|cookie|hash/i;
+const SENSITIVE_KEYS = /pass(word)?|token|secret|authorization|cookie|hash|signature|api[-_]?key/i;
 
 function redact(value: unknown, depth = 0): unknown {
   if (depth > 4 || value === null || typeof value !== "object") return value;

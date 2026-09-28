@@ -246,6 +246,9 @@ export async function adminCompanyDecision(
     let action: (typeof AuditAction)[keyof typeof AuditAction];
     switch (decision) {
       case "APPROVE":
+        if (company.verificationStatus === "SUSPENDED") {
+          throw new AppError("INVALID_STATE_TRANSITION", "Компания приостановлена — сначала восстановите её деятельность.");
+        }
         status = "VERIFIED";
         action = AuditAction.VERIFICATION_APPROVED;
         if (pending)

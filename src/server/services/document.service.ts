@@ -171,7 +171,12 @@ export async function deleteOrderDocument(actor: Actor, documentId: string) {
       throw errors.forbidden("Удалить документ может только загрузившая его компания.");
     if (FINAL_STATUSES.includes(order.currentStatus))
       throw new AppError("DOCUMENT_NOT_ALLOWED", "Документы закрытой перевозки удалять нельзя.");
-    if (order.currentStatus === "DELIVERED" && (doc.type === "PROOF_OF_DELIVERY" || doc.type === "CMR")) {
+    // Во время спора или паузы документы — доказательства: удалять их может только администратор
+    if (order.currentStatus === "DISPUTED" || order.currentStatus === "ON_HOLD") {
+      throw new AppError("DOCUMENT_NOT_ALLOWED", "Во время спора или приостановки документы перевозки удалять нельзя.");
+    }
+    const full = await prisma.transportOrder.findUniqueOrThrow({ where: { id: doc.orderId }, select: { deliveredAt: true } });
+    if (full.deliveredAt && (doc.type === "PROOF_OF_DELIVERY" || doc.type === "CMR")) {
       throw new AppError("DOCUMENT_NOT_ALLOWED", "Подтверждение доставки нельзя удалить после отметки о доставке. Загрузите новую версию.");
     }
   }

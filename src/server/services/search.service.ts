@@ -3,6 +3,7 @@ import type { Actor } from "@/lib/auth/actor";
 import { prisma } from "@/lib/db/prisma";
 import { isCarrierRole, isCustomerRole } from "@/lib/permissions";
 import { ordersWhereForActor } from "./access";
+import { actualLoadWhere } from "@/lib/validation/bid";
 
 /** Глобальный поиск с учётом прав: заказы, грузы, компании, автомобили. */
 export async function globalSearch(actor: Actor, query: string) {
@@ -21,10 +22,11 @@ export async function globalSearch(actor: Actor, query: string) {
           { companyId: { in: customerIds } },
           ...(canMarket
             ? [
-                { status: { in: ["PUBLISHED" as const, "BIDDING" as const] }, visibility: "MARKETPLACE" as const },
+                { status: { in: ["PUBLISHED" as const, "BIDDING" as const] }, visibility: "MARKETPLACE" as const, ...actualLoadWhere() },
                 {
                   status: { in: ["PUBLISHED" as const, "BIDDING" as const] },
                   invitations: { some: { carrierCompanyId: { in: carrierIds } } },
+                  ...actualLoadWhere(),
                 },
               ]
             : []),

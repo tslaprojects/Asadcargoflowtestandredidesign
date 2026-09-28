@@ -97,6 +97,7 @@ type Settings = {
   requirePodForClose: boolean;
   restrictedCargoTypes: string[];
   requireVerifiedToPublish: boolean;
+  requireVerifiedToBid: boolean;
   supportEmail: string;
 };
 
@@ -193,6 +194,16 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         />
         <Label htmlFor="s-ver" className="leading-snug font-normal">
           Публиковать грузы могут только проверенные компании
+        </Label>
+      </div>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="s-ver-bid"
+          checked={s.requireVerifiedToBid}
+          onCheckedChange={(c) => setS({ ...s, requireVerifiedToBid: c === true })}
+        />
+        <Label htmlFor="s-ver-bid" className="leading-snug font-normal">
+          Предлагать цену могут только проверенные перевозчики
         </Label>
       </div>
       <fieldset>

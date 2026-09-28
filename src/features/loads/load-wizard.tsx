@@ -2,7 +2,7 @@
 import { ArrowDown, Check, MapPin, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { useFieldArray, useForm, type FieldPath } from "react-hook-form";
+import { useFieldArray, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { toast } from "sonner";
 import { Field, FormError } from "@/components/common/field";
 import { DefinitionList, MoneyDisplay } from "@/components/common/misc";
@@ -84,7 +84,7 @@ export function LoadWizard({
   const form = useForm<WizardValues>({ defaultValues: initial ?? defaultWizardValues });
   const { fields, insert, remove } = useFieldArray({ control: form.control, name: "stops" });
   const errors = form.formState.errors;
-  const values = form.watch();
+  const values = useWatch({ control: form.control }) as WizardValues;
 
   const validate = (upTo: number): boolean => {
     form.clearErrors();

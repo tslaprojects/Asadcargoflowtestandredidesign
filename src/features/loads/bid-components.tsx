@@ -54,7 +54,7 @@ export function BidDialog({ loadId, currency, targetPrice }: { loadId: string; c
       await api(`/api/loads/${loadId}/bids`, {
         body: {
           amount: Number(v.amount),
-          currency: v.currency,
+          currency,
           comment: v.comment,
           terms: v.terms,
           readyDate: v.readyDate || null,
@@ -91,7 +91,8 @@ export function BidDialog({ loadId, currency, targetPrice }: { loadId: string; c
                 <Input type="number" inputMode="decimal" min={0} step="any" {...form.register("amount")} />
               </Field>
               <Field id="bid-currency" label="Валюта" required>
-                <NativeSelect {...form.register("currency")}>
+                {/* Валюта сделки — валюта груза */}
+                <NativeSelect disabled {...form.register("currency")}>
                   {CURRENCIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -351,7 +352,11 @@ export function BidCard({
             pendingLabel="Оформляем сделку..."
             onConfirm={async () => {
               const r = await run<{ orderId: string }>(
-                (key) => api(`/api/bids/${bid.id}/accept`, { method: "POST", idempotencyKey: key }),
+                (key) =>
+                  api(`/api/bids/${bid.id}/accept`, {
+                    body: { expectedAmount: bid.amount, expectedCurrency: bid.currency },
+                    idempotencyKey: key,
+                  }),
                 {
                   success: (d) => `Предложение принято. Создана перевозка — подпишите договор.${d ? "" : ""}`,
                   refresh: false,

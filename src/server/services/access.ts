@@ -81,7 +81,8 @@ export function ordersWhereForActor(actor: Actor) {
     or.push({ shipperCompanyId: { in: customerIds } }, { forwarderCompanyId: { in: customerIds } });
   }
   if (carrierIds.length) or.push({ carrierCompanyId: { in: carrierIds } });
-  if (actor.memberships.some((m) => m.role === "DRIVER")) or.push({ driver: { userId: actor.userId } });
+  const driverCompanyIds = actor.memberships.filter((m) => m.role === "DRIVER").map((m) => m.companyId);
+  if (driverCompanyIds.length) or.push({ driver: { userId: actor.userId }, carrierCompanyId: { in: driverCompanyIds } });
   if (or.length === 0) return { id: "00000000-0000-0000-0000-000000000000" };
   return { OR: or };
 }
@@ -92,7 +93,7 @@ export function ordersWhereForActiveCompany(actor: Actor) {
   if (!m) return actor.isAdmin ? {} : { id: "00000000-0000-0000-0000-000000000000" };
   if (isCustomerRole(m.role)) return { OR: [{ shipperCompanyId: m.companyId }, { forwarderCompanyId: m.companyId }] };
   if (isCarrierRole(m.role)) return { carrierCompanyId: m.companyId };
-  if (m.role === "DRIVER") return { driver: { userId: actor.userId } };
+  if (m.role === "DRIVER") return { driver: { userId: actor.userId }, carrierCompanyId: m.companyId };
   return { id: "00000000-0000-0000-0000-000000000000" };
 }
 

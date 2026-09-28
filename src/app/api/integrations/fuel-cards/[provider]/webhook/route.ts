@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/response";
 import { isAppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
-import { verifyWebhookSignature } from "@/lib/payments/provider";
+import { verifySignedWebhook, webhookSecret } from "@/lib/payments/provider";
 import { fuelProviderEventSchema } from "@/lib/validation/fuel";
 import { handleProviderEvent } from "@/server/services/fuel-transaction.service";
 
@@ -12,11 +12,12 @@ import { handleProviderEvent } from "@/server/services/fuel-transaction.service"
  */
 export async function POST(req: NextRequest, ctx: { params: Promise<{ provider: string }> }) {
   const { provider } = await ctx.params;
-  const secret = process.env.FUEL_CARD_WEBHOOK_SECRET;
+  const secret = webhookSecret("FUEL_CARD_WEBHOOK_SECRET", provider);
   if (!secret) return fail("FORBIDDEN", "Интеграция с процессингом топливных карт не настроена.", 403);
   const raw = await req.text();
-  if (!verifyWebhookSignature(raw, req.headers.get("x-cargoflow-signature"), secret)) {
-    logger.warn("fuel.webhook.bad-signature", { provider });
+  const check = verifySignedWebhook(raw, req.headers, secret);
+  if (!check.ok) {
+    logger.warn("fuel.webhook.bad-signature", { provider, reason: check.reason });
     return fail("UNAUTHORIZED", "Неверная подпись.", 401);
   }
   let body: unknown;

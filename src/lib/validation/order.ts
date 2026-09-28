@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { currencySchema, optionalDate, optionalText, requiredText } from "./common";
+import { currencySchema, filterDate, optionalDate, optionalText, optionalUuidParam, requiredText } from "./common";
 
 const ORDER_STATUSES = [
   "WAITING_FOR_LOADING",
@@ -11,6 +11,30 @@ const ORDER_STATUSES = [
   "BORDER_CLEARED",
   "AT_DELIVERY",
   "CANCELLED",
+  "ON_HOLD",
+] as const;
+
+export const ALL_ORDER_STATUSES = [
+  "DRAFT",
+  "PUBLISHED",
+  "CARRIER_SELECTION",
+  "CARRIER_SELECTED",
+  "CONTRACT_PENDING",
+  "CONTRACT_SIGNED",
+  "VEHICLE_ASSIGNED",
+  "DRIVER_ASSIGNED",
+  "WAITING_FOR_LOADING",
+  "AT_LOADING",
+  "LOADED",
+  "IN_TRANSIT",
+  "AT_BORDER",
+  "CUSTOMS",
+  "BORDER_CLEARED",
+  "AT_DELIVERY",
+  "DELIVERED",
+  "CLOSED",
+  "CANCELLED",
+  "DISPUTED",
   "ON_HOLD",
 ] as const;
 
@@ -74,7 +98,7 @@ export const chatMessageSchema = z.object({
 
 export const paymentCreateSchema = z.object({
   type: z.enum(["PREPAYMENT", "FINAL_PAYMENT", "OTHER"]),
-  amount: z.coerce.number({ message: "Укажите сумму" }).positive("Сумма должна быть больше 0"),
+  amount: z.coerce.number({ message: "Укажите сумму" }).positive("Сумма должна быть больше 0").max(1e11, "Слишком большая сумма"),
   currency: currencySchema,
   status: z.enum(["PLANNED", "INVOICED", "PAID"]).default("PLANNED"),
   dueDate: optionalDate,
@@ -155,14 +179,25 @@ export const orderListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   q: z.string().trim().max(100).optional(),
-  status: z.string().trim().optional(),
+  /** Один или несколько статусов через запятую */
+  status: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) =>
+      v
+        ? v
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean)
+        : undefined,
+    )
+    .pipe(z.array(z.enum(ALL_ORDER_STATUSES, { message: "Недопустимый статус" })).optional()),
   group: z.enum(["active", "in_transit", "attention", "completed", "all"]).default("all"),
-  carrierId: z.string().optional(),
-  shipperId: z.string().optional(),
+  carrierId: optionalUuidParam,
+  shipperId: optionalUuidParam,
   client: z.string().trim().max(100).optional(),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
+  dateFrom: filterDate,
+  dateTo: filterDate,
   sort: z.enum(["updated", "created", "loading", "amount"]).default("updated"),
 });
-
-export const priceChangeSchema = z.object({ amount: z.coerce.number().positive(), currency: currencySchema });

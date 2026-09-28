@@ -1,5 +1,15 @@
 import { z } from "zod";
-import { countrySchema, currencySchema, optionalDate, optionalPositiveNumber, optionalText, positiveNumber, requiredText } from "./common";
+import {
+  booleanish,
+  countrySchema,
+  currencySchema,
+  filterDate,
+  optionalDate,
+  optionalPositiveNumber,
+  optionalText,
+  positiveNumber,
+  requiredText,
+} from "./common";
 
 export const CARGO_TYPES = ["GENERAL", "ELECTRONICS", "CLOTHING", "FOOD", "EQUIPMENT", "AUTOMOTIVE", "CHEMICAL", "OTHER"] as const;
 export const VEHICLE_TYPES = ["TRACTOR_TRAILER", "TRUCK", "VAN", "ROAD_TRAIN"] as const;
@@ -35,7 +45,10 @@ export const loadStopSchema = z
     latitude: optionalCoord(-90, 90),
     longitude: optionalCoord(-180, 180),
     contactName: optionalText(100),
-    contactPhone: optionalText(30),
+    contactPhone: optionalText(30).refine(
+      (v) => v === null || /^\+?[0-9 ()-]{7,20}$/.test(v),
+      "Телефон в международном формате, например +7 700 000 00 00",
+    ),
     plannedDateFrom: optionalDate,
     plannedDateTo: optionalDate,
     timezone: optionalText(64),
@@ -76,7 +89,7 @@ export const loadInputSchema = z
       .union([z.literal(""), z.null(), z.undefined(), z.coerce.number().min(-40).max(40)])
       .optional()
       .transform((v) => (v === "" || v === undefined ? null : v)),
-    requiresGps: z.coerce.boolean().default(false),
+    requiresGps: booleanish.default(false),
     requirements: optionalText(2000),
     priceType: z.enum(["FIXED", "NEGOTIABLE", "REQUEST_QUOTE"], { message: "Выберите тип цены" }),
     targetPrice: z
@@ -132,8 +145,8 @@ export const loadListQuerySchema = z.object({
   from: z.string().trim().max(100).optional(),
   to: z.string().trim().max(100).optional(),
   country: z.string().trim().max(2).optional(),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
+  dateFrom: filterDate,
+  dateTo: filterDate,
   bodyType: z
     .enum(BODY_TYPES)
     .optional()
@@ -163,7 +176,10 @@ export const loadListQuerySchema = z.object({
     .union([z.literal("1"), z.literal("true"), z.literal("0"), z.literal("false"), z.literal("")])
     .optional()
     .transform((v) => v === "1" || v === "true"),
-  status: z.string().optional(),
+  status: z
+    .enum(["DRAFT", "PUBLISHED", "BIDDING", "CARRIER_SELECTED", "CANCELLED", "CONVERTED_TO_ORDER"])
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   sort: z.enum(["loadingDate", "price", "published", "-price"]).default("published"),
   scope: z.enum(["marketplace", "mine"]).default("marketplace"),
 });

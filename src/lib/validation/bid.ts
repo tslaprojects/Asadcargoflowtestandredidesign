@@ -22,10 +22,16 @@ export const bidRespondSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("agree"), message: optionalText(1000) }),
   z.object({
     action: z.literal("propose"),
-    amount: z.coerce.number({ message: "Укажите цену" }).positive("Цена должна быть больше 0"),
+    amount: z.coerce.number({ message: "Укажите цену" }).positive("Цена должна быть больше 0").max(100_000_000, "Слишком большая сумма"),
     message: optionalText(1000),
   }),
 ]);
+
+/** Принятие предложения: заказчик подтверждает сумму и валюту, которые видел на экране. */
+export const bidAcceptSchema = z.object({
+  expectedAmount: z.coerce.number({ message: "Не передана сумма предложения" }).positive(),
+  expectedCurrency: currencySchema,
+});
 
 export type BidRule = { status: string };
 
@@ -41,4 +47,20 @@ export function loadAcceptsBids(loadStatus: string): boolean {
 
 export function isBidExpired(bid: { status: string; validUntil: Date | string | null }, now = new Date()): boolean {
   return bid.status === "PENDING" && !!bid.validUntil && new Date(bid.validUntil) < now;
+}
+
+/** Груз «актуален» для биржи: крайняя дата загрузки не прошла (сутки запаса на разницу часовых поясов). */
+export const STALE_LOAD_GRACE_MS = 24 * 60 * 60_000;
+export function isLoadStale(load: { loadingDateFrom: Date | string; loadingDateTo: Date | string | null }, now = new Date()): boolean {
+  const latest = new Date(load.loadingDateTo ?? load.loadingDateFrom);
+  return latest.getTime() < now.getTime() - STALE_LOAD_GRACE_MS;
+}
+
+/** Prisma-условие «груз актуален» (та же логика, что isLoadStale). */
+export function actualLoadWhere(now = new Date()) {
+  const cutoff = new Date(now.getTime() - STALE_LOAD_GRACE_MS);
+  return {
+    OR: [{ loadingDateTo: { gte: cutoff } }, { loadingDateTo: null, loadingDateFrom: { gte: cutoff } }],
+    company: { verificationStatus: { not: "SUSPENDED" as const }, deletedAt: null },
+  };
 }

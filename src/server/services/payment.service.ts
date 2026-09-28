@@ -37,6 +37,10 @@ export async function createPayment(actor: Actor, orderId: string, input: z.outp
   if (await findLiveSecureDeal(prisma, orderId)) {
     throw new AppError("CONFLICT", "По перевозке оформлена безопасная сделка — расчёты ведутся через неё, ручные записи не добавляются.");
   }
+  // Факт оплаты подтверждает получатель (перевозчик) или администратор — не плательщик в одностороннем порядке
+  if (input.status === "PAID" && access.side !== "CARRIER" && access.side !== "ADMIN") {
+    throw errors.forbidden("Отметить платёж оплаченным может получатель (перевозчик). Создайте запись как «Выставлен счёт».");
+  }
   if (input.currency !== order.currency) {
     throw errors.validation(`Платёж должен быть в валюте сделки (${order.currency}).`, {
       currency: ["Валюта не совпадает с валютой сделки"],
@@ -104,10 +108,25 @@ export async function updatePayment(actor: Actor, paymentId: string, input: z.ou
   }
   if (access.side === "DRIVER") throw errors.forbidden();
   if (payment.status === "CANCELLED") throw new AppError("INVALID_STATE_TRANSITION", "Отменённый платёж изменить нельзя.");
-  if (payment.status === "PAID" && input.status !== "PAID" && access.side !== "ADMIN") {
+  if (payment.status === "PAID" && access.side !== "ADMIN") {
     throw errors.forbidden("Оплаченный платёж может изменить только администратор.");
   }
+  if (input.status === "PAID" && access.side !== "CARRIER" && access.side !== "ADMIN") {
+    throw errors.forbidden("Получение оплаты подтверждает получатель (перевозчик).");
+  }
+  if (input.status === "CANCELLED" && access.side !== "ADMIN") {
+    // Отменить запись может компания, которая её создала
+    const creatorInMyCompany =
+      payment.createdByUserId && access.membership
+        ? await prisma.companyMember.count({ where: { companyId: access.membership.companyId, userId: payment.createdByUserId } })
+        : 0;
+    if (!creatorInMyCompany) throw errors.forbidden("Отменить запись о платеже может компания, которая её создала, или администратор.");
+  }
   return prisma.$transaction(async (tx) => {
+    // Блокировка записи: параллельные изменения статуса не перезапишут друг друга
+    await tx.$queryRaw`SELECT id FROM "PaymentRecord" WHERE id = ${paymentId}::uuid FOR UPDATE`;
+    const fresh = await tx.paymentRecord.findUniqueOrThrow({ where: { id: paymentId } });
+    if (fresh.status !== payment.status) throw new AppError("CONFLICT", "Платёж уже изменён. Обновите страницу.");
     const updated = await tx.paymentRecord.update({
       where: { id: paymentId },
       data: {

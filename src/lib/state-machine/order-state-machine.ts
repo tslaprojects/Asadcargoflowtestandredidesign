@@ -94,6 +94,14 @@ const system: TransitionRule = { actors: ["SYSTEM"], manual: false };
 /** Переходы назначения/снятия ресурсов выполняет перевозчик через отдельные операции. */
 const assignment: TransitionRule = { actors: ["CARRIER", "ADMIN", "SYSTEM"], manual: false };
 
+/**
+ * Примечания к модели статусов:
+ *  - DRAFT / PUBLISHED / CARRIER_SELECTION — статусы груза до сделки; перевозка создаётся сразу в CARRIER_SELECTED
+ *    (принятие ставки), поэтому для перевозки они недостижимы и оставлены в enum для совместимости данных;
+ *  - DRIVER_ASSIGNED — промежуточный: назначение водителя сразу передаёт рейс водителю (WAITING_FOR_LOADING).
+ *    Ручной переход DRIVER_ASSIGNED → WAITING_FOR_LOADING оставлен для перевозок, остановленных в DRIVER_ASSIGNED
+ *    (например, после возобновления из паузы).
+ */
 export const TRANSITIONS: Record<OrderStatus, Partial<Record<OrderStatus, TransitionRule>>> = {
   DRAFT: { PUBLISHED: system },
   PUBLISHED: { CARRIER_SELECTION: system, CANCELLED: cancelByParties },

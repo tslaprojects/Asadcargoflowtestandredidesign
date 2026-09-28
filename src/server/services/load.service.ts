@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import type { LoadStatus } from "@/generated/prisma/enums";
 import { audit, AuditAction } from "@/lib/audit/audit";
-import { requireActiveCompany, requirePermission, type Actor } from "@/lib/auth/actor";
+import { requireActiveCompany, requireCompanyPermission, requirePermission, type Actor } from "@/lib/auth/actor";
 import { prisma, type Tx } from "@/lib/db/prisma";
 import { AppError, errors } from "@/lib/errors";
 import { defaultTimezone } from "@/lib/geo/countries";
@@ -12,6 +12,8 @@ import { nextPublicNumber } from "@/lib/numbering";
 import type { z } from "zod";
 import type { loadInputSchema, loadListQuerySchema } from "@/lib/validation/load";
 import { requireLoadRelation } from "./access";
+import { expireStaleBids } from "./bid.service";
+import { actualLoadWhere } from "@/lib/validation/bid";
 import { companyRatings } from "./company.service";
 import { CARRIER_OFFICE_ROLES, companyUserIds, notify } from "./notification.service";
 import { getSettings } from "./settings.service";
@@ -152,19 +154,32 @@ export async function createLoad(actor: Actor, input: LoadParsed, opts: { publis
 }
 
 export async function updateLoad(actor: Actor, loadId: string, input: LoadParsed) {
-  requirePermission(actor, "LOAD_EDIT");
   const { load, relation } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER") throw errors.forbidden("Редактировать груз может только его владелец.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   const stops = await buildStops(input);
 
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
+    await expireStaleBids(tx, loadId);
     const current = await tx.load.findUniqueOrThrow({ where: { id: loadId }, include: { stops: true } });
     if (current.status === "BIDDING") {
       throw new AppError("INVALID_STATE_TRANSITION", "Груз нельзя изменить: по нему уже есть предложения. Отмените груз и создайте новый.");
     }
     if (!EDITABLE_LOAD_STATUSES.includes(current.status)) {
       throw new AppError("INVALID_STATE_TRANSITION", "Груз в текущем статусе изменить нельзя.");
+    }
+    if (current.status === "PUBLISHED") {
+      // Опубликованный груз после правки должен по-прежнему проходить проверки публикации
+      const settings = await getSettings(tx);
+      if (settings.restrictedCargoTypes.includes(input.cargoType)) {
+        throw new AppError("FORBIDDEN", "Публикация грузов этого типа временно ограничена администратором платформы.");
+      }
+      const first = input.stops[0];
+      const latestLoading = first.plannedDateTo ?? first.plannedDateFrom;
+      if (latestLoading && latestLoading.getTime() < Date.now() - 24 * 60 * 60_000) {
+        throw errors.validation("Дата загрузки уже прошла. Укажите актуальные даты.", { "stops.0.plannedDateFrom": ["Дата в прошлом"] });
+      }
     }
     const invitees = await validateInvitees(tx, input.visibility === "INVITE_ONLY" ? input.invitedCarrierIds : []);
     await tx.loadStop.deleteMany({ where: { loadId } });
@@ -278,17 +293,17 @@ async function publishInTx(tx: Tx, actor: Actor, loadId: string) {
 }
 
 export async function publishLoad(actor: Actor, loadId: string) {
-  requirePermission(actor, "LOAD_PUBLISH", "Публиковать грузы могут только грузовладельцы и экспедиторы.");
-  const { relation } = await requireLoadRelation(actor, loadId);
+  const { relation, load } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER") throw errors.forbidden("Опубликовать груз может только его владелец.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_PUBLISH", "Публиковать грузы могут только грузовладельцы и экспедиторы.");
   await prisma.$transaction((tx) => publishInTx(tx, actor, loadId));
   return prisma.load.findUniqueOrThrow({ where: { id: loadId }, select: { id: true, publicNumber: true, status: true } });
 }
 
 export async function cancelLoad(actor: Actor, loadId: string, reason: string | null) {
-  requirePermission(actor, "LOAD_CANCEL");
-  const { relation } = await requireLoadRelation(actor, loadId);
+  const { relation, load: rel } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER" && relation !== "ADMIN") throw errors.forbidden("Отменить груз может только его владелец.");
+  requireCompanyPermission(actor, rel.companyId, "LOAD_CANCEL");
 
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
@@ -342,6 +357,7 @@ export async function cancelLoad(actor: Actor, loadId: string, reason: string | 
 
 export async function getLoadDetail(actor: Actor, loadId: string) {
   const { relation, membership } = await requireLoadRelation(actor, loadId);
+  await expireStaleBids(prisma, loadId);
   const isOwner = relation === "OWNER" || relation === "ADMIN";
   const myCompanyIds = actor.memberships.map((m) => m.companyId);
 
@@ -396,17 +412,20 @@ export async function getLoadDetail(actor: Actor, loadId: string) {
 }
 
 export async function listLoads(actor: Actor, q: ListQuery) {
+  await expireStaleBids(prisma);
   const and: Prisma.LoadWhereInput[] = [{ deletedAt: null }];
 
   if (q.scope === "mine") {
     const m = requireActiveCompany(actor);
     if (!isCustomerRole(m.role)) throw errors.forbidden();
     and.push({ companyId: m.companyId });
-    if (q.status) and.push({ status: q.status as LoadStatus });
+    if (q.status) and.push({ status: q.status });
   } else {
     if (!actor.permissions.has("MARKETPLACE_VIEW")) throw errors.forbidden("Биржа грузов доступна перевозчикам и экспедиторам.");
     const myCompanyIds = actor.memberships.map((m) => m.companyId);
     and.push({ status: { in: ["PUBLISHED", "BIDDING"] } });
+    // Без грузов с прошедшей датой загрузки и грузов приостановленных компаний
+    and.push(actualLoadWhere());
     and.push({
       OR: [{ visibility: "MARKETPLACE" }, { visibility: "INVITE_ONLY", invitations: { some: { carrierCompanyId: { in: myCompanyIds } } } }],
     });
@@ -468,9 +487,9 @@ export async function listLoads(actor: Actor, q: ListQuery) {
 // ─────────── Вопросы по грузу ───────────
 
 export async function askQuestion(actor: Actor, loadId: string, question: string) {
-  requirePermission(actor, "LOAD_ASK_QUESTION", "Задавать вопросы по грузу могут перевозчики.");
   const { relation, membership, load } = await requireLoadRelation(actor, loadId);
   if (relation !== "CARRIER" || !membership) throw errors.forbidden("Задавать вопросы по грузу могут перевозчики.");
+  requireCompanyPermission(actor, membership.companyId, "LOAD_ASK_QUESTION", "Задавать вопросы по грузу могут перевозчики.");
   return prisma.$transaction(async (tx) => {
     const q = await tx.loadQuestion.create({ data: { loadId, companyId: membership.companyId, askedByUserId: actor.userId, question } });
     const full = await tx.load.findUniqueOrThrow({ where: { id: loadId }, select: { publicNumber: true } });
@@ -499,11 +518,11 @@ export async function askQuestion(actor: Actor, loadId: string, question: string
 }
 
 export async function answerQuestion(actor: Actor, questionId: string, answer: string) {
-  requirePermission(actor, "LOAD_ANSWER_QUESTION");
   const q = await prisma.loadQuestion.findUnique({ where: { id: questionId } });
   if (!q) throw errors.notFound("Вопрос не найден.");
-  const { relation } = await requireLoadRelation(actor, q.loadId);
+  const { relation, load: rel } = await requireLoadRelation(actor, q.loadId);
   if (relation !== "OWNER") throw errors.forbidden("Отвечать на вопросы может владелец груза.");
+  requireCompanyPermission(actor, rel.companyId, "LOAD_ANSWER_QUESTION");
   return prisma.$transaction(async (tx) => {
     const updated = await tx.loadQuestion.update({
       where: { id: questionId },
@@ -526,8 +545,9 @@ export async function answerQuestion(actor: Actor, questionId: string, answer: s
 
 /** Данные груза для формы редактирования. */
 export async function getLoadForEdit(actor: Actor, loadId: string) {
-  const { relation } = await requireLoadRelation(actor, loadId);
+  const { relation, load } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER") throw errors.forbidden("Редактировать груз может только его владелец.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   return prisma.load.findUniqueOrThrow({
     where: { id: loadId },
     include: { stops: { orderBy: { sequence: "asc" } }, invitations: true },
@@ -547,9 +567,9 @@ export async function listCarrierOptions() {
 // ─────────── Документы груза ───────────
 
 export async function uploadLoadDocument(actor: Actor, loadId: string, type: import("@/generated/prisma/enums").DocumentType, file: File) {
-  requirePermission(actor, "LOAD_EDIT");
   const { relation, load } = await requireLoadRelation(actor, loadId);
   if (relation !== "OWNER") throw errors.forbidden("Загружать документы груза может его владелец.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   if (load.status === "CANCELLED") throw new AppError("DOCUMENT_NOT_ALLOWED", "Груз отменён.");
   const { validateUpload } = await import("@/lib/storage/file-validation");
   const { storage, buildStorageKey } = await import("@/lib/storage/storage");
@@ -587,6 +607,7 @@ export async function deleteLoadDocument(actor: Actor, documentId: string) {
   if (!doc || doc.deletedAt) throw errors.notFound("Документ не найден.");
   const { relation, load } = await requireLoadRelation(actor, doc.loadId);
   if (relation !== "OWNER") throw errors.forbidden("Удалить документ может владелец груза.");
+  requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   return prisma.$transaction(async (tx) => {
     await tx.loadDocument.update({ where: { id: documentId }, data: { deletedAt: new Date() } });
     await audit(

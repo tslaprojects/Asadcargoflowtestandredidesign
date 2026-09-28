@@ -20,7 +20,8 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Sear
   const actor = await pageActor();
   if (!isCustomerRole(actor.active?.role)) redirect("/marketplace");
   const params = await searchParams;
-  const q = loadListQuerySchema.parse({ ...params, scope: "mine" });
+  const parsed = loadListQuerySchema.safeParse({ ...params, scope: "mine" });
+  const q = parsed.success ? parsed.data : loadListQuerySchema.parse({ scope: "mine" });
   const data = toPlain(await listLoads(actor, q));
   return (
     <>

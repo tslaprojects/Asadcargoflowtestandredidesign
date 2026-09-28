@@ -22,14 +22,30 @@ const ROLE_BY_ACTIVITY: Record<"SHIPPER" | "CARRIER" | "FORWARDER", MemberRole> 
 
 type RegisterInput = z.output<typeof registerSchema>;
 
+/**
+ * Демо-стенд (DEMO_SEED=1 в production) содержит общедоступные демо-аккаунты — регистрация реальных
+ * пользователей там закрыта, чтобы их данные не оказались рядом с публичными учётными записями.
+ */
+export function registrationClosed() {
+  return process.env.NODE_ENV === "production" && process.env.DEMO_SEED === "1" && process.env.ALLOW_PUBLIC_REGISTRATION !== "1";
+}
+
 export async function register(input: RegisterInput, meta: RequestMeta) {
+  if (registrationClosed()) {
+    throw errors.forbidden("Это демонстрационный стенд: регистрация новых пользователей отключена.");
+  }
   enforceRateLimit("register", meta.ip ?? "anon");
+  if (process.env.NODE_ENV === "production" && input.email.endsWith("@cargoflow.demo")) {
+    // Домен демо-аккаунтов зарезервирован: такие пользователи считаются демо и могут быть удалены при загрузке демо-данных
+    throw errors.validation("Этот email-домен зарезервирован.", { email: ["Используйте рабочий email"] });
+  }
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) {
     throw errors.validation("Пользователь с таким email уже зарегистрирован.", {
       email: ["Пользователь с таким email уже зарегистрирован"],
     });
   }
+  if (input.companyMode === "invite" && input.inviteToken) await expireInviteIfNeeded(input.inviteToken);
   const passwordHash = await hashPassword(input.password);
 
   const result = await prisma.$transaction(async (tx) => {
@@ -109,15 +125,22 @@ export async function register(input: RegisterInput, meta: RequestMeta) {
 
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
 
+/** Просроченное приглашение помечается EXPIRED вне транзакции принятия (иначе статус откатится вместе с ошибкой). */
+async function expireInviteIfNeeded(token: string) {
+  await prisma.companyInvite.updateMany({
+    where: { tokenHash: sha256(token), status: "PENDING", expiresAt: { lt: new Date() } },
+    data: { status: "EXPIRED" },
+  });
+}
+
 /** Принимает приглашение: создаёт членство (и связывает профиль водителя, если приглашали водителя). */
 async function consumeInvite(tx: TxClient, token: string, userId: string, email: string, meta: RequestMeta) {
   const invite = await tx.companyInvite.findUnique({ where: { tokenHash: sha256(token) }, include: { company: true } });
-  if (!invite || invite.status !== "PENDING")
-    throw errors.validation("Приглашение недействительно или уже использовано.", { inviteToken: ["Приглашение недействительно"] });
-  if (invite.expiresAt < new Date()) {
-    await tx.companyInvite.update({ where: { id: invite.id }, data: { status: "EXPIRED" } });
+  if (invite?.status === "EXPIRED" || (invite && invite.status === "PENDING" && invite.expiresAt < new Date())) {
     throw errors.validation("Срок действия приглашения истёк. Попросите новое.", { inviteToken: ["Приглашение истекло"] });
   }
+  if (!invite || invite.status !== "PENDING")
+    throw errors.validation("Приглашение недействительно или уже использовано.", { inviteToken: ["Приглашение недействительно"] });
   if (invite.email.toLowerCase() !== email.toLowerCase()) {
     throw errors.validation("Приглашение выписано на другой email.", { email: ["Используйте email, на который пришло приглашение"] });
   }
@@ -127,7 +150,16 @@ async function consumeInvite(tx: TxClient, token: string, userId: string, email:
   await tx.companyMember.create({ data: { companyId: invite.companyId, userId, role: invite.role } });
   if (invite.role === "DRIVER") {
     if (invite.driverProfileId) {
-      await tx.driverProfile.update({ where: { id: invite.driverProfileId }, data: { userId } });
+      // Привязываем только свободный профиль водителя той же компании
+      const linked = await tx.driverProfile.updateMany({
+        where: { id: invite.driverProfileId, companyId: invite.companyId, userId: null, deletedAt: null },
+        data: { userId },
+      });
+      if (linked.count !== 1) {
+        throw errors.validation("Профиль водителя из приглашения недоступен. Попросите новое приглашение.", {
+          inviteToken: ["Приглашение недействительно"],
+        });
+      }
     } else {
       const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
       await tx.driverProfile.create({
@@ -161,6 +193,7 @@ async function consumeInvite(tx: TxClient, token: string, userId: string, email:
 }
 
 export async function acceptInviteForExistingUser(actor: Actor, token: string) {
+  await expireInviteIfNeeded(token);
   const companyId = await prisma.$transaction((tx) =>
     consumeInvite(tx, token, actor.userId, actor.email, { ip: actor.ip, userAgent: actor.userAgent }),
   );
@@ -178,7 +211,8 @@ export async function getInvitePreview(token: string) {
 }
 
 export async function login(input: z.output<typeof loginSchema>, meta: RequestMeta) {
-  enforceRateLimit("login", `${meta.ip ?? "anon"}:${input.email}`);
+  enforceRateLimit("login", meta.ip ?? "anon");
+  enforceRateLimit("loginAccount", input.email);
   const user = await prisma.user.findUnique({
     where: { email: input.email },
     include: { memberships: { where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" }, take: 1 } },
@@ -226,14 +260,19 @@ export async function logout(actor: Actor | null) {
 }
 
 export async function requestPasswordReset(email: string, meta: RequestMeta) {
-  enforceRateLimit("passwordReset", `${meta.ip ?? "anon"}:${email}`);
+  enforceRateLimit("passwordReset", meta.ip ?? "anon");
+  enforceRateLimit("passwordResetAccount", email);
   const user = await prisma.user.findUnique({ where: { email } });
   // Ответ всегда одинаковый — не раскрываем, существует ли email
   if (!user || user.status === "BLOCKED" || user.deletedAt) return { ok: true };
   const token = generateToken(32);
-  await prisma.passwordResetToken.create({
-    data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 60 * 60_000) },
-  });
+  await prisma.$transaction([
+    // Действует только последняя ссылка: прежние неиспользованные токены аннулируются
+    prisma.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: new Date() } }),
+    prisma.passwordResetToken.create({
+      data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 60 * 60_000) },
+    }),
+  ]);
   const link = `${process.env.APP_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
   await sendEmail(user.email, "Сброс пароля CargoFlow", `Для установки нового пароля перейдите по ссылке (действует 1 час): ${link}`);
   await audit(
@@ -272,9 +311,28 @@ export async function changePassword(actor: Actor, input: z.output<typeof change
   if (!(await verifyPassword(input.currentPassword, user.passwordHash))) {
     throw errors.validation("Текущий пароль указан неверно.", { currentPassword: ["Неверный пароль"] });
   }
-  await prisma.user.update({ where: { id: actor.userId }, data: { passwordHash: await hashPassword(input.newPassword) } });
-  await audit(actor, { action: AuditAction.USER_UPDATED, entityType: "User", entityId: actor.userId, newValue: { password: "changed" } });
-  return { ok: true };
+  const passwordHash = await hashPassword(input.newPassword);
+  const revoked = await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: actor.userId }, data: { passwordHash } });
+    // Все остальные сессии завершаются: если пароль меняют из-за утечки, чужой вход должен прекратиться
+    const r = await tx.session.updateMany({
+      where: { userId: actor.userId, revokedAt: null, ...(actor.sessionId ? { id: { not: actor.sessionId } } : {}) },
+      data: { revokedAt: new Date() },
+    });
+    await tx.passwordResetToken.updateMany({ where: { userId: actor.userId, usedAt: null }, data: { usedAt: new Date() } });
+    await audit(
+      actor,
+      {
+        action: AuditAction.USER_UPDATED,
+        entityType: "User",
+        entityId: actor.userId,
+        newValue: { password: "changed", sessionsRevoked: r.count },
+      },
+      tx,
+    );
+    return r.count;
+  });
+  return { ok: true, sessionsRevoked: revoked };
 }
 
 export async function updateProfile(actor: Actor, input: z.output<typeof profileUpdateSchema>) {
@@ -293,7 +351,7 @@ export async function updateProfile(actor: Actor, input: z.output<typeof profile
 
 /** Повторная аутентификация перед критическим действием (подписание). */
 export async function reauthenticate(actor: Actor, password: string) {
-  enforceRateLimit("login", `reauth:${actor.userId}`);
+  enforceRateLimit("loginAccount", `reauth:${actor.userId}`);
   const user = await prisma.user.findUniqueOrThrow({ where: { id: actor.userId } });
   if (!(await verifyPassword(password, user.passwordHash))) {
     throw new AppError("FORBIDDEN", "Неверный пароль. Подтверждение личности не пройдено.", {

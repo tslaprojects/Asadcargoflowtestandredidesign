@@ -100,13 +100,20 @@ export function ChatPanel({ orderId, canSend, className }: { orderId: string; ca
       let attachmentId: string | null = null;
       if (file) {
         const fd = new FormData();
-        fd.set("type", file.type.startsWith("image/") ? "CARGO_PHOTO" : "OTHER");
+        // Тип документа из чата не угадываем (скриншот счёта — не «фото груза»)
+        fd.set("type", "OTHER");
         fd.set("file", file);
         fd.set("note", "Вложение из чата");
         const doc = await api<{ id: string }>(`/api/orders/${orderId}/documents`, { method: "POST", formData: fd });
         attachmentId = doc.id;
       }
-      await api(`/api/orders/${orderId}/messages`, { body: { message: text, attachmentId }, idempotencyKey: newIdempotencyKey() });
+      try {
+        await api(`/api/orders/${orderId}/messages`, { body: { message: text, attachmentId }, idempotencyKey: newIdempotencyKey() });
+      } catch (e) {
+        // Сообщение не отправлено — не оставляем «осиротевший» файл в документах рейса
+        if (attachmentId) await api(`/api/documents/${attachmentId}`, { method: "DELETE" }).catch(() => undefined);
+        throw e;
+      }
       setText("");
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";

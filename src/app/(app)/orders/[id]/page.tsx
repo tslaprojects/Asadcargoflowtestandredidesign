@@ -457,6 +457,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                         summary={finance}
                         payments={payments.filter((p) => p.type !== "SECURE_DEAL")}
                         canEdit={can("PAYMENT_EDIT") && !secureLive}
+                        canConfirmPaid={side === "CARRIER" || side === "ADMIN"}
                         closedOrCancelled={order.currentStatus === "CANCELLED"}
                         secureDeal={secureLive}
                       />

@@ -116,6 +116,20 @@ export function membershipIn(actor: Actor, companyId: string | null | undefined)
   return actor.memberships.find((m) => m.companyId === companyId) ?? null;
 }
 
+/**
+ * Права пользователя в конкретной компании (по его роли именно в ней, с учётом приостановки компании).
+ * Для операций над объектом компании права берутся отсюда, а не из активной компании:
+ * у пользователя может быть несколько компаний с разными ролями.
+ */
+export function permissionsInCompany(actor: Actor, companyId: string | null | undefined): Set<Permission> {
+  if (actor.isAdmin) return permissionsForMembership(null, true);
+  return permissionsForMembership(membershipIn(actor, companyId), false);
+}
+
+export function requireCompanyPermission(actor: Actor, companyId: string | null | undefined, permission: Permission, message?: string) {
+  if (!permissionsInCompany(actor, companyId).has(permission)) throw errors.forbidden(message);
+}
+
 /** Требует активную компанию (контекст работы). */
 export function requireActiveCompany(actor: Actor): ActorMembership {
   if (!actor.active) throw errors.forbidden("Сначала создайте компанию или присоединитесь к существующей.");

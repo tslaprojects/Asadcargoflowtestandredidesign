@@ -40,3 +40,12 @@ export async function audit(actor: Pick<Actor, "userId" | "active" | "ip" | "use
     },
   });
 }
+
+/**
+ * Компания, от имени которой пользователь действует в сделке: его членство среди компаний-участников.
+ * Для администратора и системы — null (а не активная компания, которая к сделке может не относиться).
+ */
+export function actorCompanyIn(actor: Pick<Actor, "memberships"> | null, companyIds: (string | null | undefined)[]): string | null {
+  if (!actor) return null;
+  return actor.memberships.find((m) => companyIds.includes(m.companyId))?.companyId ?? null;
+}

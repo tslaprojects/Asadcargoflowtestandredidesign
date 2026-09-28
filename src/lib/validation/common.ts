@@ -48,3 +48,35 @@ export const paginationSchema = z.object({
 });
 
 export const currencySchema = z.enum(["USD", "CNY", "KZT", "RUB"], { message: "Выберите валюту" });
+
+/** Дата из фильтра (YYYY-MM-DD или ISO). Пусто — фильтр не задан; мусор — ошибка валидации, а не 500. */
+export const filterDate = z
+  .union([
+    z.literal(""),
+    z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}([T ][\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/, "Некорректная дата"),
+  ])
+  .optional()
+  .refine((v) => !v || !Number.isNaN(new Date(v).getTime()), "Некорректная дата")
+  .transform((v) => (v ? v.slice(0, 10) : undefined))
+  .optional();
+
+/** Необязательный UUID из query; пусто — не задан. */
+export const optionalUuidParam = z
+  .union([z.literal(""), z.uuid({ message: "Некорректный идентификатор" })])
+  .optional()
+  .transform((v) => (v ? v : undefined))
+  .optional();
+
+/**
+ * Булево значение из JSON или формы. В отличие от z.coerce.boolean(), строка "false" даёт false
+ * (coerce превращает любую непустую строку в true).
+ */
+export const booleanish = z.union([
+  z.boolean(),
+  z
+    .enum(["true", "false", "1", "0", "on", "off"], { message: "Ожидается да/нет" })
+    .transform((v) => v === "true" || v === "1" || v === "on"),
+]);

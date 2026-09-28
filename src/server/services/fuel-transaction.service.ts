@@ -12,10 +12,12 @@ import { fuelCardProviderByCode } from "@/lib/fuel/providers";
 import { canFuelTxTransition, FUEL_TX_COUNTED } from "@/lib/fuel/transaction-state-machine";
 import { logger } from "@/lib/logger";
 import { fromMinor, toMinor } from "@/lib/money";
+import { DEFAULT_TZ as REPORT_TZ } from "@/lib/format";
+import { zonedToUtc } from "@/lib/tz";
 import type { driverFuelPurchaseSchema, fuelListQuerySchema, fuelPurchaseSchema } from "@/lib/validation/fuel";
 import { analyzeTransaction } from "./fuel-analysis.service";
 import { cardLimits, lockAccount, postAccountEntry } from "./fuel-card.service";
-import { driverProfileFor, fuelScope } from "./fuel-access";
+import { canSeeFuelMoney, driverProfileFor, fuelScope, hideFuelMoney } from "./fuel-access";
 
 /**
  * Топливные транзакции.
@@ -75,16 +77,15 @@ export async function tripForRefuel(db: Tx, vehicleId: string | null, at: Date) 
 
 async function cardUsage(tx: Tx, card: { id: string; timezone: string }, at: Date) {
   const { dayStart, monthStart } = periodStarts(at, card.timezone);
-  const [day, month] = await Promise.all([
-    tx.fuelTransaction.aggregate({
-      where: { fuelCardId: card.id, status: { in: FUEL_TX_COUNTED }, transactionDate: { gte: dayStart } },
-      _sum: { liters: true, totalAmount: true },
-    }),
-    tx.fuelTransaction.aggregate({
-      where: { fuelCardId: card.id, status: { in: FUEL_TX_COUNTED }, transactionDate: { gte: monthStart } },
-      _sum: { liters: true, totalAmount: true },
-    }),
-  ]);
+  // Последовательно: запросы внутри транзакции идут по одному соединению, параллельные запросы на нём недопустимы
+  const day = await tx.fuelTransaction.aggregate({
+    where: { fuelCardId: card.id, status: { in: FUEL_TX_COUNTED }, transactionDate: { gte: dayStart } },
+    _sum: { liters: true, totalAmount: true },
+  });
+  const month = await tx.fuelTransaction.aggregate({
+    where: { fuelCardId: card.id, status: { in: FUEL_TX_COUNTED }, transactionDate: { gte: monthStart } },
+    _sum: { liters: true, totalAmount: true },
+  });
   return {
     dayLiters: Number(day._sum.liters ?? 0),
     monthLiters: Number(month._sum.liters ?? 0),
@@ -456,8 +457,9 @@ export function fuelTxWhere(companyId: string, q: Partial<z.output<typeof fuelLi
     ...(q.from || q.to
       ? {
           transactionDate: {
-            ...(q.from ? { gte: new Date(`${q.from}T00:00:00+05:00`) } : {}),
-            ...(q.to ? { lte: new Date(`${q.to}T23:59:59+05:00`) } : {}),
+            // Границы дня — в часовом поясе отчёта (с учётом перехода на летнее время), а не фиксированное +05:00
+            ...(q.from ? { gte: zonedToUtc(q.from, "00:00", REPORT_TZ) } : {}),
+            ...(q.to ? { lt: new Date(zonedToUtc(q.to, "00:00", REPORT_TZ).getTime() + 24 * 60 * 60_000) } : {}),
           },
         }
       : {}),
@@ -505,7 +507,7 @@ export async function getFuelTransaction(actor: Actor, id: string) {
     const scope = fuelScope(actor, "FUEL_VIEW");
     if (scope.companyId !== t.companyId) throw errors.notFound("Заправка не найдена.");
   }
-  return t;
+  return canSeeFuelMoney(actor) ? t : hideFuelMoney(t);
 }
 
 /**

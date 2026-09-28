@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/response";
 import { logger } from "@/lib/logger";
+import { runMaintenance } from "@/server/services/maintenance.service";
 import { processConfirmationTimeouts } from "@/server/services/secure-deal.service";
 
 /**
@@ -20,7 +21,11 @@ export async function POST(req: NextRequest) {
   try {
     const result = await processConfirmationTimeouts(new Date(), null);
     logger.info("job.secure-deal.timeouts", result);
-    return ok(result);
+    const maintenance = await runMaintenance(new Date()).catch((e) => {
+      logger.error("job.maintenance.failed", { error: e });
+      return null;
+    });
+    return ok({ ...result, maintenance });
   } catch (e) {
     logger.error("job.secure-deal.failed", { error: e });
     return fail("INTERNAL_ERROR", "Ошибка выполнения задачи.", 500);

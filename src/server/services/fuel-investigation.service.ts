@@ -9,7 +9,7 @@ import { label } from "@/lib/i18n";
 import { validateUpload } from "@/lib/storage/file-validation";
 import { buildStorageKey, storage } from "@/lib/storage/storage";
 import type { anomalyReviewSchema, investigationCreateSchema, investigationUpdateSchema } from "@/lib/validation/fuel";
-import { assertFuelCompanyAccess, fuelScope } from "./fuel-access";
+import { assertFuelCompanyAccess, canSeeFuelMoney, fuelScope, hideFuelMoney } from "./fuel-access";
 import { telemetryPoints } from "./fuel-analysis.service";
 import { CARRIER_OFFICE_ROLES, companyUserIds, notify } from "./notification.service";
 
@@ -69,7 +69,13 @@ export async function listAnomalies(
     }),
     prisma.fuelAnomaly.count({ where }),
   ]);
-  return { items, total, page: opts.page, pageSize: opts.pageSize };
+  const money = canSeeFuelMoney(actor);
+  return {
+    items: money ? items : items.map((a) => ({ ...a, transaction: a.transaction ? hideFuelMoney(a.transaction) : null })),
+    total,
+    page: opts.page,
+    pageSize: opts.pageSize,
+  };
 }
 
 export async function getAnomaly(actor: Actor, id: string) {
@@ -86,7 +92,8 @@ export async function getAnomaly(actor: Actor, id: string) {
   const reviewer = a.reviewedByUserId
     ? await prisma.user.findUnique({ where: { id: a.reviewedByUserId }, select: { firstName: true, lastName: true } })
     : null;
-  return { anomaly: a, telemetry: points.sort((x, y) => x.recordedAt.getTime() - y.recordedAt.getTime()), reviewer };
+  const anomaly = canSeeFuelMoney(actor) || !a.transaction ? a : { ...a, transaction: hideFuelMoney(a.transaction) };
+  return { anomaly, telemetry: points.sort((x, y) => x.recordedAt.getTime() - y.recordedAt.getTime()), reviewer };
 }
 
 /** Владелец отмечает результат проверки: несоответствие подтверждено или всё в норме. */
@@ -241,8 +248,11 @@ export async function getInvestigation(actor: Actor, id: string) {
     }),
     inv.driverId ? prisma.driverProfile.findUnique({ where: { id: inv.driverId }, select: { fullName: true } }) : null,
   ]);
+  const money = canSeeFuelMoney(actor);
   return {
-    investigation: inv,
+    investigation: money
+      ? inv
+      : { ...inv, transactions: inv.transactions.map((x) => ({ ...x, transaction: hideFuelMoney(x.transaction) })) },
     telemetry: telemetry.sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime()),
     userNames: Object.fromEntries(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`])),
     driverName: driver?.fullName ?? null,

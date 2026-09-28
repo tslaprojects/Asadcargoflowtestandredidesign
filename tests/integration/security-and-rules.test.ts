@@ -343,7 +343,7 @@ describe("бизнес-правила", () => {
 
   it("сумма платежей не может превышать стоимость; валюта — только валюта сделки", async () => {
     const { orderId } = await signedOrder(s);
-    await createPayment(s.shipper, orderId, {
+    await createPayment(s.carrier, orderId, {
       type: "PREPAYMENT",
       amount: 4000,
       currency: "USD",

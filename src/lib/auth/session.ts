@@ -13,14 +13,34 @@ function ttlMs() {
   return (Number.isFinite(days) && days > 0 ? days : 14) * 24 * 60 * 60 * 1000;
 }
 
-function secureCookies() {
-  return process.env.NODE_ENV === "production" && (process.env.APP_URL ?? "").startsWith("https://");
+/**
+ * Флаг Secure у cookie сессии: в production — всегда, кроме явного локального запуска по http
+ * (APP_URL=http://localhost…). Незаданный APP_URL больше не отключает Secure.
+ */
+export function secureCookies(env: { NODE_ENV?: string; APP_URL?: string } = process.env) {
+  if (env.NODE_ENV !== "production") return false;
+  return !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(env.APP_URL ?? "");
+}
+
+/**
+ * IP клиента из X-Forwarded-For с учётом числа доверенных прокси (TRUSTED_PROXY_HOPS, по умолчанию 1).
+ * Левые элементы заголовка задаёт сам клиент — им верить нельзя (подмена IP обходит rate limit).
+ * Доверенный прокси дописывает адрес клиента справа, поэтому берётся N-й элемент с конца.
+ */
+export function clientIpFrom(forwarded: string | null, realIp: string | null, hopsEnv = process.env.TRUSTED_PROXY_HOPS): string | null {
+  const hops = Number.isInteger(Number(hopsEnv)) && Number(hopsEnv) >= 0 ? Number(hopsEnv) : 1;
+  if (hops === 0) return realIp?.trim() || null;
+  const list = (forwarded ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (list.length >= hops) return list[list.length - hops];
+  return realIp?.trim() || list[0] || null;
 }
 
 export async function getRequestMeta(): Promise<RequestMeta> {
   const h = await headers();
-  const forwarded = h.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || h.get("x-real-ip") || null;
+  const ip = clientIpFrom(h.get("x-forwarded-for"), h.get("x-real-ip"));
   return { ip, userAgent: h.get("user-agent")?.slice(0, 500) ?? null };
 }
 
