@@ -102,6 +102,8 @@ npm run dev                     # http://localhost:3000
 | `FUEL_CARD_PROVIDER`                       | провайдер топливных карт: `demo` — симулятор (все операции помечены DEMO DATA)                                                          |
 | `FUEL_CARD_WEBHOOK_SECRET`                 | секрет HMAC для `POST /api/integrations/fuel-cards/:provider/webhook`; пусто — webhook отключён                                         |
 | `TELEMATICS_WEBHOOK_SECRET`                | секрет HMAC для `POST /api/integrations/telematics/:provider/ingest` (CAN, датчик уровня, GPS); пусто — приём отключён                  |
+| `DEMO_SEED`                                | `1` — демо-стенд: при старте контейнера загрузить демо-данные, если в базе только демо-аккаунты (реальные данные не трогаются)          |
+| `NEXT_PUBLIC_SHOW_DEMO`                    | `1` — кнопки демо-аккаунтов на странице входа в production (встраивается при сборке)                                                    |
 
 Секреты в репозиторий не коммитятся (`.env*` в `.gitignore`, кроме `.env.example`).
 

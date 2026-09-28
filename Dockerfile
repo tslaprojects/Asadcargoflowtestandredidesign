@@ -10,9 +10,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Сборке нужен только факт наличия DATABASE_URL (подключения к БД при сборке нет).
-# Railway/Docker передают переменные сервиса в сборку через ARG; в финальный образ они не попадают.
-ARG DATABASE_URL
 # 1 — показывать на странице входа кнопки демо-аккаунтов (значение встраивается при сборке).
 ARG NEXT_PUBLIC_SHOW_DEMO
 RUN npm run build

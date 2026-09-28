@@ -11,8 +11,22 @@ function createClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createClient();
+function getClient(): PrismaClient {
+  if (!globalForPrisma.prisma) globalForPrisma.prisma = createClient();
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+/**
+ * Клиент создаётся при первом обращении, а не при импорте модуля:
+ * `next build` импортирует маршруты для сбора конфигурации, и сборка не должна требовать DATABASE_URL.
+ * Один экземпляр на процесс (и на hot-reload в dev) хранится в globalThis.
+ */
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getClient();
+    const value = Reflect.get(client, prop, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 export type Tx = Omit<PrismaClient, "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends">;
