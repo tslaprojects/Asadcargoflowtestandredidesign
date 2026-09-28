@@ -199,7 +199,10 @@ export async function respondToCounter(
     if (!loadAcceptsBids(bid.load.status)) throw new AppError("INVALID_STATE_TRANSITION", loadClosedMessage(bid.load.status));
     // Отвечать можно только на встречное предложение заказчика: менять цену «втихую» перед принятием нельзя
     if (bid.awaitingSide !== "CARRIER" || bid.counterAmount === null) {
-      throw new AppError("INVALID_STATE_TRANSITION", "Заказчик не делал встречного предложения. Чтобы изменить цену, отзовите предложение и отправьте новое.");
+      throw new AppError(
+        "INVALID_STATE_TRANSITION",
+        "Заказчик не делал встречного предложения. Чтобы изменить цену, отзовите предложение и отправьте новое.",
+      );
     }
     let newAmount: number;
     if (input.action === "agree") {

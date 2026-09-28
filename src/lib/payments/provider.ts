@@ -90,10 +90,13 @@ export function getPaymentProvider(): PaymentProvider {
   const production = process.env.NODE_ENV === "production";
   const code = process.env.PAYMENT_PROVIDER || (production ? "manual" : "sandbox");
   const provider = PROVIDERS[code];
-  if (!provider) throw new Error(`Неизвестный платёжный провайдер PAYMENT_PROVIDER="${code}". Допустимо: ${Object.keys(PROVIDERS).join(", ")}.`);
+  if (!provider)
+    throw new Error(`Неизвестный платёжный провайдер PAYMENT_PROVIDER="${code}". Допустимо: ${Object.keys(PROVIDERS).join(", ")}.`);
   // Тестовый провайдер «успешно» резервирует и выплачивает без движения денег — в production только явно (демо-стенд)
   if (provider.testMode && production && process.env.ALLOW_SANDBOX_PAYMENTS !== "1" && process.env.DEMO_SEED !== "1") {
-    throw new Error("PAYMENT_PROVIDER=sandbox запрещён в production: задайте manual или реальный провайдер (для демо-стенда — ALLOW_SANDBOX_PAYMENTS=1).");
+    throw new Error(
+      "PAYMENT_PROVIDER=sandbox запрещён в production: задайте manual или реальный провайдер (для демо-стенда — ALLOW_SANDBOX_PAYMENTS=1).",
+    );
   }
   return provider;
 }

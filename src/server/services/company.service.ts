@@ -151,7 +151,8 @@ export async function updateCompany(actor: Actor, companyId: string, input: z.ou
 export async function inviteMember(actor: Actor, companyId: string, input: z.output<typeof inviteSchema>) {
   const isDriverInvite = input.role === "DRIVER";
   // Права — по роли пользователя именно в этой компании (а не в активной)
-  if (isDriverInvite) requireCompanyPermission(actor, companyId, "DRIVER_MANAGE", "Приглашать водителей может руководитель или диспетчер перевозчика.");
+  if (isDriverInvite)
+    requireCompanyPermission(actor, companyId, "DRIVER_MANAGE", "Приглашать водителей может руководитель или диспетчер перевозчика.");
   else {
     requireCompanyPermission(actor, companyId, "COMPANY_MEMBERS_MANAGE", "Приглашать сотрудников может только руководитель компании.");
     assertCompanyManager(actor, companyId);

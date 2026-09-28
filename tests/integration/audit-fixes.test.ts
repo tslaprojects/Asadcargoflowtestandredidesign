@@ -21,7 +21,10 @@ describe("Исправления аудита: HIGH", () => {
   it("BIZ-001: перевозчик не может изменить цену без встречного предложения", async () => {
     const load = await createLoad(s.shipper, loadInput(), { publish: true });
     const bid = await createBid(s.carrier, load.id, bidInput);
-    await expectAppError(respondToCounter(s.carrier, bid.id, { action: "propose", amount: 9000, message: null }), "INVALID_STATE_TRANSITION");
+    await expectAppError(
+      respondToCounter(s.carrier, bid.id, { action: "propose", amount: 9000, message: null }),
+      "INVALID_STATE_TRANSITION",
+    );
     expect(Number((await prisma.bid.findUniqueOrThrow({ where: { id: bid.id } })).amount)).toBe(4200);
   });
 

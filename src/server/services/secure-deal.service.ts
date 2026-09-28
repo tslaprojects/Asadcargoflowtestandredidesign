@@ -833,7 +833,9 @@ export async function settleOnOrderCancel(orderId: string, actor: Actor | null, 
  */
 export async function processConfirmationTimeouts(now = new Date(), actor: Actor | null = null) {
   const settings = await getSettings();
-  const heldDeal = { some: { type: "SECURE_DEAL" as const, status: { in: ["PAYMENT_RESERVED" as const, "PAYMENT_PARTIALLY_RELEASED" as const] } } };
+  const heldDeal = {
+    some: { type: "SECURE_DEAL" as const, status: { in: ["PAYMENT_RESERVED" as const, "PAYMENT_PARTIALLY_RELEASED" as const] } },
+  };
   const due = await prisma.transportOrder.findMany({
     where: {
       currentStatus: "DELIVERED",
