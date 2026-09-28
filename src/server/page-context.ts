@@ -50,8 +50,15 @@ export async function guard<T>(promise: Promise<T>): Promise<T> {
     return await promise;
   } catch (e) {
     const { isAppError } = await import("@/lib/errors");
+    const { notFound } = await import("next/navigation");
+    // Некорректный идентификатор в адресе (не-UUID) — это «не найдено», а не ошибка сервера
+    if (
+      e instanceof Error &&
+      /P2023|invalid input syntax for type|Error creating UUID|22P02/.test(`${(e as { code?: string }).code ?? ""} ${e.message}`)
+    ) {
+      notFound();
+    }
     if (isAppError(e)) {
-      const { notFound } = await import("next/navigation");
       if (e.code === "NOT_FOUND") notFound();
       if (e.code === "UNAUTHORIZED") redirect("/login");
       if (e.code === "FORBIDDEN") redirect(`/forbidden?reason=${encodeURIComponent(e.message)}`);

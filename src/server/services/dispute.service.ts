@@ -255,7 +255,8 @@ export async function getDispute(actor: Actor, disputeId: string) {
     },
   });
   if (!dispute) throw errors.notFound("Спор не найден.");
-  await requireOrderAccess(actor, dispute.orderId);
+  const { access } = await requireOrderAccess(actor, dispute.orderId);
+  if (access.side === "DRIVER") throw errors.forbidden("Материалы спора доступны сторонам сделки.");
   const userIds = [dispute.openedByUserId, dispute.resolvedByUserId, ...dispute.comments.map((c) => c.authorUserId)].filter(
     Boolean,
   ) as string[];

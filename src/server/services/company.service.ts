@@ -63,6 +63,8 @@ function assertCompanyManager(actor: Actor, companyId: string) {
 /** Полный профиль компании для её сотрудников и администратора. */
 export async function getCompanyProfile(actor: Actor, companyId: string) {
   assertCompanyAccess(actor, companyId);
+  // Сотрудники, реквизиты, приглашения и документы компании — не для водителя
+  requireCompanyPermission(actor, companyId, "COMPANY_VIEW", "Профиль компании доступен её офису.");
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     include: {
@@ -134,6 +136,14 @@ export async function updateCompany(actor: Actor, companyId: string, input: z.ou
   const before = await prisma.company.findUnique({ where: { id: companyId } });
   if (!before) throw errors.notFound("Компания не найдена.");
   const data = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined));
+  // Юридические реквизиты проверенной компании подтверждены документами: их смена требует повторной проверки
+  const LEGAL_FIELDS = ["legalName", "taxId"] as const;
+  const legalChanged = LEGAL_FIELDS.some((k) => k in data && (data[k] ?? null) !== (before[k] ?? null));
+  if (legalChanged && before.verificationStatus === "VERIFIED" && !actor.isAdmin) {
+    throw errors.forbidden(
+      "Юридическое название и ИНН проверенной компании меняются через повторную проверку. Обратитесь к администратору платформы.",
+    );
+  }
   return prisma.$transaction(async (tx) => {
     const company = await tx.company.update({ where: { id: companyId }, data });
     const oldValue = Object.fromEntries(Object.keys(data).map((k) => [k, (before as Record<string, unknown>)[k]]));
@@ -244,12 +254,24 @@ export async function updateMember(actor: Actor, memberId: string, input: z.outp
   if (input.role && !ROLES_BY_COMPANY_TYPE[member.company.type].includes(input.role)) {
     throw errors.validation("Эта роль недоступна для данного типа компании.");
   }
-  // Нельзя оставить компанию без руководителя
-  if (member.role === "CARRIER_ADMIN" && ((input.role && input.role !== "CARRIER_ADMIN") || input.status === "DISABLED")) {
-    const admins = await prisma.companyMember.count({ where: { companyId: member.companyId, role: "CARRIER_ADMIN", status: "ACTIVE" } });
-    if (admins <= 1) throw errors.forbidden("В компании должен остаться хотя бы один руководитель.");
+  const MANAGER_ROLES = ["SHIPPER", "FORWARDER", "CARRIER_ADMIN"] as const;
+  const isManager = (MANAGER_ROLES as readonly string[]).includes(member.role);
+  const losesManagement =
+    isManager && ((input.role !== undefined && !(MANAGER_ROLES as readonly string[]).includes(input.role)) || input.status === "DISABLED");
+  if (losesManagement && !actor.isAdmin) {
+    // Основателя компании (первого участника) может отключить или понизить только администратор платформы
+    const founder = await prisma.companyMember.findFirst({ where: { companyId: member.companyId }, orderBy: { createdAt: "asc" } });
+    if (founder?.id === member.id) throw errors.forbidden("Права основателя компании может изменить только администратор платформы.");
   }
   return prisma.$transaction(async (tx) => {
+    if (losesManagement) {
+      // Под блокировкой компании: параллельные изменения не оставят её без руководителя
+      await tx.$queryRaw`SELECT id FROM "Company" WHERE id = ${member.companyId}::uuid FOR UPDATE`;
+      const others = await tx.companyMember.count({
+        where: { companyId: member.companyId, id: { not: member.id }, status: "ACTIVE", role: { in: [...MANAGER_ROLES] } },
+      });
+      if (others < 1) throw errors.forbidden("В компании должен остаться хотя бы один руководитель.");
+    }
     const updated = await tx.companyMember.update({ where: { id: memberId }, data: input });
     await audit(
       actor,
@@ -297,7 +319,8 @@ export async function uploadCompanyDocument(actor: Actor, companyId: string, typ
 export async function getCompanyDocumentFile(actor: Actor, documentId: string) {
   const doc = await prisma.companyDocument.findUnique({ where: { id: documentId } });
   if (!doc || doc.deletedAt) throw errors.notFound("Документ не найден.");
-  assertCompanyAccess(actor, doc.companyId);
+  // Регистрационные и налоговые документы — руководителю компании и администратору (проверка)
+  requireCompanyPermission(actor, doc.companyId, "COMPANY_MANAGE", "Документы компании доступны её руководителю.");
   return doc;
 }
 

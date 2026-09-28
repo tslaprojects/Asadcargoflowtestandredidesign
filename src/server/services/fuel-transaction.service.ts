@@ -15,7 +15,7 @@ import { fromMinor, toMinor } from "@/lib/money";
 import type { driverFuelPurchaseSchema, fuelListQuerySchema, fuelPurchaseSchema } from "@/lib/validation/fuel";
 import { analyzeTransaction } from "./fuel-analysis.service";
 import { cardLimits, lockAccount, postAccountEntry } from "./fuel-card.service";
-import { driverProfileFor, fuelScope } from "./fuel-access";
+import { canSeeFuelMoney, driverProfileFor, fuelScope, hideFuelMoney } from "./fuel-access";
 
 /**
  * Топливные транзакции.
@@ -505,7 +505,7 @@ export async function getFuelTransaction(actor: Actor, id: string) {
     const scope = fuelScope(actor, "FUEL_VIEW");
     if (scope.companyId !== t.companyId) throw errors.notFound("Заправка не найдена.");
   }
-  return t;
+  return canSeeFuelMoney(actor) ? t : hideFuelMoney(t);
 }
 
 /**

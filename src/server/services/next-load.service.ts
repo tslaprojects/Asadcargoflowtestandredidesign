@@ -174,6 +174,7 @@ async function candidateLoads(companyId: string, until: Date) {
     where: {
       status: { in: ["PUBLISHED", "BIDDING"] },
       deletedAt: null,
+      company: { verificationStatus: { not: "SUSPENDED" }, deletedAt: null },
       loadingDateFrom: { lte: new Date(until.getTime() + DAY) },
       OR: [
         { loadingDateTo: { gte: new Date(now.getTime() - DAY) } },

@@ -1,5 +1,14 @@
 import { z } from "zod";
-import { countrySchema, currencySchema, optionalDate, optionalPositiveNumber, optionalText, positiveNumber, requiredText } from "./common";
+import {
+  countrySchema,
+  currencySchema,
+  filterDate,
+  optionalDate,
+  optionalPositiveNumber,
+  optionalText,
+  positiveNumber,
+  requiredText,
+} from "./common";
 
 export const CARGO_TYPES = ["GENERAL", "ELECTRONICS", "CLOTHING", "FOOD", "EQUIPMENT", "AUTOMOTIVE", "CHEMICAL", "OTHER"] as const;
 export const VEHICLE_TYPES = ["TRACTOR_TRAILER", "TRUCK", "VAN", "ROAD_TRAIN"] as const;
@@ -132,8 +141,8 @@ export const loadListQuerySchema = z.object({
   from: z.string().trim().max(100).optional(),
   to: z.string().trim().max(100).optional(),
   country: z.string().trim().max(2).optional(),
-  dateFrom: z.string().optional(),
-  dateTo: z.string().optional(),
+  dateFrom: filterDate,
+  dateTo: filterDate,
   bodyType: z
     .enum(BODY_TYPES)
     .optional()
@@ -163,7 +172,10 @@ export const loadListQuerySchema = z.object({
     .union([z.literal("1"), z.literal("true"), z.literal("0"), z.literal("false"), z.literal("")])
     .optional()
     .transform((v) => v === "1" || v === "true"),
-  status: z.string().optional(),
+  status: z
+    .enum(["DRAFT", "PUBLISHED", "BIDDING", "CARRIER_SELECTED", "CANCELLED", "CONVERTED_TO_ORDER"])
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   sort: z.enum(["loadingDate", "price", "published", "-price"]).default("published"),
   scope: z.enum(["marketplace", "mine"]).default("marketplace"),
 });

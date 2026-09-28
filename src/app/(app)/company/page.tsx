@@ -138,8 +138,9 @@ export default async function CompanyPage() {
             label: "Документы",
             content: (
               <div className="space-y-4">
+                {!canManage && <p className="text-muted-foreground text-sm">Документы компании доступны её руководителю.</p>}
                 <DocumentList
-                  docs={company.documents.map((d) => ({
+                  docs={(canManage ? company.documents : []).map((d) => ({
                     ...d,
                     type: "OTHER",
                     version: 1,

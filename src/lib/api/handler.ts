@@ -56,13 +56,28 @@ function checkOrigin(req: NextRequest) {
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Идентификаторы в пути (`[id]`) — UUID. Некорректный идентификатор = объект не найден (404), а не ошибка сервера. */
+function assertIdParams(params: Params) {
+  for (const [key, value] of Object.entries(params)) {
+    if ((key === "id" || key.endsWith("Id")) && !UUID_RE.test(value)) throw errors.notFound();
+  }
+}
+
 function mapUnknownError(e: unknown): AppError | null {
   if (e instanceof ZodError) return errors.validation(undefined, zodToFields(e));
   if (e instanceof Prisma.PrismaClientKnownRequestError) {
     if (e.code === "P2002") return new AppError("CONFLICT", "Такая запись уже существует или действие уже выполнено.");
     if (e.code === "P2025") return errors.notFound();
     if (e.code === "P2003") return new AppError("CONFLICT", "Операция нарушает связи между данными.");
+    // Некорректные данные в условии запроса (например, не-UUID)
+    if (e.code === "P2023" || e.code === "P2007") return errors.validation("Некорректные параметры запроса.");
   }
+  if (e instanceof Prisma.PrismaClientValidationError) return errors.validation("Некорректные параметры запроса.");
+  // PostgreSQL: invalid_text_representation (22P02) — например, не-UUID в raw SQL
+  if (e instanceof Error && /invalid input syntax for type|22P02/.test(e.message))
+    return errors.validation("Некорректные параметры запроса.");
   if (e instanceof SyntaxError) return errors.validation("Некорректный формат запроса (ожидается JSON).");
   return null;
 }
@@ -96,6 +111,7 @@ export function route<P extends Params = Params, A extends boolean = true>(
       }
 
       const params = ((await context?.params) ?? {}) as P;
+      assertIdParams(params);
       const result = await fn({ req, params, actor: actor as HandlerCtx<P, A>["actor"], meta });
       if (result instanceof Response) return result;
 
@@ -166,4 +182,27 @@ export function parseQuery<S extends z.ZodType>(req: NextRequest, schema: S): z.
   const parsed = schema.safeParse(obj);
   if (!parsed.success) throw errors.validation(undefined, zodToFields(parsed.error));
   return parsed.data;
+}
+
+/**
+ * Проверка размера multipart-запроса до его разбора: иначе тело целиком читается в память
+ * и только потом отклоняется. Запас 1 МБ — на служебные поля формы.
+ */
+export async function readUploadForm(req: NextRequest): Promise<FormData> {
+  const { maxUploadBytes } = await import("@/lib/storage/file-validation");
+  const limit = maxUploadBytes() + 1024 * 1024;
+  const length = Number(req.headers.get("content-length") ?? NaN);
+  if (!Number.isFinite(length)) throw errors.validation("Не указан размер загружаемого файла (Content-Length).");
+  if (length > limit) {
+    throw new AppError(
+      "DOCUMENT_NOT_ALLOWED",
+      `Файл слишком большой. Максимальный размер — ${Math.round(maxUploadBytes() / 1024 / 1024)} МБ.`,
+      {
+        status: 413,
+      },
+    );
+  }
+  const form = await req.formData().catch(() => null);
+  if (!form) throw errors.validation("Ожидается multipart/form-data.");
+  return form;
 }

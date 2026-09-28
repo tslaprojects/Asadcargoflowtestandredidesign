@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { Field, FormError } from "@/components/common/field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { api, errorMessage } from "@/lib/client/api";
 import { loginSchema } from "@/lib/validation/auth";
 import type { z } from "zod";
@@ -34,7 +35,7 @@ export function LoginForm() {
     setError(null);
     try {
       const res = await api<{ redirectTo: string }>("/api/auth/login", { body: values });
-      const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : null;
+      const safeNext = safeRedirectPath(next, window.location.origin);
       window.location.assign(safeNext ?? res.redirectTo);
     } catch (e) {
       setError(errorMessage(e));

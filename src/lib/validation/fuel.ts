@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { currencySchema, optionalDate, optionalText, requiredText } from "./common";
+import { currencySchema, filterDate, optionalDate, optionalText, requiredText } from "./common";
 
 export const FUEL_TYPES = ["DIESEL", "PETROL", "LNG", "CNG", "LPG", "ADBLUE", "OTHER"] as const;
 
@@ -214,8 +214,8 @@ export const investigationLinkSchema = z.object({ fuelTransactionId: z.uuid() })
 export const fuelListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: filterDate,
+  to: filterDate,
   vehicleId: z.uuid().optional(),
   driverId: z.uuid().optional(),
   orderId: z.uuid().optional(),

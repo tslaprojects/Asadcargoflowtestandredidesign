@@ -16,6 +16,9 @@ async function threadFor(orderId: string) {
 /** Сообщения чата с курсорной пагинацией (не загружаем всю историю сразу). */
 export async function listMessages(actor: Actor, orderId: string, opts: { before?: string | null; after?: string | null; limit: number }) {
   await requireOrderAccess(actor, orderId, "CHAT_VIEW");
+  for (const cursor of [opts.before, opts.after]) {
+    if (cursor && Number.isNaN(new Date(cursor).getTime())) throw errors.validation("Некорректный курсор сообщений.");
+  }
   const thread = await threadFor(orderId);
   const where = {
     threadId: thread.id,

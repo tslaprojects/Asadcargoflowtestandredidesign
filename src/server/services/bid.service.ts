@@ -8,7 +8,7 @@ import { AppError, errors } from "@/lib/errors";
 import { formatMoney, toMinor } from "@/lib/money";
 import { nextPublicNumber } from "@/lib/numbering";
 import { isCarrierRole } from "@/lib/permissions";
-import { isBidExpired, loadAcceptsBids, type bidCreateSchema } from "@/lib/validation/bid";
+import { isBidExpired, isLoadStale, loadAcceptsBids, type bidCreateSchema } from "@/lib/validation/bid";
 import { requireLoadRelation } from "./access";
 import { createContractInTx } from "./contract.service";
 import { CARRIER_OFFICE_ROLES, companyUserIds, CUSTOMER_ROLES, notify } from "./notification.service";
@@ -20,12 +20,35 @@ async function lockLoad(tx: Tx, loadId: string) {
   await tx.$queryRaw`SELECT id FROM "Load" WHERE id = ${loadId}::uuid FOR UPDATE`;
 }
 
+/**
+ * Самосделка: у компании-заказчика и компании-перевозчика есть общий пользователь.
+ * Такие сделки позволяют накручивать рейтинг и обороты, поэтому запрещены.
+ */
+async function assertNotSelfDealing(tx: Tx, customerCompanyId: string, carrierCompanyId: string) {
+  const shared = await tx.companyMember.findFirst({
+    where: { companyId: customerCompanyId, user: { memberships: { some: { companyId: carrierCompanyId } } } },
+    select: { id: true },
+  });
+  if (shared) throw errors.forbidden("Нельзя заключать сделку между компаниями, в которых состоит один и тот же пользователь.");
+}
+
 /** Помечает просроченные ставки как EXPIRED (ленивая актуализация). */
 export async function expireStaleBids(tx: Tx = prisma, loadId?: string) {
-  await tx.bid.updateMany({
+  const res = await tx.bid.updateMany({
     where: { status: "PENDING", validUntil: { lt: new Date() }, ...(loadId ? { loadId } : {}) },
     data: { status: "EXPIRED" },
   });
+  if (res.count === 0) return;
+  // Груз без активных предложений снова открыт для торгов и редактирования
+  if (loadId) {
+    await tx.$executeRaw`UPDATE "Load" SET status = 'PUBLISHED', "updatedAt" = now()
+      WHERE id = ${loadId}::uuid AND status = 'BIDDING'
+        AND NOT EXISTS (SELECT 1 FROM "Bid" b WHERE b."loadId" = "Load".id AND b.status = 'PENDING')`;
+  } else {
+    await tx.$executeRaw`UPDATE "Load" SET status = 'PUBLISHED', "updatedAt" = now()
+      WHERE status = 'BIDDING'
+        AND NOT EXISTS (SELECT 1 FROM "Bid" b WHERE b."loadId" = "Load".id AND b.status = 'PENDING')`;
+  }
 }
 
 function loadClosedMessage(status: string) {
@@ -51,7 +74,10 @@ export async function createBid(actor: Actor, loadId: string, input: BidCreate) 
       await expireStaleBids(tx, loadId);
       const load = await tx.load.findUniqueOrThrow({ where: { id: loadId } });
       if (!loadAcceptsBids(load.status)) throw new AppError("INVALID_STATE_TRANSITION", loadClosedMessage(load.status));
+      if (isLoadStale(load))
+        throw new AppError("INVALID_STATE_TRANSITION", "Дата загрузки по грузу уже прошла — предложения не принимаются.");
       if (load.companyId === membership.companyId) throw errors.forbidden("Нельзя предлагать цену на собственный груз.");
+      await assertNotSelfDealing(tx, load.companyId, membership.companyId);
 
       const active = await tx.bid.findFirst({ where: { loadId, carrierCompanyId: membership.companyId, status: "PENDING" } });
       if (active) {
@@ -359,6 +385,7 @@ export async function acceptBid(actor: Actor, bidId: string, expected?: { amount
         if (bid.status === "EXPIRED") throw new AppError("INVALID_STATE_TRANSITION", "Срок действия предложения истёк.");
         if (bid.status !== "PENDING") throw new AppError("INVALID_STATE_TRANSITION", "Предложение уже неактивно.");
         if (bid.carrier.verificationStatus === "SUSPENDED") throw errors.forbidden("Деятельность перевозчика приостановлена.");
+        await assertNotSelfDealing(tx, load.companyId, bid.carrierCompanyId);
         // Заказчик принимает ту цену, которую видел: если перевозчик успел её изменить — сделка не создаётся
         if (expected && (toMinor(Number(bid.amount)) !== toMinor(expected.amount) || bid.currency !== expected.currency)) {
           throw new AppError(
@@ -425,7 +452,8 @@ export async function acceptBid(actor: Actor, bidId: string, expected?: { amount
             actorUserId: actor.userId,
             actorType: "USER",
             source: "WEB",
-            comment: `Принято предложение ${bid.carrier.legalName}: ${formatMoney(Number(bid.amount), bid.currency)}`,
+            // Сумма не пишется в историю статусов: историю видит и водитель
+            comment: `Принято предложение ${bid.carrier.legalName}`,
           },
         });
         await audit(

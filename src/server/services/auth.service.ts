@@ -253,9 +253,13 @@ export async function requestPasswordReset(email: string, meta: RequestMeta) {
   // Ответ всегда одинаковый — не раскрываем, существует ли email
   if (!user || user.status === "BLOCKED" || user.deletedAt) return { ok: true };
   const token = generateToken(32);
-  await prisma.passwordResetToken.create({
-    data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 60 * 60_000) },
-  });
+  await prisma.$transaction([
+    // Действует только последняя ссылка: прежние неиспользованные токены аннулируются
+    prisma.passwordResetToken.updateMany({ where: { userId: user.id, usedAt: null }, data: { usedAt: new Date() } }),
+    prisma.passwordResetToken.create({
+      data: { userId: user.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + 60 * 60_000) },
+    }),
+  ]);
   const link = `${process.env.APP_URL ?? "http://localhost:3000"}/reset-password?token=${token}`;
   await sendEmail(user.email, "Сброс пароля CargoFlow", `Для установки нового пароля перейдите по ссылке (действует 1 час): ${link}`);
   await audit(
@@ -294,9 +298,28 @@ export async function changePassword(actor: Actor, input: z.output<typeof change
   if (!(await verifyPassword(input.currentPassword, user.passwordHash))) {
     throw errors.validation("Текущий пароль указан неверно.", { currentPassword: ["Неверный пароль"] });
   }
-  await prisma.user.update({ where: { id: actor.userId }, data: { passwordHash: await hashPassword(input.newPassword) } });
-  await audit(actor, { action: AuditAction.USER_UPDATED, entityType: "User", entityId: actor.userId, newValue: { password: "changed" } });
-  return { ok: true };
+  const passwordHash = await hashPassword(input.newPassword);
+  const revoked = await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: actor.userId }, data: { passwordHash } });
+    // Все остальные сессии завершаются: если пароль меняют из-за утечки, чужой вход должен прекратиться
+    const r = await tx.session.updateMany({
+      where: { userId: actor.userId, revokedAt: null, ...(actor.sessionId ? { id: { not: actor.sessionId } } : {}) },
+      data: { revokedAt: new Date() },
+    });
+    await tx.passwordResetToken.updateMany({ where: { userId: actor.userId, usedAt: null }, data: { usedAt: new Date() } });
+    await audit(
+      actor,
+      {
+        action: AuditAction.USER_UPDATED,
+        entityType: "User",
+        entityId: actor.userId,
+        newValue: { password: "changed", sessionsRevoked: r.count },
+      },
+      tx,
+    );
+    return r.count;
+  });
+  return { ok: true, sessionsRevoked: revoked };
 }
 
 export async function updateProfile(actor: Actor, input: z.output<typeof profileUpdateSchema>) {

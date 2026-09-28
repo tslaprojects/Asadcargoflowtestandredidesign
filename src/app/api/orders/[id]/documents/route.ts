@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { route } from "@/lib/api/handler";
+import { readUploadForm, route } from "@/lib/api/handler";
 import { errors } from "@/lib/errors";
 import { listOrderDocuments, uploadOrderDocument } from "@/server/services/document.service";
 
@@ -24,8 +24,7 @@ export const GET = route<{ id: string }>({}, async ({ actor, params, req }) =>
 );
 
 export const POST = route<{ id: string }>({ status: 201, rateLimit: "upload" }, async ({ req, actor, params }) => {
-  const form = await req.formData().catch(() => null);
-  if (!form) throw errors.validation("Ожидается multipart/form-data.");
+  const form = await readUploadForm(req);
   const type = typeSchema.safeParse(form.get("type"));
   if (!type.success) throw errors.validation("Выберите тип документа.", { type: ["Выберите тип документа"] });
   const note = (form.get("note") as string | null)?.slice(0, 500) || null;

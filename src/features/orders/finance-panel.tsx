@@ -14,8 +14,6 @@ import { useAction } from "@/lib/client/use-action";
 import { formatDate } from "@/lib/format";
 import { enumOptions, label } from "@/lib/i18n";
 import type { FinanceSummary } from "@/lib/money";
-import { toast } from "sonner";
-import { errorMessage } from "@/lib/client/api";
 
 type Payment = {
   id: string;
@@ -34,6 +32,7 @@ export function FinancePanel({
   summary,
   payments,
   canEdit,
+  canConfirmPaid = false,
   closedOrCancelled,
   secureDeal = false,
 }: {
@@ -41,6 +40,8 @@ export function FinancePanel({
   summary: FinanceSummary;
   payments: Payment[];
   canEdit: boolean;
+  /** Подтвердить получение оплаты может получатель (перевозчик) или администратор */
+  canConfirmPaid?: boolean;
   closedOrCancelled: boolean;
   /** Расчёты ведутся через безопасную сделку — ручной учёт скрыт */
   secureDeal?: boolean;
@@ -58,14 +59,6 @@ export function FinancePanel({
         }),
       { success: "Платёж добавлен", onSuccess: () => setOpen(false) },
     );
-
-  const requestPriceChange = async () => {
-    try {
-      await api(`/api/orders/${orderId}/price`, { method: "POST" });
-    } catch (e) {
-      toast.info(errorMessage(e));
-    }
-  };
 
   const tiles = secureDeal
     ? [
@@ -96,9 +89,6 @@ export function FinancePanel({
           <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle>Платежи</CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" size="sm" onClick={requestPriceChange}>
-                Изменить стоимость
-              </Button>
               {canEdit && !closedOrCancelled && (
                 <Button size="sm" onClick={() => setOpen(true)}>
                   <Plus /> Добавить платёж
@@ -153,18 +143,20 @@ export function FinancePanel({
                                   Счёт выставлен
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={pending}
-                                onClick={() =>
-                                  run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "PAID" } }), {
-                                    success: "Платёж отмечен оплаченным",
-                                  })
-                                }
-                              >
-                                Оплачено
-                              </Button>
+                              {canConfirmPaid && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={pending}
+                                  onClick={() =>
+                                    run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "PAID" } }), {
+                                      success: "Платёж отмечен оплаченным",
+                                    })
+                                  }
+                                >
+                                  Оплачено
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="ghost"
@@ -224,7 +216,7 @@ export function FinancePanel({
             <NativeSelect value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
               <option value="PLANNED">Запланирован</option>
               <option value="INVOICED">Выставлен счёт</option>
-              <option value="PAID">Оплачен</option>
+              {canConfirmPaid && <option value="PAID">Оплачен</option>}
             </NativeSelect>
           </Field>
           <Field id="p-due" label="Срок оплаты">

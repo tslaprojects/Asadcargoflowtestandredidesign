@@ -48,3 +48,19 @@ export function loadAcceptsBids(loadStatus: string): boolean {
 export function isBidExpired(bid: { status: string; validUntil: Date | string | null }, now = new Date()): boolean {
   return bid.status === "PENDING" && !!bid.validUntil && new Date(bid.validUntil) < now;
 }
+
+/** Груз «актуален» для биржи: крайняя дата загрузки не прошла (сутки запаса на разницу часовых поясов). */
+export const STALE_LOAD_GRACE_MS = 24 * 60 * 60_000;
+export function isLoadStale(load: { loadingDateFrom: Date | string; loadingDateTo: Date | string | null }, now = new Date()): boolean {
+  const latest = new Date(load.loadingDateTo ?? load.loadingDateFrom);
+  return latest.getTime() < now.getTime() - STALE_LOAD_GRACE_MS;
+}
+
+/** Prisma-условие «груз актуален» (та же логика, что isLoadStale). */
+export function actualLoadWhere(now = new Date()) {
+  const cutoff = new Date(now.getTime() - STALE_LOAD_GRACE_MS);
+  return {
+    OR: [{ loadingDateTo: { gte: cutoff } }, { loadingDateTo: null, loadingDateFrom: { gte: cutoff } }],
+    company: { verificationStatus: { not: "SUSPENDED" as const }, deletedAt: null },
+  };
+}

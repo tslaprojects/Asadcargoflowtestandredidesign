@@ -48,3 +48,24 @@ export const paginationSchema = z.object({
 });
 
 export const currencySchema = z.enum(["USD", "CNY", "KZT", "RUB"], { message: "Выберите валюту" });
+
+/** Дата из фильтра (YYYY-MM-DD или ISO). Пусто — фильтр не задан; мусор — ошибка валидации, а не 500. */
+export const filterDate = z
+  .union([
+    z.literal(""),
+    z
+      .string()
+      .trim()
+      .regex(/^\d{4}-\d{2}-\d{2}([T ][\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/, "Некорректная дата"),
+  ])
+  .optional()
+  .refine((v) => !v || !Number.isNaN(new Date(v).getTime()), "Некорректная дата")
+  .transform((v) => (v ? v.slice(0, 10) : undefined))
+  .optional();
+
+/** Необязательный UUID из query; пусто — не задан. */
+export const optionalUuidParam = z
+  .union([z.literal(""), z.uuid({ message: "Некорректный идентификатор" })])
+  .optional()
+  .transform((v) => (v ? v : undefined))
+  .optional();

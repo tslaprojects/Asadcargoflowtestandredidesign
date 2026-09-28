@@ -511,7 +511,7 @@ async function main() {
     { publish: true },
   );
   const oClosed = await runOrderToSigned(aShipper, aCarrier, lClosed, 4200);
-  await createPayment(aShipper, oClosed, {
+  await createPayment(aCarrier, oClosed, {
     type: "PREPAYMENT",
     amount: 1500,
     currency: "USD",
@@ -598,7 +598,7 @@ async function main() {
     { publish: true },
   );
   const oTransit = await runOrderToSigned(aShipper, aCarrier, lTransit, 4500);
-  await createPayment(aShipper, oTransit, {
+  await createPayment(aCarrier, oTransit, {
     type: "PREPAYMENT",
     amount: 1500,
     currency: "USD",

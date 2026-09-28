@@ -45,7 +45,7 @@ export function DocumentList({
   const href = (d: DocItem, inline = false) =>
     downloadBase === "/api/documents"
       ? `/api/documents/${d.id}/download${inline ? "?inline=1" : ""}`
-      : `${downloadBase}/${d.id}${inline ? "?inline=1" : ""}`;
+      : `${downloadBase}/${d.id}/download${inline ? "?inline=1" : ""}`;
 
   if (docs.length === 0) return <p className="text-muted-foreground py-6 text-center text-sm">Документов пока нет</p>;
   return (

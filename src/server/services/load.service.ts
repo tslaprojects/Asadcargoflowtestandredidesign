@@ -12,6 +12,8 @@ import { nextPublicNumber } from "@/lib/numbering";
 import type { z } from "zod";
 import type { loadInputSchema, loadListQuerySchema } from "@/lib/validation/load";
 import { requireLoadRelation } from "./access";
+import { expireStaleBids } from "./bid.service";
+import { actualLoadWhere } from "@/lib/validation/bid";
 import { companyRatings } from "./company.service";
 import { CARRIER_OFFICE_ROLES, companyUserIds, notify } from "./notification.service";
 import { getSettings } from "./settings.service";
@@ -159,6 +161,7 @@ export async function updateLoad(actor: Actor, loadId: string, input: LoadParsed
 
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
+    await expireStaleBids(tx, loadId);
     const current = await tx.load.findUniqueOrThrow({ where: { id: loadId }, include: { stops: true } });
     if (current.status === "BIDDING") {
       throw new AppError("INVALID_STATE_TRANSITION", "Груз нельзя изменить: по нему уже есть предложения. Отмените груз и создайте новый.");
@@ -342,6 +345,7 @@ export async function cancelLoad(actor: Actor, loadId: string, reason: string | 
 
 export async function getLoadDetail(actor: Actor, loadId: string) {
   const { relation, membership } = await requireLoadRelation(actor, loadId);
+  await expireStaleBids(prisma, loadId);
   const isOwner = relation === "OWNER" || relation === "ADMIN";
   const myCompanyIds = actor.memberships.map((m) => m.companyId);
 
@@ -396,17 +400,20 @@ export async function getLoadDetail(actor: Actor, loadId: string) {
 }
 
 export async function listLoads(actor: Actor, q: ListQuery) {
+  await expireStaleBids(prisma);
   const and: Prisma.LoadWhereInput[] = [{ deletedAt: null }];
 
   if (q.scope === "mine") {
     const m = requireActiveCompany(actor);
     if (!isCustomerRole(m.role)) throw errors.forbidden();
     and.push({ companyId: m.companyId });
-    if (q.status) and.push({ status: q.status as LoadStatus });
+    if (q.status) and.push({ status: q.status });
   } else {
     if (!actor.permissions.has("MARKETPLACE_VIEW")) throw errors.forbidden("Биржа грузов доступна перевозчикам и экспедиторам.");
     const myCompanyIds = actor.memberships.map((m) => m.companyId);
     and.push({ status: { in: ["PUBLISHED", "BIDDING"] } });
+    // Без грузов с прошедшей датой загрузки и грузов приостановленных компаний
+    and.push(actualLoadWhere());
     and.push({
       OR: [{ visibility: "MARKETPLACE" }, { visibility: "INVITE_ONLY", invitations: { some: { carrierCompanyId: { in: myCompanyIds } } } }],
     });

@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { audit, AuditAction } from "@/lib/audit/audit";
 import { requirePermission, type Actor } from "@/lib/auth/actor";
 import { prisma, type Tx } from "@/lib/db/prisma";
+import { errors } from "@/lib/errors";
 
 export type PlatformSettings = {
   /** Комиссия платформы по безопасной сделке, % от суммы */
@@ -45,6 +46,11 @@ export async function getSettings(tx: Tx = prisma): Promise<PlatformSettings> {
 
 export async function updateSettings(actor: Actor, input: PlatformSettings) {
   requirePermission(actor, "ADMIN_SETTINGS");
+  if (input.requireSecureDeal && !input.secureDealEnabled) {
+    throw errors.validation("Нельзя требовать безопасную сделку, если она отключена.", {
+      requireSecureDeal: ["Противоречит отключённой сделке"],
+    });
+  }
   const before = await getSettings();
   await prisma.$transaction(async (tx) => {
     for (const [key, value] of Object.entries(input)) {
