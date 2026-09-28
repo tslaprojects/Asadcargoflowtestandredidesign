@@ -430,7 +430,7 @@ export async function cancelMovement(actor: Actor, movementId: string) {
 
 // ─────────── Подбор ───────────
 
-async function computeMatches(movementId: string, companyId: string, sort: MatchSort) {
+async function computeMatches(movementId: string, companyId: string, sort: MatchSort, preloaded?: CandidateLoad[]) {
   const movement = await prisma.plannedMovement.findFirstOrThrow({
     where: { id: movementId, companyId },
     include: {
@@ -449,7 +449,7 @@ async function computeMatches(movementId: string, companyId: string, sort: Match
       },
     },
   });
-  const loads = await candidateLoads(companyId, movement.availableUntil);
+  const loads = preloaded ?? (await candidateLoads(companyId, movement.availableUntil));
   const byId = new Map(loads.map((l) => [l.id, l]));
   const { matches, rejected } = matchNextLoads(
     {
@@ -585,23 +585,36 @@ export async function nextLoadPreviews(actor: Actor) {
       vehicle: { select: { id: true, plateNumber: true, bodyType: true, capacityKg: true, volumeM3: true, gpsEnabled: true } },
     },
   });
-  const seen = new Set<string>();
-  const previews = [];
-  for (const o of orders) {
-    if (!o.vehicleId || seen.has(o.vehicleId)) continue;
-    seen.add(o.vehicleId);
-    const situation = await situationForOrder(o);
-    if (!situation.freePoint) continue;
-    const movement = await prisma.plannedMovement.findFirst({
-      where: { vehicleId: o.vehicleId, status: "ACTIVE" },
+  // Уникальные машины (последний рейс каждой) и все данные для подбора — пакетно, без запросов в цикле
+  const latestByVehicle = new Map<string, (typeof orders)[number]>();
+  for (const o of orders) if (o.vehicleId && !latestByVehicle.has(o.vehicleId)) latestByVehicle.set(o.vehicleId, o);
+  const vehicleOrders = [...latestByVehicle.values()];
+  const [situations, movements] = await Promise.all([
+    Promise.all(vehicleOrders.map((o) => situationForOrder(o))),
+    prisma.plannedMovement.findMany({
+      where: { vehicleId: { in: [...latestByVehicle.keys()] }, status: "ACTIVE" },
       include: { destinations: { orderBy: { sequence: "asc" } } },
-    });
+    }),
+  ]);
+  const until = new Date(
+    Math.max(
+      Date.now(),
+      ...situations.map((x) => x.freeFrom.getTime() + DEFAULT_WINDOW_DAYS * DAY),
+      ...movements.map((m) => m.availableUntil.getTime()),
+    ),
+  );
+  const loads = vehicleOrders.length ? await candidateLoads(scope.companyId, until) : [];
+  const candidates = loads.map(toCandidate);
+  const previews = [];
+  for (const [i, o] of vehicleOrders.entries()) {
+    const situation = situations[i];
+    if (!situation.freePoint) continue;
+    const movement = movements.find((m) => m.vehicleId === o.vehicleId) ?? null;
     let count: number;
     if (movement) {
-      count = (await computeMatches(movement.id, scope.companyId, "efficiency")).matches.length;
+      count = (await computeMatches(movement.id, scope.companyId, "efficiency", loads)).matches.length;
     } else {
-      const until = new Date(situation.freeFrom.getTime() + DEFAULT_WINDOW_DAYS * DAY);
-      const loads = await candidateLoads(scope.companyId, until);
+      const vehicleUntil = new Date(situation.freeFrom.getTime() + DEFAULT_WINDOW_DAYS * DAY);
       count = matchNextLoads(
         {
           origin: situation.freePoint,
@@ -609,7 +622,7 @@ export async function nextLoadPreviews(actor: Actor) {
           allowedDeviationKm: 250,
           maxPickupDistanceKm: 300,
           availableFrom: situation.freeFrom,
-          availableUntil: until,
+          availableUntil: vehicleUntil,
           vehicle: o.vehicle
             ? {
                 bodyType: o.vehicle.bodyType,
@@ -619,7 +632,7 @@ export async function nextLoadPreviews(actor: Actor) {
               }
             : null,
         },
-        loads.map(toCandidate),
+        candidates,
       ).matches.length;
     }
     const directions = movement?.destinations.map((d) => d.label) ?? [];

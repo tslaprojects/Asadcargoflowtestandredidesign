@@ -96,6 +96,21 @@ export async function updateVehicle(actor: Actor, vehicleId: string, input: Vehi
   if (v.status === "ASSIGNED" && input.status && input.status !== "AVAILABLE") {
     throw new AppError("VEHICLE_UNAVAILABLE", "Автомобиль на рейсе — сначала снимите его с перевозки.");
   }
+  if (v.status === "ASSIGNED") {
+    // Машина на рейсе подобрана под требования груза — ключевые характеристики менять нельзя до снятия с рейса
+    const changed =
+      Number(input.capacityKg) < Number(v.capacityKg) ||
+      input.bodyType !== v.bodyType ||
+      (v.gpsEnabled && !input.gpsEnabled) ||
+      input.plateNumber !== v.plateNumber ||
+      input.country !== v.country;
+    if (changed) {
+      throw new AppError(
+        "VEHICLE_UNAVAILABLE",
+        "Автомобиль на рейсе: госномер, тип кузова, GPS и грузоподъёмность можно изменить после снятия с перевозки.",
+      );
+    }
+  }
   const nextStatus = v.status === "ASSIGNED" ? "ASSIGNED" : (input.status ?? v.status);
   try {
     return await prisma.$transaction(async (tx) => {
@@ -130,6 +145,9 @@ export async function deleteVehicle(actor: Actor, vehicleId: string) {
   if (v.status === "ASSIGNED") throw new AppError("VEHICLE_UNAVAILABLE", "Нельзя удалить автомобиль, назначенный на рейс.");
   await prisma.$transaction(async (tx) => {
     await tx.vehicle.update({ where: { id: vehicleId }, data: { deletedAt: new Date(), status: "INACTIVE" } });
+    // Удалённая машина не должна оставаться в топливных картах и планах следующего рейса
+    const cards = await tx.fuelCard.updateMany({ where: { vehicleId }, data: { vehicleId: null } });
+    const plans = await tx.plannedMovement.updateMany({ where: { vehicleId, status: "ACTIVE" }, data: { status: "CANCELLED" } });
     await audit(
       actor,
       {
@@ -137,7 +155,7 @@ export async function deleteVehicle(actor: Actor, vehicleId: string) {
         entityType: "Vehicle",
         entityId: vehicleId,
         companyId: m.companyId,
-        newValue: { deleted: true },
+        newValue: { deleted: true, fuelCardsUnlinked: cards.count, plansCancelled: plans.count },
       },
       tx,
     );

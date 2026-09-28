@@ -13,8 +13,13 @@ function ttlMs() {
   return (Number.isFinite(days) && days > 0 ? days : 14) * 24 * 60 * 60 * 1000;
 }
 
-function secureCookies() {
-  return process.env.NODE_ENV === "production" && (process.env.APP_URL ?? "").startsWith("https://");
+/**
+ * Флаг Secure у cookie сессии: в production — всегда, кроме явного локального запуска по http
+ * (APP_URL=http://localhost…). Незаданный APP_URL больше не отключает Secure.
+ */
+export function secureCookies(env: { NODE_ENV?: string; APP_URL?: string } = process.env) {
+  if (env.NODE_ENV !== "production") return false;
+  return !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/|$)/i.test(env.APP_URL ?? "");
 }
 
 /**

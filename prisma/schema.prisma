@@ -499,19 +499,48 @@ model User {
   updatedAt    DateTime     @updatedAt @db.Timestamptz(3)
   deletedAt    DateTime?    @db.Timestamptz(3)
 
-  sessions            Session[]
-  passwordResetTokens PasswordResetToken[]
-  memberships         CompanyMember[]
-  driverProfiles      DriverProfile[]
-  createdLoads        Load[]               @relation("LoadCreatedBy")
-  bids                Bid[]                @relation("BidCreatedBy")
-  bidMessages         BidMessage[]
-  notifications       Notification[]
-  signatures          ContractSignature[]
-  chatMessages        ChatMessage[]
-  auditLogs           AuditLog[]
-  idempotencyKeys     IdempotencyKey[]
-  chatReadStates      ChatReadState[]
+  sessions                     Session[]
+  passwordResetTokens          PasswordResetToken[]
+  memberships                  CompanyMember[]
+  driverProfiles               DriverProfile[]
+  createdLoads                 Load[]                        @relation("LoadCreatedBy")
+  bids                         Bid[]                         @relation("BidCreatedBy")
+  bidMessages                  BidMessage[]
+  notifications                Notification[]
+  signatures                   ContractSignature[]
+  chatMessages                 ChatMessage[]
+  auditLogs                    AuditLog[]
+  idempotencyKeys              IdempotencyKey[]
+  chatReadStates               ChatReadState[]
+  uploadedCompanyDocuments     CompanyDocument[]             @relation("CompanyDocumentUploader")
+  submittedVerifications       VerificationRequest[]         @relation("VerificationSubmitter")
+  reviewedVerifications        VerificationRequest[]         @relation("VerificationReviewer")
+  uploadedLoadDocuments        LoadDocument[]                @relation("LoadDocumentUploader")
+  askedQuestions               LoadQuestion[]                @relation("LoadQuestionAuthor")
+  answeredQuestions            LoadQuestion[]                @relation("LoadQuestionAnswerer")
+  decidedBids                  Bid[]                         @relation("BidDecidedBy")
+  orderStatusChanges           TransportOrderStatusHistory[] @relation("OrderStatusActor")
+  orderParticipations          TransportOrderParticipant[]   @relation("OrderParticipantUser")
+  uploadedOrderDocuments       OrderDocument[]               @relation("OrderDocumentUploader")
+  deletedOrderDocuments        OrderDocument[]               @relation("OrderDocumentDeleter")
+  trackingEvents               TrackingEvent[]               @relation("TrackingEventUser")
+  createdPayments              PaymentRecord[]               @relation("PaymentCreator")
+  requestedPaymentOperations   PaymentTransaction[]          @relation("PaymentOperationRequester")
+  paymentStatusChanges         PaymentStatusHistory[]        @relation("PaymentStatusActor")
+  plannedMovements             PlannedMovement[]             @relation("PlannedMovementCreator")
+  reviewsWritten               Review[]                      @relation("ReviewAuthor")
+  openedDisputes               Dispute[]                     @relation("DisputeOpener")
+  resolvedDisputes             Dispute[]                     @relation("DisputeResolver")
+  disputeComments              DisputeComment[]              @relation("DisputeCommentAuthor")
+  sentInvites                  CompanyInvite[]               @relation("InviteSender")
+  acceptedInvites              CompanyInvite[]               @relation("InviteAcceptor")
+  fuelAccountEntries           FuelAccountEntry[]            @relation("FuelEntryCreator")
+  issuedFuelCards              FuelCard[]                    @relation("FuelCardCreator")
+  reviewedFuelAnomalies        FuelAnomaly[]                 @relation("FuelAnomalyReviewer")
+  openedFuelInvestigations     FuelInvestigation[]           @relation("FuelInvestigationOpener")
+  closedFuelInvestigations     FuelInvestigation[]           @relation("FuelInvestigationCloser")
+  fuelInvestigationComments    FuelInvestigationComment[]    @relation("FuelInvestigationCommentAuthor")
+  fuelInvestigationAttachments FuelInvestigationAttachment[] @relation("FuelInvestigationAttachmentUploader")
 }
 
 model Session {
@@ -601,6 +630,10 @@ model Company {
   reviewsReceived      Review[]                    @relation("ReviewTo")
   auditLogs            AuditLog[]
 
+  uploadedOrderDocuments OrderDocument[] @relation("OrderDocumentCompany")
+  chatMessages           ChatMessage[]   @relation("ChatMessageCompany")
+  openedDisputes         Dispute[]       @relation("DisputeOpenerCompany")
+
   @@unique([country, registrationNumber])
   @@index([type])
   @@index([verificationStatus])
@@ -640,6 +673,10 @@ model CompanyInvite {
 
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
+  invitedBy     User           @relation("InviteSender", fields: [invitedByUserId], references: [id])
+  acceptedBy    User?          @relation("InviteAcceptor", fields: [acceptedByUserId], references: [id], onDelete: SetNull)
+  driverProfile DriverProfile? @relation("InviteDriverProfile", fields: [driverProfileId], references: [id], onDelete: SetNull)
+
   @@index([companyId])
   @@index([email])
 }
@@ -661,6 +698,8 @@ model CompanyDocument {
   company             Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   verificationRequest VerificationRequest? @relation(fields: [verificationRequestId], references: [id])
 
+  uploadedBy User @relation("CompanyDocumentUploader", fields: [uploadedByUserId], references: [id])
+
   @@index([companyId])
 }
 
@@ -678,6 +717,9 @@ model VerificationRequest {
 
   company   Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
   documents CompanyDocument[]
+
+  submittedBy User  @relation("VerificationSubmitter", fields: [submittedByUserId], references: [id])
+  reviewer    User? @relation("VerificationReviewer", fields: [reviewerUserId], references: [id], onDelete: SetNull)
 
   @@index([companyId])
   @@index([status])
@@ -722,7 +764,8 @@ model Vehicle {
   fuelAnomalies      FuelAnomaly[]
   fuelInvestigations FuelInvestigation[]
 
-  @@unique([country, plateNumber])
+  // Уникальность госномера — только среди неудалённых машин: частичный индекс "Vehicle_active_plate_unique" в миграции
+  @@index([country, plateNumber])
   @@index([companyId, status])
   @@index([plateNumber])
 }
@@ -748,6 +791,10 @@ model DriverProfile {
   plannedMovements PlannedMovement[]
   fuelCards        FuelCard[]
   fuelTransactions FuelTransaction[]
+
+  invites            CompanyInvite[]     @relation("InviteDriverProfile")
+  fuelAnomalies      FuelAnomaly[]       @relation("FuelAnomalyDriver")
+  fuelInvestigations FuelInvestigation[] @relation("FuelInvestigationDriver")
 
   @@unique([companyId, userId])
   @@index([companyId, status])
@@ -871,6 +918,8 @@ model LoadDocument {
 
   load Load @relation(fields: [loadId], references: [id], onDelete: Cascade)
 
+  uploadedBy User @relation("LoadDocumentUploader", fields: [uploadedByUserId], references: [id])
+
   @@index([loadId])
 }
 
@@ -888,6 +937,9 @@ model LoadQuestion {
 
   load    Load    @relation(fields: [loadId], references: [id], onDelete: Cascade)
   company Company @relation(fields: [companyId], references: [id])
+
+  askedBy    User  @relation("LoadQuestionAuthor", fields: [askedByUserId], references: [id])
+  answeredBy User? @relation("LoadQuestionAnswerer", fields: [answeredByUserId], references: [id], onDelete: SetNull)
 
   @@index([loadId])
 }
@@ -919,6 +971,8 @@ model Bid {
   createdBy User            @relation("BidCreatedBy", fields: [createdByUserId], references: [id])
   messages  BidMessage[]
   order     TransportOrder?
+
+  decidedBy User? @relation("BidDecidedBy", fields: [decidedByUserId], references: [id], onDelete: SetNull)
 
   @@index([loadId])
   @@index([carrierCompanyId, status])
@@ -993,6 +1047,8 @@ model TransportOrder {
   nextMovements    PlannedMovement[]
   fuelTransactions FuelTransaction[]
 
+  fuelAnomalies FuelAnomaly[] @relation("FuelAnomalyOrder")
+
   @@index([currentStatus])
   @@index([currentStatus, confirmationDueAt])
   @@index([carrierCompanyId])
@@ -1019,6 +1075,8 @@ model TransportOrderStatusHistory {
 
   order TransportOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  actorUser User? @relation("OrderStatusActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
   @@index([orderId, createdAt])
 }
 
@@ -1033,6 +1091,8 @@ model TransportOrderParticipant {
 
   order   TransportOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   company Company?       @relation(fields: [companyId], references: [id])
+
+  user User? @relation("OrderParticipantUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@unique([orderId, role, companyId, userId])
   @@index([companyId])
@@ -1125,6 +1185,10 @@ model OrderDocument {
   order        TransportOrder @relation(fields: [orderId], references: [id])
   chatMessages ChatMessage[]
 
+  uploadedBy      User     @relation("OrderDocumentUploader", fields: [uploadedByUserId], references: [id])
+  deletedBy       User?    @relation("OrderDocumentDeleter", fields: [deletedByUserId], references: [id], onDelete: SetNull)
+  uploadedCompany Company? @relation("OrderDocumentCompany", fields: [uploadedCompanyId], references: [id], onDelete: SetNull)
+
   @@index([orderId, createdAt])
   @@index([groupId])
 }
@@ -1146,6 +1210,8 @@ model TrackingEvent {
   updatedAt  DateTime          @updatedAt @db.Timestamptz(3)
 
   order TransportOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  user User? @relation("TrackingEventUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([orderId, createdAt])
 }
@@ -1177,6 +1243,8 @@ model ChatMessage {
   thread     ChatThread     @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender     User           @relation(fields: [senderUserId], references: [id])
   attachment OrderDocument? @relation(fields: [attachmentId], references: [id])
+
+  senderCompany Company? @relation("ChatMessageCompany", fields: [senderCompanyId], references: [id], onDelete: SetNull)
 
   @@index([threadId, createdAt])
 }
@@ -1267,6 +1335,8 @@ model PaymentRecord {
   transactions  PaymentTransaction[]
   statusHistory PaymentStatusHistory[]
 
+  createdBy User? @relation("PaymentCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
   @@index([orderId])
   @@index([type, status])
 }
@@ -1294,6 +1364,9 @@ model PaymentTransaction {
 
   payment PaymentRecord @relation(fields: [paymentId], references: [id])
 
+  requestedBy   User?                  @relation("PaymentOperationRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+  statusChanges PaymentStatusHistory[] @relation("PaymentStatusTransaction")
+
   @@index([paymentId, createdAt])
   @@index([provider, providerTransactionId])
 }
@@ -1311,6 +1384,9 @@ model PaymentStatusHistory {
   updatedAt     DateTime       @updatedAt @db.Timestamptz(3)
 
   payment PaymentRecord @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  actorUser   User?               @relation("PaymentStatusActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  transaction PaymentTransaction? @relation("PaymentStatusTransaction", fields: [transactionId], references: [id], onDelete: SetNull)
 
   @@index([paymentId, createdAt])
 }
@@ -1351,6 +1427,8 @@ model PlannedMovement {
   driver       DriverProfile?               @relation(fields: [driverId], references: [id])
   sourceOrder  TransportOrder?              @relation(fields: [sourceOrderId], references: [id])
   destinations PlannedMovementDestination[]
+
+  createdBy User @relation("PlannedMovementCreator", fields: [createdByUserId], references: [id])
 
   @@index([companyId, status])
   @@index([vehicleId, status])
@@ -1394,6 +1472,8 @@ model Review {
   fromCompany Company        @relation("ReviewFrom", fields: [fromCompanyId], references: [id])
   toCompany   Company        @relation("ReviewTo", fields: [toCompanyId], references: [id])
 
+  fromUser User @relation("ReviewAuthor", fields: [fromUserId], references: [id])
+
   @@unique([orderId, fromCompanyId])
   @@index([toCompanyId])
 }
@@ -1417,6 +1497,10 @@ model Dispute {
   comments DisputeComment[]
   payments PaymentRecord[]
 
+  openedBy        User     @relation("DisputeOpener", fields: [openedByUserId], references: [id])
+  openedByCompany Company? @relation("DisputeOpenerCompany", fields: [openedByCompanyId], references: [id], onDelete: SetNull)
+  resolvedBy      User?    @relation("DisputeResolver", fields: [resolvedByUserId], references: [id], onDelete: SetNull)
+
   @@index([orderId])
   @@index([status])
 }
@@ -1430,6 +1514,8 @@ model DisputeComment {
   updatedAt    DateTime @updatedAt @db.Timestamptz(3)
 
   dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  author User @relation("DisputeCommentAuthor", fields: [authorUserId], references: [id])
 
   @@index([disputeId, createdAt])
 }
@@ -1527,6 +1613,9 @@ model FuelAccountEntry {
 
   account FuelAccount @relation(fields: [accountId], references: [id])
 
+  createdBy       User?            @relation("FuelEntryCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  fuelTransaction FuelTransaction? @relation("FuelEntryTransaction", fields: [fuelTransactionId], references: [id], onDelete: SetNull)
+
   @@index([accountId, createdAt])
 }
 
@@ -1575,6 +1664,8 @@ model FuelCard {
   vehicle      Vehicle?          @relation(fields: [vehicleId], references: [id])
   driver       DriverProfile?    @relation(fields: [driverId], references: [id])
   transactions FuelTransaction[]
+
+  createdBy User @relation("FuelCardCreator", fields: [createdByUserId], references: [id])
 
   @@unique([provider, providerCardId])
   @@unique([companyId, label])
@@ -1633,6 +1724,8 @@ model FuelTransaction {
   order          TransportOrder?                @relation(fields: [orderId], references: [id])
   anomalies      FuelAnomaly[]
   investigations FuelInvestigationTransaction[]
+
+  accountEntries FuelAccountEntry[] @relation("FuelEntryTransaction")
 
   @@unique([provider, providerTransactionId])
   @@index([companyId, transactionDate])
@@ -1700,6 +1793,10 @@ model FuelAnomaly {
   transaction   FuelTransaction?   @relation(fields: [fuelTransactionId], references: [id])
   investigation FuelInvestigation? @relation(fields: [investigationId], references: [id])
 
+  driver     DriverProfile?  @relation("FuelAnomalyDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  order      TransportOrder? @relation("FuelAnomalyOrder", fields: [orderId], references: [id], onDelete: SetNull)
+  reviewedBy User?           @relation("FuelAnomalyReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+
   @@index([companyId, status, detectedAt])
   @@index([vehicleId, detectedAt])
 }
@@ -1724,6 +1821,10 @@ model FuelInvestigation {
   transactions FuelInvestigationTransaction[]
   comments     FuelInvestigationComment[]
   attachments  FuelInvestigationAttachment[]
+
+  driver   DriverProfile? @relation("FuelInvestigationDriver", fields: [driverId], references: [id], onDelete: SetNull)
+  openedBy User           @relation("FuelInvestigationOpener", fields: [openedByUserId], references: [id])
+  closedBy User?          @relation("FuelInvestigationCloser", fields: [closedByUserId], references: [id], onDelete: SetNull)
 
   @@index([companyId, status])
 }
@@ -1751,6 +1852,8 @@ model FuelInvestigationComment {
 
   investigation FuelInvestigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
 
+  author User @relation("FuelInvestigationCommentAuthor", fields: [authorUserId], references: [id])
+
   @@index([investigationId, createdAt])
 }
 
@@ -1768,6 +1871,8 @@ model FuelInvestigationAttachment {
   deletedAt        DateTime? @db.Timestamptz(3)
 
   investigation FuelInvestigation @relation(fields: [investigationId], references: [id], onDelete: Cascade)
+
+  uploadedBy User @relation("FuelInvestigationAttachmentUploader", fields: [uploadedByUserId], references: [id])
 
   @@index([investigationId])
 }

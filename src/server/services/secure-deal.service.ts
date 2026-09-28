@@ -791,28 +791,98 @@ export async function unfreezeInTx(tx: Tx, paymentId: string, actor: Actor, reas
 }
 
 /** После фиксации решения по спору — операции у провайдера. */
-export async function executeDisputeOutcome(
-  actor: Actor,
+type PendingDisputeOutcome = {
+  disputeId: string;
+  outcome: Exclude<DisputePaymentOutcome, "KEEP">;
+  /** Для SPLIT: сколько всего должно быть выплачено перевозчику после исполнения решения */
+  targetReleased: number | null;
+  reason: string;
+};
+
+function pendingOutcomeOf(p: PaymentRow): PendingDisputeOutcome | null {
+  const meta = (p.metadata ?? {}) as Record<string, unknown>;
+  return (meta.pendingDisputeOutcome as PendingDisputeOutcome | undefined) ?? null;
+}
+
+/**
+ * Внутри транзакции закрытия спора: решение по деньгам фиксируется в платеже до обращения к провайдеру.
+ * Если операция у провайдера не пройдёт, решение не потеряется — его доисполнит плановая задача.
+ */
+export async function recordDisputeOutcomeInTx(
+  tx: Tx,
   paymentId: string,
-  outcome: DisputePaymentOutcome,
-  releaseAmount: number | null | undefined,
-  reason: string,
+  input: { disputeId: string; outcome: DisputePaymentOutcome; releaseAmount: number | null | undefined; reason: string },
 ) {
-  if (outcome === "KEEP") return;
-  if (outcome === "RELEASE_FULL") {
-    await requestOperation({ paymentId, kind: "RELEASE", by: "ADMIN", actor, reason });
-    return;
+  if (input.outcome === "KEEP") return;
+  const p = await lockPayment(tx, paymentId);
+  const pending: PendingDisputeOutcome = {
+    disputeId: input.disputeId,
+    outcome: input.outcome,
+    targetReleased: input.outcome === "SPLIT" ? fromMinor(toMinor(n(p.releasedAmount)) + toMinor(input.releaseAmount ?? 0)) : null,
+    reason: input.reason,
+  };
+  const meta = (p.metadata ?? {}) as Record<string, unknown>;
+  await tx.paymentRecord.update({
+    where: { id: p.id },
+    data: { metadata: { ...meta, pendingDisputeOutcome: pending } as Prisma.InputJsonValue },
+  });
+}
+
+/**
+ * Идемпотентное исполнение решения по спору: каждый вызов доводит платёж до целевого состояния,
+ * учитывая уже выполненные операции (повтор не приводит к двойной выплате).
+ * Возвращает "done", если решение исполнено полностью, "pending" — если ждём провайдера или повтора.
+ */
+export async function settleDisputeOutcome(actor: Actor | null, paymentId: string): Promise<"done" | "pending"> {
+  const load = () => prisma.paymentRecord.findUniqueOrThrow({ where: { id: paymentId } });
+  const hasPending = async () => (await prisma.paymentTransaction.count({ where: { paymentId, status: "PENDING" } })) > 0;
+  let p = await load();
+  const plan = pendingOutcomeOf(p);
+  if (!plan) return "done";
+  if (await hasPending()) return "pending";
+
+  if (plan.outcome === "SPLIT" && plan.targetReleased != null) {
+    const due = fromMinor(Math.min(toMinor(plan.targetReleased) - toMinor(n(p.releasedAmount)), toMinor(heldAmount(p))));
+    if (toMinor(due) > 0) {
+      p = await requestOperation({ paymentId, kind: "RELEASE", amount: due, by: "ADMIN", actor, reason: plan.reason });
+      if (await hasPending()) return "pending";
+      if (toMinor(n(p.releasedAmount)) < toMinor(plan.targetReleased)) return "pending";
+    }
+    if (toMinor(heldAmount(p)) > 0) {
+      p = await requestOperation({ paymentId, kind: "REFUND", by: "ADMIN", actor, reason: `${plan.reason} (возврат остатка)` });
+    }
+  } else if (toMinor(heldAmount(p)) > 0) {
+    p = await requestOperation({
+      paymentId,
+      kind: plan.outcome === "RELEASE_FULL" ? "RELEASE" : "REFUND",
+      by: "ADMIN",
+      actor,
+      reason: plan.reason,
+    });
   }
-  if (outcome === "REFUND_FULL") {
-    await requestOperation({ paymentId, kind: "REFUND", by: "ADMIN", actor, reason });
-    return;
+  if ((await hasPending()) || toMinor(heldAmount(p)) > 0) return "pending";
+  const meta = { ...((p.metadata ?? {}) as Record<string, unknown>) };
+  delete meta.pendingDisputeOutcome;
+  await prisma.paymentRecord.update({ where: { id: paymentId }, data: { metadata: meta as Prisma.InputJsonValue } });
+  return "done";
+}
+
+/** Решения по спорам, которые ещё не исполнены (ошибка провайдера, ручное подтверждение банка). */
+export async function settlePendingDisputeOutcomes(actor: Actor | null) {
+  const candidates = await prisma.paymentRecord.findMany({
+    where: { type: "SECURE_DEAL", status: { in: HELD_STATUSES }, metadata: { path: ["pendingDisputeOutcome"], not: Prisma.AnyNull } },
+    select: { id: true },
+    take: 100,
+  });
+  let settled = 0;
+  for (const c of candidates) {
+    try {
+      if ((await settleDisputeOutcome(actor, c.id)) === "done") settled += 1;
+    } catch (e) {
+      logger.error("secure-deal.dispute-outcome.failed", { paymentId: c.id, error: e });
+    }
   }
-  // SPLIT: часть — перевозчику, остаток — заказчику
-  const after = await requestOperation({ paymentId, kind: "RELEASE", amount: releaseAmount!, by: "ADMIN", actor, reason });
-  const pending = await prisma.paymentTransaction.count({ where: { paymentId, status: "PENDING" } });
-  if (pending === 0 && heldAmount(after) > 0) {
-    await requestOperation({ paymentId, kind: "REFUND", by: "ADMIN", actor, reason: `${reason} (возврат остатка)` });
-  }
+  return { pending: candidates.length, settled };
 }
 
 /** Отмена перевозки: неподтверждённая оплата отменяется, обеспеченная — возвращается заказчику. */
@@ -917,6 +987,9 @@ export async function processConfirmationTimeouts(now = new Date(), actor: Actor
       result.skipped.push({ order: o.publicNumber, reason: e instanceof AppError ? e.message : "Ошибка запроса выплаты" });
     }
   }
+  const operations = await retryStaleOperations(now, actor);
+  const disputes = await settlePendingDisputeOutcomes(actor);
+  Object.assign(result, { staleOperations: operations, disputeOutcomes: disputes });
   for (const o of pendingRelease) {
     try {
       const p = await releaseIfConditionsMet(o.id, actor, "Повторный запрос выплаты: получение подтверждено, условия выполнены");
@@ -976,14 +1049,44 @@ export async function adminConfirmTransaction(
   return prisma.paymentRecord.findUniqueOrThrow({ where: { id: t.paymentId } });
 }
 
-/** Повторная отправка незавершённой операции провайдеру с тем же ключом идемпотентности. */
-export async function adminRetryTransaction(actor: Actor, transactionId: string) {
-  requireAdminPayments(actor);
-  const t = await prisma.paymentTransaction.findUnique({ where: { id: transactionId }, include: { payment: true } });
-  if (!t) throw errors.notFound("Операция не найдена.");
-  if (t.status !== "PENDING") throw new AppError("DUPLICATE_ACTION", "Операция уже завершена.");
-  const provider = providerByCode(t.provider);
-  if (!provider) throw new AppError("CONFLICT", "Провайдер операции не настроен.");
+const STALE_OPERATION_MS = 10 * 60_000;
+
+/**
+ * Зависшие операции: провайдер не ответил (сетевой сбой, исключение) — операция осталась PENDING и блокирует платёж.
+ * Операции провайдеров с автоматическим ответом переотправляются с тем же ключом идемпотентности (двойного движения нет);
+ * операции с ручным подтверждением ждут администратора и только попадают в счётчик.
+ */
+export async function retryStaleOperations(now = new Date(), actor: Actor | null = null) {
+  const stale = await prisma.paymentTransaction.findMany({
+    where: { status: "PENDING", createdAt: { lt: new Date(now.getTime() - STALE_OPERATION_MS) } },
+    include: { payment: true },
+    orderBy: { createdAt: "asc" },
+    take: 50,
+  });
+  let retried = 0;
+  let awaitingManual = 0;
+  for (const t of stale) {
+    const provider = providerByCode(t.provider);
+    if (!provider || provider.manualConfirmation) {
+      awaitingManual += 1;
+      continue;
+    }
+    try {
+      await redispatch(t, provider, actor);
+      retried += 1;
+    } catch (e) {
+      logger.error("secure-deal.retry-operation.failed", { transactionId: t.id, error: e });
+    }
+  }
+  if (awaitingManual) logger.warn("secure-deal.operations-awaiting-manual", { count: awaitingManual });
+  return { stale: stale.length, retried, awaitingManual };
+}
+
+async function redispatch(
+  t: Prisma.PaymentTransactionGetPayload<{ include: { payment: true } }>,
+  provider: PaymentProvider,
+  actor: Actor | null,
+) {
   const order = await prisma.transportOrder.findUniqueOrThrow({ where: { id: t.payment.orderId }, select: { publicNumber: true } });
   await dispatchToProvider(
     t.id,
@@ -1002,6 +1105,17 @@ export async function adminRetryTransaction(actor: Actor, transactionId: string)
     },
     actor,
   );
+}
+
+/** Повторная отправка незавершённой операции провайдеру с тем же ключом идемпотентности. */
+export async function adminRetryTransaction(actor: Actor, transactionId: string) {
+  requireAdminPayments(actor);
+  const t = await prisma.paymentTransaction.findUnique({ where: { id: transactionId }, include: { payment: true } });
+  if (!t) throw errors.notFound("Операция не найдена.");
+  if (t.status !== "PENDING") throw new AppError("DUPLICATE_ACTION", "Операция уже завершена.");
+  const provider = providerByCode(t.provider);
+  if (!provider) throw new AppError("CONFLICT", "Провайдер операции не настроен.");
+  await redispatch(t, provider, actor);
   return prisma.paymentRecord.findUniqueOrThrow({ where: { id: t.paymentId } });
 }
 

@@ -82,6 +82,39 @@ function mapUnknownError(e: unknown): AppError | null {
   return null;
 }
 
+/** Ключ зарезервирован, операция ещё выполняется. */
+const IDEMPOTENCY_IN_PROGRESS = 102;
+/** Резерв старше этого срока считается брошенным (процесс упал посреди операции). */
+const IDEMPOTENCY_STALE_MS = 5 * 60_000;
+
+/**
+ * Атомарный резерв ключа идемпотентности до выполнения операции.
+ * Возвращает сохранённый ответ (повтор), бросает DUPLICATE_ACTION, если такой же запрос ещё выполняется,
+ * или null — ключ зарезервирован за текущим запросом.
+ */
+async function reserveIdempotencyKey(userId: string, scope: string, key: string): Promise<Response | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await prisma.idempotencyKey.create({
+        data: { userId, scope, key, responseStatus: IDEMPOTENCY_IN_PROGRESS, responseBody: {} },
+      });
+      return null;
+    } catch (e) {
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+    }
+    const existing = await prisma.idempotencyKey.findUnique({ where: { userId_scope_key: { userId, scope, key } } });
+    if (!existing) continue;
+    if (existing.responseStatus !== IDEMPOTENCY_IN_PROGRESS) {
+      return Response.json(existing.responseBody, { status: existing.responseStatus, headers: { "Idempotent-Replay": "true" } });
+    }
+    if (Date.now() - existing.createdAt.getTime() < IDEMPOTENCY_STALE_MS) {
+      throw new AppError("DUPLICATE_ACTION", "Этот запрос уже выполняется. Дождитесь результата.");
+    }
+    await prisma.idempotencyKey.deleteMany({ where: { id: existing.id, responseStatus: IDEMPOTENCY_IN_PROGRESS } });
+  }
+  throw new AppError("DUPLICATE_ACTION", "Этот запрос уже выполняется. Дождитесь результата.");
+}
+
 export function route<P extends Params = Params, A extends boolean = true>(
   options: Options<A>,
   fn: (ctx: HandlerCtx<P, A>) => Promise<unknown>,
@@ -90,6 +123,8 @@ export function route<P extends Params = Params, A extends boolean = true>(
     const started = Date.now();
     let actor: Actor | null = null;
     let idemKey: string | null = null;
+    let idemScope = "";
+    let reserved = false;
     try {
       checkOrigin(req);
       const meta = await getRequestMeta();
@@ -99,15 +134,12 @@ export function route<P extends Params = Params, A extends boolean = true>(
 
       idemKey = options.idempotency && actor ? req.headers.get("idempotency-key") : null;
       if (idemKey && actor) {
-        const existing = await prisma.idempotencyKey.findUnique({
-          where: { userId_scope_key: { userId: actor.userId, scope: options.idempotency!, key: idemKey } },
-        });
-        if (existing) {
-          return Response.json(existing.responseBody, {
-            status: existing.responseStatus,
-            headers: { "Idempotent-Replay": "true" },
-          });
-        }
+        if (idemKey.length > 200) throw errors.validation("Слишком длинный Idempotency-Key.");
+        // Ключ привязан к операции и ресурсу (путь запроса): тот же ключ на другой заказ не вернёт чужой ответ
+        idemScope = `${options.idempotency}:${req.nextUrl.pathname}`;
+        const replay = await reserveIdempotencyKey(actor.userId, idemScope, idemKey);
+        if (replay) return replay;
+        reserved = true;
       }
 
       const params = ((await context?.params) ?? {}) as P;
@@ -117,29 +149,21 @@ export function route<P extends Params = Params, A extends boolean = true>(
 
       const status = options.status ?? 200;
       const body = { success: true as const, data: toPlain(result) };
-      if (idemKey && actor) {
+      if (reserved && idemKey && actor) {
         await prisma.idempotencyKey
-          .create({
-            data: {
-              userId: actor.userId,
-              scope: options.idempotency!,
-              key: idemKey,
-              responseStatus: status,
-              responseBody: body as unknown as Prisma.InputJsonValue,
-            },
+          .update({
+            where: { userId_scope_key: { userId: actor.userId, scope: idemScope, key: idemKey } },
+            data: { responseStatus: status, responseBody: body as unknown as Prisma.InputJsonValue },
           })
-          .catch(() => {});
+          .catch((err) => logger.error("idempotency.save_failed", { path: req.nextUrl.pathname, error: err }));
       }
       return ok(body.data, status);
     } catch (e) {
-      // Повторный запрос с тем же ключом, «проигравший» гонку: вернуть сохранённый успешный ответ
-      if (idemKey && actor) {
-        const existing = await prisma.idempotencyKey
-          .findUnique({
-            where: { userId_scope_key: { userId: actor.userId, scope: options.idempotency!, key: idemKey } },
-          })
-          .catch(() => null);
-        if (existing) return Response.json(existing.responseBody, { status: existing.responseStatus });
+      // Операция не выполнена — освобождаем ключ, чтобы клиент мог повторить её с тем же ключом
+      if (reserved && idemKey && actor) {
+        await prisma.idempotencyKey
+          .deleteMany({ where: { userId: actor.userId, scope: idemScope, key: idemKey, responseStatus: IDEMPOTENCY_IN_PROGRESS } })
+          .catch(() => {});
       }
       const appErr = isAppError(e) ? e : mapUnknownError(e);
       if (appErr) {

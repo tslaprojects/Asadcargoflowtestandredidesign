@@ -75,16 +75,15 @@ export async function tripForRefuel(db: Tx, vehicleId: string | null, at: Date) 
 
 async function cardUsage(tx: Tx, card: { id: string; timezone: string }, at: Date) {
   const { dayStart, monthStart } = periodStarts(at, card.timezone);
-  const [day, month] = await Promise.all([
-    tx.fuelTransaction.aggregate({
-      where: { fuelCardId: card.id, status: { in: FUEL_TX_COUNTED }, transactionDate: { gte: dayStart } },
-      _sum: { liters: true, totalAmount: true },
-    }),
-    tx.fuelTransaction.aggregate({
-      where: { fuelCardId: card.id, status: { in: FUEL_TX_COUNTED }, transactionDate: { gte: monthStart } },
-      _sum: { liters: true, totalAmount: true },
-    }),
-  ]);
+  // Последовательно: запросы внутри транзакции идут по одному соединению, параллельные запросы на нём недопустимы
+  const day = await tx.fuelTransaction.aggregate({
+    where: { fuelCardId: card.id, status: { in: FUEL_TX_COUNTED }, transactionDate: { gte: dayStart } },
+    _sum: { liters: true, totalAmount: true },
+  });
+  const month = await tx.fuelTransaction.aggregate({
+    where: { fuelCardId: card.id, status: { in: FUEL_TX_COUNTED }, transactionDate: { gte: monthStart } },
+    _sum: { liters: true, totalAmount: true },
+  });
   return {
     dayLiters: Number(day._sum.liters ?? 0),
     monthLiters: Number(month._sum.liters ?? 0),

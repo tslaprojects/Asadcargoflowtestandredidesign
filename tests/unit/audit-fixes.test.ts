@@ -40,3 +40,48 @@ describe("PAY-001: тестовый платёжный провайдер в pro
     expect(() => getPaymentProvider()).toThrow(/Неизвестный/);
   });
 });
+
+describe("SEC-005: безопасный переход после входа", async () => {
+  const { safeRedirectPath } = await import("@/lib/safe-redirect");
+  it("пропускает только пути своего сайта", () => {
+    const o = "https://app.example";
+    expect(safeRedirectPath("/orders/1?tab=chat", o)).toBe("/orders/1?tab=chat");
+    for (const bad of ["//evil.com", "/\\evil.com", "https://evil.com", "javascript:alert(1)", "/\t/evil.com", "", null]) {
+      expect(safeRedirectPath(bad, o)).toBeNull();
+    }
+  });
+});
+
+describe("CFG-002: cookie сессии в production", async () => {
+  const { secureCookies } = await import("@/lib/auth/session");
+  it("Secure по умолчанию, кроме явного локального http", () => {
+    expect(secureCookies({ NODE_ENV: "production" })).toBe(true);
+    expect(secureCookies({ NODE_ENV: "production", APP_URL: "https://cargo.example" })).toBe(true);
+    expect(secureCookies({ NODE_ENV: "production", APP_URL: "http://localhost:3000" })).toBe(false);
+    expect(secureCookies({ NODE_ENV: "development" })).toBe(false);
+  });
+});
+
+describe("BIZ-012: риск заправки не ниже самого серьёзного несоответствия", async () => {
+  const { transactionRisk } = await import("@/lib/fuel/anomaly-rules");
+  it("критическое несоответствие делает заправку критической при низкой сумме баллов", () => {
+    expect(transactionRisk(30, [{ severity: "CRITICAL" }])).toBe("CRITICAL");
+    expect(transactionRisk(90, [{ severity: "HIGH" }])).toBe("CRITICAL");
+    expect(transactionRisk(10, [])).toBe("LOW");
+  });
+});
+
+describe("ERR-001: фильтры списков валидируются, а не падают в БД", async () => {
+  const { orderListQuerySchema } = await import("@/lib/validation/order");
+  const { loadListQuerySchema } = await import("@/lib/validation/load");
+  it("отклоняет неизвестный статус, мусорную дату и не-UUID", () => {
+    expect(orderListQuerySchema.safeParse({ status: "FOO" }).success).toBe(false);
+    expect(orderListQuerySchema.safeParse({ dateFrom: "garbage" }).success).toBe(false);
+    expect(orderListQuerySchema.safeParse({ carrierId: "abc" }).success).toBe(false);
+    expect(loadListQuerySchema.safeParse({ status: "FOO" }).success).toBe(false);
+    expect(orderListQuerySchema.parse({ status: "IN_TRANSIT,DELIVERED", dateFrom: "2026-09-01" }).status).toEqual([
+      "IN_TRANSIT",
+      "DELIVERED",
+    ]);
+  });
+});

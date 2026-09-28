@@ -42,6 +42,8 @@ export default defineConfig({
           STORAGE_DRIVER: "local",
           STORAGE_LOCAL_DIR: "./storage-e2e",
           EMAIL_DRIVER: "none",
+          // Плановую задачу в E2E запускают тесты явно
+          JOB_SECURE_DEAL_INTERVAL_MIN: "0",
         },
       },
 });

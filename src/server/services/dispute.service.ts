@@ -11,7 +11,14 @@ import type { disputeCreateSchema, disputeUpdateSchema } from "@/lib/validation/
 import { ordersWhereForActor, requireOrderAccess } from "./access";
 import { notify } from "./notification.service";
 import { orderParticipantUserIds, performTransitionInTx } from "./order-core";
-import { executeDisputeOutcome, freezeForDispute, unfreezeInTx, validateDisputePaymentOutcome } from "./secure-deal.service";
+import { logger } from "@/lib/logger";
+import {
+  freezeForDispute,
+  recordDisputeOutcomeInTx,
+  settleDisputeOutcome,
+  unfreezeInTx,
+  validateDisputePaymentOutcome,
+} from "./secure-deal.service";
 
 async function adminIds(tx: Prisma.TransactionClient) {
   const admins = await tx.user.findMany({ where: { platformRole: "PLATFORM_ADMIN", status: "ACTIVE" }, select: { id: true } });
@@ -159,6 +166,15 @@ export async function updateDispute(actor: Actor, disputeId: string, input: Disp
       if (money?.payment && money.outcome === "KEEP") {
         await unfreezeInTx(tx, money.payment.id, actor, `Спор закрыт, перевозка возобновлена: ${input.resolution}`);
       }
+      if (money?.payment && money.outcome !== "KEEP") {
+        // Решение по деньгам фиксируется атомарно с закрытием спора; исполняется ниже и доисполняется плановой задачей
+        await recordDisputeOutcomeInTx(tx, money.payment.id, {
+          disputeId,
+          outcome: money.outcome,
+          releaseAmount: input.releaseAmount,
+          reason: `Решение по спору: ${input.resolution}`,
+        });
+      }
       await audit(
         actor,
         {
@@ -203,11 +219,29 @@ export async function updateDispute(actor: Actor, disputeId: string, input: Disp
     });
     return updated;
   });
-  // Движение средств по решению — операциями у платёжного провайдера, после фиксации решения
+  // Движение средств по решению — операциями у платёжного провайдера, после фиксации решения.
+  // Ошибка провайдера не откатывает решение: оно сохранено и будет доисполнено плановой задачей, администраторы уведомляются.
+  let paymentSettlement: "done" | "pending" | "failed" | null = null;
   if (money?.payment && money.outcome !== "KEEP") {
-    await executeDisputeOutcome(actor, money.payment.id, money.outcome, input.releaseAmount, `Решение по спору: ${input.resolution}`);
+    try {
+      paymentSettlement = await settleDisputeOutcome(actor, money.payment.id);
+    } catch (e) {
+      paymentSettlement = "failed";
+      logger.error("dispute.payment-outcome.failed", { disputeId, paymentId: money.payment.id, error: e });
+      await prisma.$transaction(async (tx) => {
+        await notify(tx, {
+          userIds: await adminIds(tx),
+          type: "PAYMENT_UPDATED",
+          title: "Решение по спору ещё не исполнено у платёжного провайдера",
+          body: `${e instanceof Error ? e.message : "Ошибка операции"} Решение сохранено и будет повторено автоматически.`,
+          entityType: "TransportOrder",
+          entityId: target.orderId,
+          link: `/orders/${target.orderId}?tab=finance`,
+        });
+      });
+    }
   }
-  return updatedDispute;
+  return { ...updatedDispute, paymentSettlement };
 }
 
 export async function listDisputes(actor: Actor, opts: { page: number; pageSize: number; status?: string }) {
