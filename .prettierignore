@@ -5,3 +5,4 @@ storage
 prisma/migrations
 playwright-report
 test-results
+.claude
