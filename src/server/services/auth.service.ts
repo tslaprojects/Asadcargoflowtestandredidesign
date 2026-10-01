@@ -124,9 +124,9 @@ export async function register(input: RegisterInput, meta: RequestMeta) {
       return { user, companyId };
     });
 
-    await createSession(result.user.id, result.companyId, meta);
+    const session = await createSession(result.user.id, result.companyId, meta);
     logger.info("auth.registered", { userId: result.user.id });
-    return { userId: result.user.id, companyId: result.companyId };
+    return { userId: result.user.id, companyId: result.companyId, ...(session.token ? { token: session.token } : {}) };
   });
 }
 
@@ -259,7 +259,7 @@ export async function login(input: z.output<typeof loginSchema>, meta: RequestMe
       }
       ({ activeCompanyId: companyId, role } = await provisionDemoIdentity(user.id));
     }
-    await createSession(user.id, companyId, meta, dataMode);
+    const session = await createSession(user.id, companyId, meta, dataMode);
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     await audit(
       { userId: user.id, active: null, ip: meta.ip, userAgent: meta.userAgent },
@@ -272,6 +272,8 @@ export async function login(input: z.output<typeof loginSchema>, meta: RequestMe
       isAdmin: user.platformRole === "PLATFORM_ADMIN",
       redirectTo: homePathFor(role, user.platformRole === "PLATFORM_ADMIN"),
       dataMode,
+      // Только нативному приложению: веб получает httpOnly cookie
+      ...(session.token ? { token: session.token } : {}),
     };
   });
 }
@@ -442,12 +444,12 @@ export async function switchDataMode(actor: Actor, dataMode: DataMode, meta: Req
       ({ activeCompanyId: companyId, role } = await provisionDemoIdentity(actor.userId));
     }
     await destroySession();
-    await createSession(actor.userId, companyId, meta, dataMode);
+    const session = await createSession(actor.userId, companyId, meta, dataMode);
     await audit(
       { userId: actor.userId, active: null, ip: meta.ip, userAgent: meta.userAgent },
       { action: AuditAction.USER_LOGIN, entityType: "User", entityId: actor.userId, newValue: { dataMode, switchedFrom: actor.dataMode } },
     );
-    return { dataMode, redirectTo: homePathFor(role, actor.isAdmin) };
+    return { dataMode, redirectTo: homePathFor(role, actor.isAdmin), ...(session.token ? { token: session.token } : {}) };
   });
 }
 

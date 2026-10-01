@@ -39,7 +39,12 @@ export type Actor = {
   userAgent: string | null;
 };
 
-export type RequestMeta = { ip: string | null; userAgent: string | null };
+export type RequestMeta = {
+  ip: string | null;
+  userAgent: string | null;
+  /** Нативное приложение CargoFlow (Windows, macOS, iOS, Android): сессия передаётся токеном, а не cookie. */
+  native?: boolean;
+};
 
 const VIEW_ONLY = /_VIEW(_OWN)?$/;
 

@@ -40,10 +40,32 @@ export function clientIpFrom(forwarded: string | null, realIp: string | null, ho
   return realIp?.trim() || list[0] || null;
 }
 
+/** Заголовок нативных приложений CargoFlow. */
+export const NATIVE_CLIENT_HEADER = "x-cargoflow-client";
+
+/**
+ * Нативный клиент: заголовок приложения и нет Origin. Браузер (в том числе скрипт на странице) всегда
+ * отправляет Origin в POST-запросах, поэтому токен сессии в теле ответа получает только приложение,
+ * а веб-сессия остаётся в httpOnly cookie.
+ */
+export function isNativeClient(h: Headers) {
+  return h.get(NATIVE_CLIENT_HEADER) === "native" && !h.get("origin");
+}
+
 export async function getRequestMeta(): Promise<RequestMeta> {
   const h = await headers();
   const ip = clientIpFrom(h.get("x-forwarded-for"), h.get("x-real-ip"));
-  return { ip, userAgent: h.get("user-agent")?.slice(0, 500) ?? null };
+  return { ip, userAgent: h.get("user-agent")?.slice(0, 500) ?? null, native: isNativeClient(h) };
+}
+
+/** Токен сессии запроса: cookie (веб) или «Authorization: Bearer» (нативные приложения). */
+async function requestToken(): Promise<string | null> {
+  const jar = await cookies();
+  const fromCookie = jar.get(SESSION_COOKIE)?.value;
+  if (fromCookie) return fromCookie;
+  const auth = (await headers()).get("authorization");
+  const m = auth?.match(/^Bearer\s+([A-Za-z0-9_-]{20,200})$/);
+  return m ? m[1] : null;
 }
 
 export const toDbDataMode = (m: DataMode): DbDataMode => (m === "demo" ? "DEMO" : "REAL");
@@ -72,12 +94,13 @@ export async function createSession(userId: string, activeCompanyId: string | nu
     path: "/",
     expires: expiresAt,
   });
-  return session;
+  // Токен нужен только нативному клиенту (он хранит его в защищённом хранилище ОС); веб получает cookie
+  return { ...session, token: meta.native ? token : null };
 }
 
 export async function destroySession() {
   const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
+  const token = await requestToken();
   if (token) {
     await authDb.session.updateMany({
       where: { tokenHash: sha256(token), revokedAt: null },
@@ -88,8 +111,7 @@ export async function destroySession() {
 }
 
 async function loadSession() {
-  const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
+  const token = await requestToken();
   if (!token) return null;
   const session = await authDb.session.findUnique({ where: { tokenHash: sha256(token) } });
   if (!session || session.revokedAt || session.expiresAt <= new Date()) return null;
