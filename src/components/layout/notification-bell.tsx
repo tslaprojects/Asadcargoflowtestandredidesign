@@ -9,7 +9,10 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { api } from "@/lib/client/api";
 import { formatRelative } from "@/lib/format";
 import { label } from "@/lib/i18n";
+import { eventPriority } from "@/lib/notification-priority";
 import { cn } from "@/lib/utils";
+
+const PRIORITY_DOT = { critical: "bg-danger", action: "bg-warning", info: "bg-primary" } as const;
 
 type N = { id: string; type: string; title: string; body: string | null; link: string | null; readAt: string | null; createdAt: string };
 type ListResponse = { items: N[]; unread: number; total: number };
@@ -66,7 +69,10 @@ export function NotificationBell() {
       return () => clearTimeout(t);
     }
   }, [data, unread]);
-  const fresh = data?.items.filter((n) => !n.readAt) ?? [];
+  const rank = { critical: 0, action: 1, info: 2 } as const;
+  const fresh = (data?.items.filter((n) => !n.readAt) ?? []).sort(
+    (a, b) => rank[eventPriority(a.type, a.title, a.body)] - rank[eventPriority(b.type, b.title, b.body)],
+  );
   const seen = data?.items.filter((n) => n.readAt) ?? [];
 
   const renderItem = (n: N, i: number) => (
@@ -79,10 +85,19 @@ export function NotificationBell() {
           !n.readAt && "bg-accent/50",
         )}
       >
-        <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.readAt ? "bg-transparent" : "bg-primary")} aria-hidden />
+        <span
+          className={cn(
+            "mt-1.5 size-2 shrink-0 rounded-full",
+            n.readAt ? "bg-transparent" : PRIORITY_DOT[eventPriority(n.type, n.title, n.body)],
+          )}
+          aria-hidden
+        />
         <span className="min-w-0 flex-1">
           <span className="text-muted-foreground flex items-center justify-between gap-2 text-xs">
-            <span className="truncate">{label("NotificationType", n.type)}</span>
+            <span className="truncate">
+              {eventPriority(n.type, n.title, n.body) === "critical" && <span className="text-danger font-medium">Критично · </span>}
+              {label("NotificationType", n.type)}
+            </span>
             <span className="shrink-0">{formatRelative(n.createdAt)}</span>
           </span>
           <span className={cn("mt-0.5 block text-sm leading-5", !n.readAt && "font-medium")}>{n.title}</span>
@@ -119,7 +134,7 @@ export function NotificationBell() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right">
           <SheetHeader>
-            <SheetTitle>Уведомления</SheetTitle>
+            <SheetTitle>События</SheetTitle>
             <SheetDescription>{unread ? `Непрочитанных: ${unread}` : "Все уведомления прочитаны"}</SheetDescription>
           </SheetHeader>
           <div className="border-border flex items-center justify-between border-b px-4 py-2">
@@ -127,7 +142,7 @@ export function NotificationBell() {
               <CheckCheck /> Отметить все прочитанными
             </Button>
             <Link href="/notifications" onClick={() => setOpen(false)} className="text-primary text-sm hover:underline">
-              Все уведомления
+              Центр событий
             </Link>
           </div>
           <div className="flex-1 overflow-y-auto overscroll-contain">

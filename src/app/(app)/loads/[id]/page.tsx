@@ -160,7 +160,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
   const bidsTab = (
     <div className="space-y-3">
       {canBid && !myActiveBid && (
-        <div className="border-info-border bg-info-bg flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
+        <div className="border-info-border bg-info-bg flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
           <p className="text-info text-sm">Предложите свою цену — заказчик получит уведомление.</p>
           <BidDialog loadId={load.id} currency={load.currency} targetPrice={load.targetPrice} />
         </div>

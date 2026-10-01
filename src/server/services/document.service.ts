@@ -233,7 +233,11 @@ export async function listMyDocuments(actor: Actor, opts: { page: number; pageSi
       orderBy: { createdAt: "desc" },
       skip: (opts.page - 1) * opts.pageSize,
       take: opts.pageSize,
-      include: { order: { select: { id: true, publicNumber: true } } },
+      include: {
+        order: {
+          select: { id: true, publicNumber: true, currentStatus: true, load: { select: { originCity: true, destinationCity: true } } },
+        },
+      },
     }),
     prisma.orderDocument.count({ where }),
   ]);

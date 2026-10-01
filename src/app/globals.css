@@ -1,70 +1,83 @@
 @import "tailwindcss";
 
 /*
- * CargoFlow design system — tokens.
- * Направление (UI/UX Pro Max, «logistics operations console», density 8 / motion 3):
- * Minimalism & Swiss Style — navy + trust blue, плотная и спокойная типографика, цвет только со смыслом.
+ * CargoFlow — Transportation OS. Design tokens.
+ * Направление: операционный центр управления перевозками (не CRM): светлое рабочее пространство,
+ * графитовая навигационная полоса, тонкие функциональные границы, цвет передаёт только состояние объекта.
  * Документация: docs/design-system.md.
  */
 :root {
   /* ── Поверхности и текст ── */
-  --background: #f5f6f8;
-  --foreground: #0f172a;
-  --card: #ffffff; /* surface */
-  --card-foreground: #0f172a;
-  --surface-secondary: #f8fafc; /* вложенные панели, строки-итоги */
-  --muted: #f1f5f9;
-  --muted-foreground: #556070; /* 6.1:1 на белом, 5.7:1 на background */
-  --border: #e3e7ed;
-  --border-strong: #cfd6df; /* hover интерактивных карточек, разделители групп */
+  --background: #f2f4f7; /* рабочее пространство */
+  --foreground: #0b1220; /* ink */
+  --card: #ffffff; /* панели */
+  --card-foreground: #0b1220;
+  --surface-secondary: #f7f8fa; /* вложенные панели, шапки таблиц */
+  --muted: #eef0f4;
+  --muted-foreground: #556070; /* 6.1:1 на белом, 5.5:1 на background */
+  --border: #e2e6ec;
+  --border-strong: #cdd3dc;
   --input: #838fa1; /* граница полей: 3.3:1 (WCAG 1.4.11) */
   --ring: #2563eb;
-  --overlay: rgb(2 6 23 / 0.45);
+  --overlay: rgb(5 9 18 / 0.5);
 
   /* ── Бренд и действия ── */
-  --primary: #1d4ed8; /* 6.7:1 на белом */
+  --primary: #1d4ed8; /* signal blue, 6.7:1 на белом */
   --primary-hover: #1e40af;
   --primary-foreground: #ffffff;
-  --secondary: #eef2f7;
-  --secondary-hover: #e2e8f0;
-  --secondary-foreground: #0f172a;
-  --accent: #eff4ff;
+  --secondary: #eef1f6;
+  --secondary-hover: #e2e7ef;
+  --secondary-foreground: #0b1220;
+  --accent: #eaf1ff;
   --accent-foreground: #1d4ed8;
   --destructive: #dc2626;
   --destructive-hover: #b91c1c;
   --destructive-foreground: #ffffff;
 
-  /* ── Семантика состояний (текст ≥ 4.5:1 на своём фоне) ── */
+  /* ── Состояния объектов (текст ≥ 4.5:1 на своём фоне) ──
+     success  — доставлено / завершено       info     — движется / в процессе
+     warning  — ждёт действия / ожидание      delayed  — опаздывает
+     danger   — ошибка / спор / отмена        neutral  — не начато / неактивно */
   --success: #15803d;
   --success-hover: #166534;
-  --success-bg: #ecfdf3;
-  --success-border: #bbf7d0;
-  --warning: #b45309;
-  --warning-bg: #fffbeb;
-  --warning-border: #fde68a;
+  --success-bg: #ebfaf0;
+  --success-border: #bbf0cd;
+  --warning: #a65200;
+  --warning-bg: #fff7e6;
+  --warning-border: #fcdca0;
   --info: #1d4ed8;
-  --info-bg: #eff6ff;
-  --info-border: #bfdbfe;
+  --info-bg: #edf3ff;
+  --info-border: #c7d8fe;
+  --delayed: #c2410c;
+  --delayed-bg: #fff2ea;
+  --delayed-border: #fdcfb3;
   --danger: #b91c1c;
-  --danger-bg: #fef2f2;
-  --danger-border: #fecaca;
-  --neutral: #475569;
-  --neutral-bg: #f1f5f9;
-  --neutral-border: #e2e8f0;
+  --danger-bg: #fef1f1;
+  --danger-border: #fbcaca;
+  --neutral: #4a5565;
+  --neutral-bg: #f0f2f5;
+  --neutral-border: #dde2e9;
   --rating: #f59e0b; /* только заливка звёзд, не текст */
 
-  /* ── Сайдбар (navy) ── */
-  --sidebar: #0f172a;
-  --sidebar-foreground: #cbd5e1; /* 12:1 */
-  --sidebar-muted: #8391a7; /* подписи групп, 6.2:1 */
-  --sidebar-active: #1e293b;
-  --sidebar-accent: #60a5fa; /* индикатор активного пункта */
-  --sidebar-border: rgb(255 255 255 / 0.08);
+  /* ── Навигационная полоса (graphite) ── */
+  --sidebar: #0e131c;
+  --sidebar-foreground: #c3cad6; /* 11:1 */
+  --sidebar-muted: #8a94a6; /* 6:1 */
+  --sidebar-active: #1d2533;
+  --sidebar-accent: #5b8cff; /* индикатор активного раздела */
+  --sidebar-border: rgb(255 255 255 / 0.07);
+
+  /* ── Карта: цвета объектов (маркеры, линии маршрутов) ── */
+  --map-moving: #1d4ed8;
+  --map-waiting: #d97706;
+  --map-delayed: #ea580c;
+  --map-done: #16a34a;
+  --map-route: #1d4ed8;
 
   /* ── Motion ── */
   --duration-micro: 120ms; /* hover, focus, нажатие, иконки */
-  --duration-standard: 200ms; /* dropdown, tooltip, карточки, небольшие панели */
-  --duration-complex: 320ms; /* диалоги, боковые панели, прогресс */
+  --duration-standard: 200ms; /* dropdown, tooltip, панели списка */
+  --duration-complex: 320ms; /* диалоги, боковые панели, bottom sheet, прогресс */
   --duration-exit: 150ms; /* выход ≈ 60–70% входа */
 }
 
@@ -103,6 +116,9 @@
   --color-info: var(--info);
   --color-info-bg: var(--info-bg);
   --color-info-border: var(--info-border);
+  --color-delayed: var(--delayed);
+  --color-delayed-bg: var(--delayed-bg);
+  --color-delayed-border: var(--delayed-border);
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
   --color-danger-border: var(--danger-border);
@@ -117,19 +133,19 @@
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-border: var(--sidebar-border);
 
-  /* Радиусы: sm — чипы; md — контролы; lg — элементы внутри карточек, меню; xl — карточки, диалоги; 2xl — мобильные панели */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.625rem;
-  --radius-xl: 0.75rem;
+  /* Радиусы — умеренные: sm — чипы и статусы; md — контролы; lg — панели и элементы списков; xl — диалоги; 2xl — bottom sheet */
+  --radius-sm: 0.3125rem;
+  --radius-md: 0.4375rem;
+  --radius-lg: 0.5625rem;
+  --radius-xl: 0.6875rem;
   --radius-2xl: 1rem;
 
-  /* Тени: только для уровней (карточка → поповер → диалог), не для украшения */
-  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.05);
-  --shadow-sm: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
-  --shadow-md: 0 6px 16px -4px rgb(15 23 42 / 0.12), 0 2px 4px -2px rgb(15 23 42 / 0.06);
-  --shadow-lg: 0 16px 40px -12px rgb(15 23 42 / 0.25), 0 4px 10px -4px rgb(15 23 42 / 0.08);
-  --shadow-xl: 0 24px 56px -16px rgb(15 23 42 / 0.3);
+  /* Тени — только уровни (панель → поповер → диалог → выезжающая панель) */
+  --shadow-xs: 0 1px 1px rgb(11 18 32 / 0.04);
+  --shadow-sm: 0 1px 2px rgb(11 18 32 / 0.06), 0 1px 1px rgb(11 18 32 / 0.03);
+  --shadow-md: 0 6px 16px -6px rgb(11 18 32 / 0.14), 0 2px 4px -2px rgb(11 18 32 / 0.06);
+  --shadow-lg: 0 18px 44px -14px rgb(11 18 32 / 0.26), 0 4px 10px -4px rgb(11 18 32 / 0.08);
+  --shadow-xl: 0 24px 60px -18px rgb(11 18 32 / 0.32);
 
   /* Контейнеры */
   --container-page: 87.5rem; /* 1400 px — рабочая область */
@@ -165,6 +181,8 @@
   --animate-check-pop: check-pop 360ms var(--ease-out) both;
   --animate-highlight: highlight 1.6s var(--ease-out) both;
   --animate-progress-grow: progress-grow 700ms var(--ease-out) both;
+  --animate-panel-in: panel-in var(--duration-complex) var(--ease-out) both;
+  --animate-route-draw: route-draw 900ms var(--ease-out) both;
 
   @keyframes fade-in {
     from {
@@ -274,6 +292,20 @@
       transform: scaleX(0);
     }
   }
+  @keyframes panel-in {
+    from {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+  }
+  @keyframes route-draw {
+    from {
+      stroke-dashoffset: var(--route-length, 600);
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
   @keyframes highlight {
     from {
       background-color: var(--accent);
@@ -370,6 +402,21 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted-foreground);
+}
+/* Операционная метрика: компактное крупное число (не KPI-карточка) */
+@utility text-metric {
+  font-size: 1.25rem;
+  line-height: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+/* Метаданные объекта: номер, время, источник */
+@utility text-meta {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
 /* Операционные числа: цены, вес, км, KPI — табличные цифры, без «прыжков» при обновлении */
 @utility tabular {

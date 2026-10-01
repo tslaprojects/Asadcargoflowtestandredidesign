@@ -143,7 +143,7 @@ export function NextLoadPlanner({
 
   const choice = (active: boolean) =>
     cn(
-      "border-border hover:border-primary/50 flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors",
+      "border-border hover:border-primary/50 flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition-colors",
       active && "border-primary bg-primary/5 text-primary",
     );
 
@@ -313,7 +313,7 @@ export function NextLoadPlanner({
             <DialogDescription>Нажмите на карту в той стороне, куда планируете ехать. Система подберёт грузы по пути.</DialogDescription>
           </DialogHeader>
           <MapView
-            className="h-[380px] w-full overflow-hidden rounded-xl"
+            className="h-[380px] w-full overflow-hidden rounded-lg"
             points={[
               ...(free ? [{ lat: free.lat, lng: free.lng, label: `Сейчас: ${free.label}`, kind: "VEHICLE" as const }] : []),
               ...(mapPoint ? [{ ...mapPoint, label: "Выбранная точка", kind: "TARGET" as const }] : []),

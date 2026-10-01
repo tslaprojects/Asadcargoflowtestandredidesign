@@ -25,6 +25,7 @@ import { SecureDealPanel, type SecureDealPanelView } from "@/features/orders/sec
 import { OrderActions } from "@/features/orders/order-actions";
 import { OrderStatusTimeline, type HistoryEntry } from "@/features/orders/order-status-timeline";
 import { OrderTrackingHeader } from "@/features/orders/order-tracking-header";
+import { JourneyTimeline } from "@/features/operations/journey-timeline";
 import { orderProgress } from "@/lib/state-machine/order-progress";
 import { MapView, type MapPoint } from "@/features/tracking/map-view";
 import { guard, pageActor } from "@/server/page-context";
@@ -105,7 +106,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   ];
 
   const summary = (
-    <Card className="lg:sticky lg:top-20" data-testid="order-summary">
+    <Card data-testid="order-summary">
       <CardHeader>
         <CardTitle>Условия и участники</CardTitle>
       </CardHeader>
@@ -275,7 +276,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </p>
         </CardHeader>
         <CardContent>
-          <MapView points={points} className="h-[420px] w-full overflow-hidden rounded-xl" />
+          <MapView points={points} className="h-[420px] w-full overflow-hidden rounded-lg" />
           <p className="text-muted-foreground mt-2 text-xs">
             Позиция передаётся водителем из приложения (геолокация браузера) — это не непрерывный GPS-трекинг.
           </p>
@@ -327,7 +328,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const documentsTab = (
     <div className="space-y-5">
       {contract && !isDriver && (
-        <div className="border-border bg-card flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+        <div className="border-border bg-card flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
           <span>
             <span className="font-medium">Договор {contract.documentNumber}</span> (версия {contract.version}) ·{" "}
             <StatusBadge kind="ContractStatus" value={contract.status} />
@@ -392,20 +393,18 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </span>
         }
       />
-      <div className="mb-5">
-        <OrderTrackingHeader
-          progress={orderProgress(order.statusHistory, order.currentStatus)}
-          stops={stops}
-          lastLocation={lastLocation}
-          loadingDate={order.loadingDate}
-          deliveryDate={order.deliveryDate}
-          vehicle={order.vehicle}
-          driver={order.driver}
-          points={points}
-        />
-      </div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-5">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-4">
+          <OrderTrackingHeader
+            progress={orderProgress(order.statusHistory, order.currentStatus)}
+            stops={stops}
+            lastLocation={lastLocation}
+            loadingDate={order.loadingDate}
+            deliveryDate={order.deliveryDate}
+            vehicle={order.vehicle}
+            driver={order.driver}
+            points={points}
+          />
           <Card>
             <CardHeader>
               <CardTitle>Действия</CardTitle>
@@ -545,7 +544,21 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             ]}
           />
         </div>
-        <aside>{summary}</aside>
+        <aside className="space-y-4 xl:sticky xl:top-16 xl:self-start">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle>Этапы рейса</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <JourneyTimeline
+                status={order.currentStatus}
+                stops={stops}
+                history={order.statusHistory.map((h) => ({ status: h.toStatus, at: String(h.createdAt) }))}
+              />
+            </CardContent>
+          </Card>
+          {summary}
+        </aside>
       </div>
     </>
   );

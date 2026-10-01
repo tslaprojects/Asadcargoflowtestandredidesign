@@ -78,7 +78,7 @@ export function LoginForm() {
         </Link>
       </p>
       {showDemo && (
-        <div className="border-border bg-card mt-8 rounded-xl border border-dashed p-4">
+        <div className="border-border bg-card mt-8 rounded-lg border border-dashed p-4">
           <p className="text-sm font-medium">Демо-доступ {isProduction ? "(демо-стенд: данные публичны)" : "(локальная среда)"}</p>
           <p className="text-muted-foreground mb-3 text-xs">Пароль для всех: Demo1234!</p>
           <div className="flex flex-wrap gap-2">

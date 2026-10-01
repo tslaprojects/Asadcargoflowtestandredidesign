@@ -21,7 +21,7 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-col gap-2 sm:mb-6">
+    <div className="mb-4 flex flex-col gap-1.5 sm:mb-5">
       {back && (
         <Link
           href={back.href}
@@ -58,11 +58,11 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "border-border-strong bg-card animate-fade-in flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-10 text-center sm:py-12",
+        "border-border bg-card animate-fade-in flex flex-col items-center justify-center rounded-lg border px-6 py-9 text-center sm:py-10",
         className,
       )}
     >
-      <div className="bg-muted text-muted-foreground mb-3 grid size-11 place-items-center rounded-xl">
+      <div className="bg-accent text-primary mb-3 grid size-10 place-items-center rounded-lg">
         <Icon className="size-5" aria-hidden />
       </div>
       <p className="text-h3">{title}</p>
@@ -93,7 +93,7 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className="border-danger-border bg-danger-bg animate-fade-in flex flex-col items-center rounded-xl border px-6 py-10 text-center"
+      className="border-danger-border bg-danger-bg animate-fade-in flex flex-col items-center rounded-lg border px-6 py-10 text-center"
     >
       <AlertCircle className="text-danger mb-2 size-6" aria-hidden />
       <p className="text-danger text-h3">{title}</p>
@@ -114,7 +114,7 @@ export function LoadingState({ label = "Загрузка..." }: { label?: string
 
 export function TableSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="border-border bg-card overflow-hidden rounded-xl border" role="status" aria-label="Загрузка">
+    <div className="border-border bg-card overflow-hidden rounded-lg border" role="status" aria-label="Загрузка">
       <div className="bg-surface-secondary border-border flex gap-6 border-b px-4 py-3">
         {[20, 28, 16, 14].map((w, i) => (
           <Skeleton key={i} className="h-3" style={{ width: `${w}%` }} />
@@ -143,7 +143,7 @@ export function PageSkeleton({ variant = "list" }: { variant?: "list" | "detail"
       {variant !== "detail" && (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="border-border bg-card space-y-3 rounded-xl border p-4">
+            <div key={i} className="border-border bg-card space-y-3 rounded-lg border p-4">
               <Skeleton className="h-3.5 w-24" />
               <Skeleton className="h-7 w-16" />
             </div>
@@ -154,7 +154,7 @@ export function PageSkeleton({ variant = "list" }: { variant?: "list" | "detail"
         <TableSkeleton />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="border-border bg-card space-y-4 rounded-xl border p-5">
+          <div className="border-border bg-card space-y-4 rounded-lg border p-5">
             <Skeleton className="h-5 w-40" />
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -164,7 +164,7 @@ export function PageSkeleton({ variant = "list" }: { variant?: "list" | "detail"
               </div>
             ))}
           </div>
-          <div className="border-border bg-card space-y-3 rounded-xl border p-5">
+          <div className="border-border bg-card space-y-3 rounded-lg border p-5">
             <Skeleton className="h-5 w-32" />
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-start gap-3">
@@ -294,22 +294,33 @@ export function KpiCard({
   const body = (
     <div
       className={cn(
-        "border-border bg-card group flex h-full flex-col gap-2 rounded-xl border p-4 shadow-xs",
-        href && "group-hover:border-border-strong transition-[border-color,box-shadow] duration-200 ease-out group-hover:shadow-md",
-        (tone === "warning" || tone === "danger") && "border-l-[3px]",
-        tone === "warning" && "border-l-warning",
-        tone === "danger" && "border-l-danger",
+        "border-border bg-card group flex h-full flex-col gap-1 rounded-lg border px-3.5 py-3",
+        href && "group-hover:border-border-strong group-hover:bg-surface-secondary transition-colors duration-150",
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-muted-foreground text-[0.8125rem] leading-5 font-medium">{label}</p>
+        <p className="text-muted-foreground flex items-center gap-1.5 text-xs leading-4 font-medium">
+          {(tone === "warning" || tone === "danger" || tone === "info" || tone === "success") && (
+            <span
+              aria-hidden
+              className={cn(
+                "size-1.5 rounded-full",
+                tone === "warning" && "bg-warning",
+                tone === "danger" && "bg-danger",
+                tone === "info" && "bg-info",
+                tone === "success" && "bg-success",
+              )}
+            />
+          )}
+          {label}
+        </p>
         {Icon && (
-          <span className={cn("grid size-7 shrink-0 place-items-center rounded-lg", iconTone)}>
-            <Icon className="size-4" aria-hidden />
+          <span className={cn("grid size-6 shrink-0 place-items-center rounded-md", iconTone)}>
+            <Icon className="size-3.5" aria-hidden />
           </span>
         )}
       </div>
-      <p className="num text-[1.625rem] leading-8 font-semibold tracking-tight">{value}</p>
+      <p className="text-metric">{value}</p>
       {(hint || href) && (
         <p className="text-muted-foreground mt-auto flex items-center gap-1 text-xs">
           <span className="min-w-0 flex-1">{hint}</span>
@@ -319,7 +330,7 @@ export function KpiCard({
     </div>
   );
   return href ? (
-    <Link href={href} className="group block rounded-xl focus-visible:outline-offset-2">
+    <Link href={href} className="group block rounded-lg focus-visible:outline-offset-2">
       {body}
     </Link>
   ) : (

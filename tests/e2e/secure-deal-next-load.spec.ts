@@ -37,7 +37,10 @@ test("безопасная сделка → выплата → закрытие 
   // ── Заказчик: оплата обеспечена, подтверждает получение ──
   const shipper = await login(browser, "shipper@cargoflow.demo");
   await shipper.page.goto("/orders?q=CF-O-000004");
-  await shipper.page.getByRole("link", { name: "CF-O-000004" }).first().click();
+  // Список перевозок — split view: строка открывает контекстную панель, из неё — карточка перевозки
+  await shipper.page.getByTestId("shipment-row").filter({ hasText: "CF-O-000004" }).first().click();
+  await expect(shipper.page.getByTestId("shipment-panel")).toContainText("CF-O-000004");
+  await shipper.page.getByTestId("panel-open-order").click();
   await shipper.page.waitForURL(/\/orders\/[0-9a-f-]{36}/);
   const orderUrl = new URL(shipper.page.url());
   const orderId = orderUrl.pathname.split("/").pop()!;
@@ -73,6 +76,8 @@ test("безопасная сделка → выплата → закрытие 
   expect(release.status()).toBe(403);
 
   await carrier.page.goto("/dashboard");
+  // Операции: вкладка «След. рейс» — машины, подъезжающие к разгрузке, и подбор обратного груза
+  await carrier.page.getByRole("tab", { name: /След\. рейс/ }).click();
   await expect(carrier.page.getByTestId("next-load-previews")).toContainText("KZ 123 AB");
   await carrier.page.goto("/next-load");
   // План водителя «в Астану» — подходящие грузы уже подобраны

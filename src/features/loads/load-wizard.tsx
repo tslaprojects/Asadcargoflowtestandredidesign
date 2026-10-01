@@ -215,7 +215,7 @@ export function LoadWizard({
               const isLast = i === fields.length - 1;
               const country = values.stops[i]?.country;
               return (
-                <fieldset key={f.id} className="border-border rounded-xl border p-4" data-testid={`stop-${i}`}>
+                <fieldset key={f.id} className="border-border rounded-lg border p-4" data-testid={`stop-${i}`}>
                   <legend className="flex items-center gap-2 px-1 text-sm font-medium">
                     <MapPin className="text-primary size-4" aria-hidden />
                     Точка {i + 1}: {label("StopType", values.stops[i]?.type)}
@@ -551,7 +551,7 @@ export function LoadWizard({
         </Card>
       )}
 
-      <div className="border-border bg-card/95 sticky bottom-16 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 shadow-sm backdrop-blur lg:bottom-3">
+      <div className="border-border bg-card/95 sticky bottom-16 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 shadow-sm backdrop-blur lg:bottom-3">
         <Button
           type="button"
           variant="outline"

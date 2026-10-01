@@ -1,15 +1,15 @@
 import {
   Building2,
-  ClipboardList,
   FileText,
   FolderOpen,
   Fuel,
   Gauge,
   History,
-  LayoutDashboard,
   MessageSquare,
+  Navigation,
   Package,
   PackagePlus,
+  Radar,
   Route,
   Scale,
   ScrollText,
@@ -43,16 +43,16 @@ export type NavItem = {
 
 const DOCS = "Документы и финансы";
 const FLEET = "Автопарк";
-const SETTINGS = "Компания";
+const SETTINGS = "Настройки";
 
 /** Навигация по ролям (спецификация §68): сверху — ежедневная работа, ниже — справочные разделы. */
 export function navItems(kind: NavKind): NavItem[] {
   switch (kind) {
     case "customer":
       return [
-        { href: "/dashboard", label: t("nav.dashboard"), short: "Главная", icon: LayoutDashboard, primary: true },
+        { href: "/dashboard", label: "Операции", short: "Операции", icon: Radar, primary: true },
         { href: "/loads", label: t("nav.myLoads"), short: "Грузы", icon: Package, primary: true },
-        { href: "/orders", label: t("nav.myOrders"), short: "Перевозки", icon: Truck, primary: true },
+        { href: "/orders", label: t("nav.myOrders"), short: "Перевозки", icon: Navigation, primary: true },
         { href: "/loads/new", label: t("nav.createLoad"), icon: PackagePlus },
         { href: "/messages", label: t("nav.messages"), short: "Чаты", icon: MessageSquare, primary: true, badge: "messages" },
         { href: "/documents", label: t("nav.documents"), icon: FolderOpen, section: DOCS },
@@ -61,9 +61,9 @@ export function navItems(kind: NavKind): NavItem[] {
       ];
     case "forwarder":
       return [
-        { href: "/dashboard", label: t("nav.dashboard"), short: "Главная", icon: LayoutDashboard, primary: true },
+        { href: "/dashboard", label: "Операции", short: "Операции", icon: Radar, primary: true },
         { href: "/loads", label: t("nav.loads"), short: "Грузы", icon: Package, primary: true },
-        { href: "/orders", label: t("nav.orders"), short: "Перевозки", icon: Truck, primary: true },
+        { href: "/orders", label: t("nav.orders"), short: "Перевозки", icon: Navigation, primary: true },
         { href: "/marketplace", label: t("nav.marketplace"), icon: Search },
         { href: "/messages", label: t("nav.messages"), short: "Чаты", icon: MessageSquare, primary: true, badge: "messages" },
         { href: "/carriers", label: t("nav.carriers"), icon: Users, section: "Партнёры" },
@@ -73,12 +73,12 @@ export function navItems(kind: NavKind): NavItem[] {
       ];
     case "carrier":
       return [
-        { href: "/dashboard", label: t("nav.dashboard"), short: "Главная", icon: LayoutDashboard, primary: true },
+        { href: "/dashboard", label: "Операции", short: "Операции", icon: Radar, primary: true },
         { href: "/marketplace", label: t("nav.marketplace"), short: "Биржа", icon: Search, primary: true },
-        { href: "/orders", label: t("nav.myOrders"), short: "Перевозки", icon: Truck, primary: true },
+        { href: "/orders", label: t("nav.myOrders"), short: "Перевозки", icon: Navigation, primary: true },
         { href: "/next-load", label: t("nav.nextLoad"), icon: Route },
         { href: "/messages", label: t("nav.messages"), short: "Чаты", icon: MessageSquare, primary: true, badge: "messages" },
-        { href: "/vehicles", label: t("nav.vehicles"), icon: ClipboardList, section: FLEET },
+        { href: "/vehicles", label: "Автопарк", icon: Truck, section: FLEET },
         { href: "/drivers", label: t("nav.drivers"), icon: Users, section: FLEET },
         { href: "/fuel", label: t("nav.fuel"), icon: Fuel, section: FLEET },
         { href: "/documents", label: t("nav.documents"), icon: FolderOpen, section: DOCS },

@@ -140,7 +140,7 @@ export default async function AnomalyPage({ params }: { params: Promise<{ id: st
                 <CardTitle>АЗС и GPS</CardTitle>
               </CardHeader>
               <CardContent>
-                <MapView points={points} lines={lines} className="h-[260px] w-full overflow-hidden rounded-xl" />
+                <MapView points={points} lines={lines} className="h-[260px] w-full overflow-hidden rounded-lg" />
               </CardContent>
             </Card>
           )}

@@ -17,7 +17,7 @@ export function Toaster() {
       toastOptions={{
         duration: 4000,
         classNames: {
-          toast: "!rounded-xl !border !shadow-md !font-sans !text-sm !gap-2.5",
+          toast: "!rounded-lg !border !shadow-md !font-sans !text-sm !gap-2.5",
           title: "!font-medium",
           description: "!text-[0.8125rem] !opacity-90",
         },

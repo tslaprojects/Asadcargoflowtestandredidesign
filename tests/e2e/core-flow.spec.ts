@@ -62,7 +62,8 @@ test("полный сценарий цифровой перевозки", async 
   await shipper.getByLabel("Адрес").fill("пр. Абая, 1");
   await shipper.getByRole("button", { name: "Зарегистрироваться" }).click();
   await shipper.waitForURL("**/dashboard");
-  await expect(shipper.getByRole("heading", { name: /Здравствуйте, Айгерим/ })).toBeVisible();
+  await expect(shipper.getByRole("heading", { level: 1, name: "Операции" })).toBeVisible();
+  await expect(shipper.getByTestId("operations-empty")).toBeVisible();
 
   // ── 2. Создание груза: маршрут Китай → Алматы → Москва ──
   await shipper.getByRole("link", { name: "Создать груз" }).first().click();

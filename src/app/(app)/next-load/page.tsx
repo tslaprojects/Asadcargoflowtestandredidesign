@@ -124,7 +124,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
                       key={v.id}
                       href={vehicleHref(v.id)}
                       className={cn(
-                        "border-border hover:border-primary/40 block rounded-xl border p-3 text-sm transition-colors",
+                        "border-border hover:border-primary/40 block rounded-lg border p-3 text-sm transition-colors",
                         selected?.id === v.id && "border-primary bg-primary/5",
                       )}
                     >
@@ -206,7 +206,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
 
                 <Card>
                   <CardContent className="pt-5">
-                    <MapView points={points} lines={lines} className="h-[380px] w-full overflow-hidden rounded-xl" />
+                    <MapView points={points} lines={lines} className="h-[380px] w-full overflow-hidden rounded-lg" />
                     <p className="text-muted-foreground mt-2 text-xs">
                       Фиолетовый пунктир — направление движения, голубые линии — маршруты подходящих грузов. Расстояния — оценка по прямой с
                       коэффициентом дороги 1,2, а не навигационный маршрут.
@@ -244,7 +244,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
                 )}
 
                 {result.rejectedCount > 0 && (
-                  <details className="border-border bg-card rounded-xl border p-4 text-sm">
+                  <details className="border-border bg-card rounded-lg border p-4 text-sm">
                     <summary className="cursor-pointer font-medium">Почему не показаны другие грузы ({result.rejectedCount})</summary>
                     <ul className="mt-3 space-y-2">
                       {result.rejected.map((r) => (
@@ -286,7 +286,7 @@ function MatchCard({ m }: { m: Match }) {
     { icon: Gauge, label: "Общий пробег", value: `≈ ${m.estimatedTotalDistanceKm} км` },
   ];
   return (
-    <article className="border-border bg-card flex flex-col gap-3 rounded-xl border p-4 shadow-xs" data-testid="nl-match">
+    <article className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4 shadow-xs" data-testid="nl-match">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-muted-foreground text-xs font-medium">{m.load.publicNumber}</p>

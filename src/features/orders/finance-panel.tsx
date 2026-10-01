@@ -77,7 +77,7 @@ export function FinancePanel({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="finance-summary">
         {tiles.map((t) => (
-          <div key={t.label} className="border-border bg-card rounded-xl border p-4">
+          <div key={t.label} className="border-border bg-card rounded-lg border p-4">
             <p className="text-muted-foreground text-sm">{t.label}</p>
             <MoneyDisplay amount={t.value} currency={summary.currency} className="text-xl" />
           </div>

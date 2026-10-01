@@ -41,7 +41,7 @@ export function LoadCard({ load, showCompany = true }: { load: LoadCardData; sho
   return (
     <Link
       href={`/loads/${load.id}`}
-      className={cn("group border-border bg-card flex flex-col gap-3 rounded-xl border p-4 shadow-xs", cardInteractive)}
+      className={cn("group border-border bg-card flex flex-col gap-3 rounded-lg border p-4 shadow-xs", cardInteractive)}
       data-testid="load-card"
     >
       <div className="flex items-start justify-between gap-3">

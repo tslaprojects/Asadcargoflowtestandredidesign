@@ -53,7 +53,7 @@ export function DataTable<T>({
   const rest = columns.filter((c) => c !== primary && c !== badge && !c.hideOnMobile);
   return (
     <>
-      <div className="border-border bg-card @container hidden overflow-hidden rounded-xl border shadow-xs md:block">
+      <div className="border-border bg-card @container hidden overflow-hidden rounded-lg border shadow-xs md:block">
         <Table>
           {caption && <caption className="sr-only">{caption}</caption>}
           <TableHeader>
@@ -92,7 +92,7 @@ export function DataTable<T>({
           const content = (
             <div
               className={cn(
-                "border-border bg-card rounded-xl border p-3.5 shadow-xs",
+                "border-border bg-card rounded-lg border p-3.5 shadow-xs",
                 rowHref && "active:bg-surface-secondary transition-colors duration-100",
               )}
             >
@@ -125,7 +125,7 @@ export function DataTable<T>({
           return (
             <li key={rowKey(row)}>
               {rowHref ? (
-                <Link href={rowHref(row)} className="block rounded-xl">
+                <Link href={rowHref(row)} className="block rounded-lg">
                   {content}
                 </Link>
               ) : (

@@ -50,7 +50,7 @@ export function DocumentList({
   if (docs.length === 0) return <p className="text-muted-foreground py-6 text-center text-sm">Документов пока нет</p>;
   return (
     <>
-      <ul className="divide-border border-border bg-card divide-y rounded-xl border" data-testid="document-list">
+      <ul className="divide-border border-border bg-card divide-y rounded-lg border" data-testid="document-list">
         {docs.map((d) => {
           const isImage = d.mimeType.startsWith("image/");
           return (

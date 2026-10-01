@@ -69,7 +69,7 @@ export function MembersPanel({
           <UserPlus /> Пригласить сотрудника
         </Button>
       )}
-      <div className="border-border bg-card overflow-hidden rounded-xl border">
+      <div className="border-border bg-card overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             <TableRow>

@@ -21,7 +21,7 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
       {data.items.length === 0 ? (
         <EmptyState icon={MessageSquare} title="Сообщений пока нет" description="Чат появляется после выбора перевозчика." />
       ) : (
-        <ul className="divide-border border-border bg-card divide-y rounded-xl border">
+        <ul className="divide-border border-border bg-card divide-y rounded-lg border">
           {data.items.map((t) => (
             <li key={t.id}>
               <Link href={`/orders/${t.order.id}?tab=chat`} className="hover:bg-muted/50 flex items-start gap-3 p-4">

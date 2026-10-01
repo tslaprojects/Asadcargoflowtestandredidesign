@@ -23,7 +23,19 @@ const INLINE_FIELDS = 3;
  * Прогрессивное раскрытие: поиск + основные фильтры в строке, остальные — по кнопке «Фильтры» (со счётчиком активных).
  * На мобильном в строке только поиск и кнопка — список начинается на первом экране.
  */
-export function FilterBar({ fields, className }: { fields: FilterField[]; className?: string }) {
+export function FilterBar({
+  fields,
+  className,
+  inlineFields = INLINE_FIELDS,
+  bare,
+}: {
+  fields: FilterField[];
+  className?: string;
+  /** Сколько фильтров видно сразу (в узкой панели — меньше). */
+  inlineFields?: number;
+  /** Без рамки — внутри панели рабочего пространства. */
+  bare?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -34,8 +46,8 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
   const panelId = React.useId();
 
   const nonSearch = fields.filter((f) => f.type !== "search");
-  const inline = new Set(nonSearch.slice(0, INLINE_FIELDS).map((f) => f.name));
-  const hasAdvanced = nonSearch.length > INLINE_FIELDS;
+  const inline = new Set(nonSearch.slice(0, inlineFields).map((f) => f.name));
+  const hasAdvanced = nonSearch.length > inlineFields;
   const activeCount = nonSearch.filter((f) => params.get(f.name)).length;
   const advancedActive = nonSearch.some((f) => !inline.has(f.name) && params.get(f.name));
   const [open, setOpen] = React.useState(advancedActive);
@@ -64,7 +76,7 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
 
   return (
     <form
-      className={cn("border-border bg-card mb-4 rounded-xl border p-3 shadow-xs", className)}
+      className={cn(bare ? "px-3 pb-2" : "border-border bg-card mb-4 rounded-lg border p-3 shadow-xs", className)}
       onSubmit={(e) => {
         e.preventDefault();
         apply(values);
@@ -97,7 +109,7 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
                 </div>
               </div>
             );
-          const wrap = cn("w-[calc(50%-0.375rem)] space-y-1 sm:w-44", visibility(f.name));
+          const wrap = cn(bare ? "w-[calc(50%-0.375rem)] space-y-1" : "w-[calc(50%-0.375rem)] space-y-1 sm:w-44", visibility(f.name));
           if (f.type === "select")
             return (
               <div key={f.name} className={wrap}>
@@ -148,6 +160,7 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
             <Button
               type="button"
               variant="outline"
+              size={bare ? "sm" : "default"}
               className={cn(!hasAdvanced && "md:hidden")}
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
@@ -161,13 +174,20 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
               )}
             </Button>
           )}
-          <Button type="submit" loading={pending} loadingText="Ищем...">
+          <Button
+            type="submit"
+            size={bare ? "sm" : "default"}
+            loading={pending}
+            loadingText="Ищем..."
+            className={cn(bare && nonSearch.length === 0 && "sr-only")}
+          >
             Применить
           </Button>
           {hasActive && (
             <Button
               type="button"
               variant="ghost"
+              size={bare ? "sm" : "default"}
               onClick={() => {
                 const cleared = Object.fromEntries(fields.map((f) => [f.name, ""]));
                 setValues(cleared);

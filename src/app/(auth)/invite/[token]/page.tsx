@@ -26,7 +26,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Приглашение в компанию</h1>
-      <div className="border-border bg-card rounded-xl border p-4">
+      <div className="border-border bg-card rounded-lg border p-4">
         <p className="text-lg font-medium">{preview.company.legalName}</p>
         <p className="text-muted-foreground text-sm">
           Роль: {label("MemberRole", preview.role)} · для {preview.email}

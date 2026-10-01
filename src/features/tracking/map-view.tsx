@@ -1,8 +1,9 @@
 "use client";
 import "maplibre-gl/dist/maplibre-gl.css";
-import type { Map as MLMap, StyleSpecification } from "maplibre-gl";
+import type { Map as MLMap } from "maplibre-gl";
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { mapStyle } from "./map-style";
 
 export type MapPoint = {
   lat: number;
@@ -18,20 +19,6 @@ export type MapLine = { coordinates: [number, number][]; color: string; dashed?:
  * Карта на MapLibre GL (open-source). Стиль задаётся NEXT_PUBLIC_MAP_STYLE_URL,
  * по умолчанию — растровые тайлы OpenStreetMap. Провайдер карт заменяется без изменения компонентов.
  */
-const DEFAULT_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-      maxzoom: 19,
-    },
-  },
-  layers: [{ id: "osm", type: "raster", source: "osm" }],
-};
-
 const COLORS: Record<MapPoint["kind"], string> = {
   PICKUP: "#1d4ed8",
   BORDER: "#b45309",
@@ -84,10 +71,9 @@ export function MapView({
         if (!maplibregl.getWorkerUrl().startsWith(window.location.origin)) {
           maplibregl.setWorkerUrl(`${window.location.origin}/maplibre/maplibre-gl-worker.mjs`);
         }
-        const styleUrl = process.env.NEXT_PUBLIC_MAP_STYLE_URL;
         const map = new maplibregl.Map({
           container: ref.current,
-          style: styleUrl || DEFAULT_STYLE,
+          style: mapStyle(),
           center: points.length ? [points[0].lng, points[0].lat] : [70, 48],
           zoom: 3,
           attributionControl: { compact: true },
@@ -160,7 +146,7 @@ export function MapView({
   if ((points.length === 0 && !picking) || failed) {
     return (
       <div className={className}>
-        <div className="border-border bg-muted/40 text-muted-foreground grid h-full min-h-48 place-items-center rounded-xl border border-dashed p-4 text-center text-sm">
+        <div className="border-border bg-muted/40 text-muted-foreground grid h-full min-h-48 place-items-center rounded-lg border border-dashed p-4 text-center text-sm">
           {failed ? "Карта недоступна в этом браузере. Точки маршрута перечислены ниже." : "Нет координат для отображения на карте"}
         </div>
       </div>

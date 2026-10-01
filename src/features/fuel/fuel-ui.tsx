@@ -14,7 +14,7 @@ export function DemoBadge({ className }: { className?: string }) {
 export function DemoBanner() {
   return (
     <div
-      className="border-warning-border bg-warning-bg/60 mb-4 flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm"
+      className="border-warning-border bg-warning-bg/60 mb-4 flex flex-wrap items-center gap-2 rounded-lg border p-3 text-sm"
       role="note"
     >
       <DemoBadge />

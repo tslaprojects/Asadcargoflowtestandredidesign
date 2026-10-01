@@ -174,7 +174,17 @@ export async function listMyPayments(actor: Actor, opts: { page: number; pageSiz
       skip: (opts.page - 1) * opts.pageSize,
       take: opts.pageSize,
       include: {
-        order: { select: { id: true, publicNumber: true } },
+        order: {
+          select: {
+            id: true,
+            publicNumber: true,
+            currentStatus: true,
+            agreedAmount: true,
+            currency: true,
+            carrier: { select: { legalName: true } },
+            load: { select: { originCity: true, destinationCity: true } },
+          },
+        },
         payer: { select: { legalName: true } },
         payee: { select: { legalName: true } },
       },

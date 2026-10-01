@@ -199,7 +199,7 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
         <CardContent className="space-y-5">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3" data-testid="secure-deal-tiles">
             {tiles.map((t) => (
-              <div key={t.label} className="border-border bg-card rounded-xl border p-3">
+              <div key={t.label} className="border-border bg-card rounded-lg border p-3">
                 <p className="text-muted-foreground text-xs">{t.label}</p>
                 <MoneyDisplay amount={t.value} currency={currency} className="text-lg" />
               </div>
@@ -390,7 +390,7 @@ function AdminPaymentActions({
     );
 
   return (
-    <div className="border-border space-y-3 rounded-xl border border-dashed p-3" data-testid="admin-payment-actions">
+    <div className="border-border space-y-3 rounded-lg border border-dashed p-3" data-testid="admin-payment-actions">
       <p className="text-sm font-semibold">Администратор: операции по безопасной сделке</p>
       {pendingTx && (
         <div className="space-y-2 text-sm">

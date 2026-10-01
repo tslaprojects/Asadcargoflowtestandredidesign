@@ -112,7 +112,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         void run(() => api("/api/admin/settings", { method: "PUT", body: s }), { success: "Настройки сохранены" });
       }}
     >
-      <fieldset className="border-border space-y-4 rounded-xl border p-4">
+      <fieldset className="border-border space-y-4 rounded-lg border p-4">
         <legend className="px-1 text-sm font-semibold">Безопасная сделка</legend>
         <div className="flex items-start gap-2">
           <Checkbox id="s-sd" checked={s.secureDealEnabled} onCheckedChange={(c) => setS({ ...s, secureDealEnabled: c === true })} />

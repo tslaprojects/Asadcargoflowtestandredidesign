@@ -76,7 +76,7 @@ export function TripFuelReport({ r, canFinance }: { r: Report; canFinance: boole
         <CardContent>
           <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {tiles.map(([k, v]) => (
-              <div key={k} className="border-border rounded-xl border p-3">
+              <div key={k} className="border-border rounded-lg border p-3">
                 <dt className="text-muted-foreground text-xs">{k}</dt>
                 <dd className="font-semibold">{v}</dd>
               </div>

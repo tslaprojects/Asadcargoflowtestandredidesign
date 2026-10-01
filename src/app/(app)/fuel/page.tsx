@@ -92,7 +92,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
               <Link
                 key={v.id}
                 href={`/fuel/vehicles/${v.id}`}
-                className="border-border bg-card hover:border-primary/40 flex flex-col gap-3 rounded-xl border p-4 shadow-xs transition-colors"
+                className="border-border bg-card hover:border-primary/40 flex flex-col gap-3 rounded-lg border p-4 shadow-xs transition-colors"
                 data-testid="fleet-card"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -174,7 +174,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <MapView points={points} lines={[]} className="h-[320px] w-full overflow-hidden rounded-xl" />
+            <MapView points={points} lines={[]} className="h-[320px] w-full overflow-hidden rounded-lg" />
             <ul className="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Обозначения">
               <li>
                 <span className="mr-1 inline-block size-2.5 rounded-full bg-[#dc2626]" aria-hidden />

@@ -221,7 +221,7 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
               <CardTitle>Карта: трек и заправки</CardTitle>
             </CardHeader>
             <CardContent>
-              <MapView points={points} lines={trackLine} className="h-[300px] w-full overflow-hidden rounded-xl" />
+              <MapView points={points} lines={trackLine} className="h-[300px] w-full overflow-hidden rounded-lg" />
               <p className="text-muted-foreground mt-2 text-xs">
                 Синяя линия — трек за 3 дня (телематика). Зелёный — заправка совпадает, оранжевый — требует проверки, серый — нет данных.
               </p>

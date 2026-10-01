@@ -144,7 +144,7 @@ export function RegisterWizard({
                   <label
                     key={a.value}
                     className={cn(
-                      "has-[:focus-visible]:outline-ring flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors has-[:focus-visible]:outline-2",
+                      "has-[:focus-visible]:outline-ring flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors has-[:focus-visible]:outline-2",
                       activity === a.value ? "border-primary bg-accent" : "border-border bg-card hover:bg-muted",
                       invite && "pointer-events-none opacity-70",
                     )}

@@ -130,7 +130,7 @@ export function ChatPanel({ orderId, canSend, className }: { orderId: string; ca
 
   return (
     <div
-      className={cn("border-border bg-card flex h-[560px] max-h-[75dvh] flex-col rounded-xl border", className)}
+      className={cn("border-border bg-card flex h-[560px] max-h-[75dvh] flex-col rounded-lg border", className)}
       data-testid="chat-panel"
     >
       <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite" aria-label="Сообщения чата">

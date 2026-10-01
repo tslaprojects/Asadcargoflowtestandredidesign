@@ -29,7 +29,7 @@ export function ForgotPasswordForm() {
     <div>
       <h1 className="text-2xl font-semibold">Восстановление пароля</h1>
       {sent ? (
-        <div className="border-success-border bg-success-bg text-success mt-6 rounded-xl border p-4 text-sm" role="status">
+        <div className="border-success-border bg-success-bg text-success mt-6 rounded-lg border p-4 text-sm" role="status">
           <CheckCircle2 className="mb-2 size-5" aria-hidden />
           Если такой email зарегистрирован, мы отправили на него ссылку для сброса пароля. Ссылка действует 1 час.
           <p className="text-muted-foreground mt-2 text-xs">В локальной среде письмо выводится в лог сервера (EMAIL_DRIVER=log).</p>
@@ -79,7 +79,7 @@ export function ResetPasswordForm() {
       <h1 className="text-2xl font-semibold">Новый пароль</h1>
       {done ? (
         <div className="mt-6 space-y-4">
-          <p className="border-success-border bg-success-bg text-success rounded-xl border p-4 text-sm" role="status">
+          <p className="border-success-border bg-success-bg text-success rounded-lg border p-4 text-sm" role="status">
             Пароль изменён. Все активные сессии завершены.
           </p>
           <Button asChild className="w-full">

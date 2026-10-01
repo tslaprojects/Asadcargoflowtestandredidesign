@@ -280,7 +280,7 @@ export function BidCard({
 
   return (
     <div
-      className={cn("bg-card rounded-xl border p-4 shadow-xs", bid.status === "ACCEPTED" ? "border-success-border" : "border-border")}
+      className={cn("bg-card rounded-lg border p-4 shadow-xs", bid.status === "ACCEPTED" ? "border-success-border" : "border-border")}
       data-testid="bid-card"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
