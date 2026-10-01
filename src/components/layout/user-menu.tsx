@@ -23,7 +23,7 @@ export function UserMenu({ actor, kind }: { actor: ClientActor; kind: NavKind })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="grid size-9 place-items-center rounded-full bg-slate-800 text-sm font-semibold text-white hover:bg-slate-700"
+        className="bg-sidebar hover:bg-sidebar-active grid size-9 place-items-center rounded-full text-sm font-semibold text-white transition-colors duration-150"
         aria-label={`Меню пользователя ${actor.fullName}`}
       >
         {initials}

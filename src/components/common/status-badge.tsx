@@ -219,6 +219,9 @@ export function statusLabel(kind: StatusKind, value: string): string {
   return label(kind as EnumName, value);
 }
 
+/** Статусы, в которых машина движется или стоит на контрольной точке маршрута. */
+const MOVING = new Set(["AT_LOADING", "LOADED", "IN_TRANSIT", "AT_BORDER", "CUSTOMS", "BORDER_CLEARED", "AT_DELIVERY"]);
+
 export function StatusBadge({
   kind,
   value,
@@ -235,9 +238,19 @@ export function StatusBadge({
   if (!value) return null;
   const cfg = STATUS_STYLES[kind]?.[value] ?? { tone: "neutral" as const, icon: CircleDot };
   const Icon = cfg.icon;
+  // «Живой» индикатор — только для крупного бейджа перевозки в движении (шапка), не в списках: не отвлекает.
+  const live = size === "lg" && kind === "OrderStatus" && MOVING.has(value);
   return (
-    <Badge tone={cfg.tone} className={cn(size === "lg" && "px-3 py-1 text-sm [&_svg]:size-4", className)} data-status={value}>
-      {!hideIcon && <Icon aria-hidden />}
+    <Badge
+      tone={cfg.tone}
+      className={cn("transition-colors duration-(--duration-complex)", size === "lg" && "px-3 py-1 text-sm [&_svg]:size-4", className)}
+      data-status={value}
+    >
+      {live ? (
+        <span className="animate-live-pulse text-info bg-info mx-0.5 size-2 rounded-full" aria-hidden />
+      ) : (
+        !hideIcon && <Icon aria-hidden />
+      )}
       {statusLabel(kind, value)}
     </Badge>
   );

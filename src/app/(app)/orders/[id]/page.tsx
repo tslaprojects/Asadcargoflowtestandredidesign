@@ -1,10 +1,11 @@
-import { MapPin, Phone } from "lucide-react";
+import { MapPin, MessageSquare, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CompanyBadge, DefinitionList, MoneyDisplay, PageHeader } from "@/components/common/misc";
-import { RouteChain, RouteTimeline } from "@/components/common/route-timeline";
+import { RouteTimeline } from "@/components/common/route-timeline";
 import { StatusBadge } from "@/components/common/status-badge";
 import { UrlTabs } from "@/components/common/url-tabs";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { contentHash } from "@/lib/contracts/template";
 import { countryName } from "@/lib/geo/countries";
@@ -23,6 +24,8 @@ import { FinancePanel } from "@/features/orders/finance-panel";
 import { SecureDealPanel, type SecureDealPanelView } from "@/features/orders/secure-deal-panel";
 import { OrderActions } from "@/features/orders/order-actions";
 import { OrderStatusTimeline, type HistoryEntry } from "@/features/orders/order-status-timeline";
+import { OrderTrackingHeader } from "@/features/orders/order-tracking-header";
+import { orderProgress } from "@/lib/state-machine/order-progress";
 import { MapView, type MapPoint } from "@/features/tracking/map-view";
 import { guard, pageActor } from "@/server/page-context";
 import { unreadForOrder } from "@/server/services/chat.service";
@@ -76,6 +79,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const contractSignedByMe = !!contract?.signatures.some((s) => s.companyId === myCompanyId);
   const reviewedByMe = order.reviews.some((r) => r.fromCompanyId === myCompanyId);
   const counterpart = side === "CUSTOMER" ? order.carrier.legalName : order.shipper.legalName;
+  const counterpartPhone = side === "CUSTOMER" ? order.carrier.phone : side === "CARRIER" ? order.shipper.phone : null;
   const docNames = Object.fromEntries(docs.items.map((d) => [d.id, d.filename]));
   const final = FINAL_STATUSES.includes(order.currentStatus);
 
@@ -103,27 +107,13 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const summary = (
     <Card className="lg:sticky lg:top-20" data-testid="order-summary">
       <CardHeader>
-        <CardTitle>Сводка</CardTitle>
+        <CardTitle>Условия и участники</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div>
-          <p className="text-muted-foreground text-xs">Текущий статус</p>
-          <StatusBadge kind="OrderStatus" value={order.currentStatus} size="lg" />
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Маршрут</p>
-          <RouteChain stops={stops} />
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Груз</p>
-          <p>
-            {order.load.title} · {formatWeight(order.load.weightKg)}
-          </p>
-        </div>
+      <CardContent className="space-y-3.5 text-sm">
         {order.agreedAmount !== null && (
           <div>
-            <p className="text-muted-foreground text-xs">Стоимость</p>
-            <MoneyDisplay amount={order.agreedAmount} currency={order.currency} className="text-lg" />
+            <p className="text-muted-foreground text-xs">Стоимость перевозки</p>
+            <MoneyDisplay amount={order.agreedAmount} currency={order.currency} className="text-xl font-semibold" />
           </div>
         )}
         {secureDeal && (
@@ -178,8 +168,8 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </p>
         </div>
         <div>
-          <p className="text-muted-foreground text-xs">Последнее обновление</p>
-          <p>{formatDateTime(order.statusChangedAt)}</p>
+          <p className="text-muted-foreground text-xs">Статус обновлён</p>
+          <p className="num">{formatDateTime(order.statusChangedAt)}</p>
         </div>
       </CardContent>
     </Card>
@@ -383,25 +373,42 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         back={{ href: isDriver ? "/driver" : "/orders", label: isDriver ? "Мой рейс" : "Перевозки" }}
         title={
-          <span className="flex flex-wrap items-center gap-3">
-            Перевозка {order.publicNumber}
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span>
+              Перевозка <span className="id-code">{order.publicNumber}</span>
+            </span>
             <StatusBadge kind="OrderStatus" value={order.currentStatus} size="lg" />
           </span>
         }
         description={
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <RouteChain stops={stops} className="text-foreground text-base" />
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-foreground">{order.load.title}</span>
+            <span aria-hidden>·</span>
+            <span className="num">{formatWeight(order.load.weightKg)}</span>
+            <span aria-hidden>·</span>
             <Link href={`/loads/${order.load.id}`} className="text-primary hover:underline">
-              Груз {order.load.publicNumber}
+              Груз <span className="id-code">{order.load.publicNumber}</span>
             </Link>
           </span>
         }
       />
+      <div className="mb-5">
+        <OrderTrackingHeader
+          progress={orderProgress(order.statusHistory, order.currentStatus)}
+          stops={stops}
+          lastLocation={lastLocation}
+          loadingDate={order.loadingDate}
+          deliveryDate={order.deliveryDate}
+          vehicle={order.vehicle}
+          driver={order.driver}
+          points={points}
+        />
+      </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-5">
           <Card>
             <CardHeader>
-              <CardTitle>Что дальше</CardTitle>
+              <CardTitle>Действия</CardTitle>
             </CardHeader>
             <CardContent>
               <OrderActions
@@ -426,6 +433,30 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                 }}
               />
               {final && order.currentStatus === "CANCELLED" && <p className="text-danger text-sm">Перевозка отменена.</p>}
+              {!final && !isDriver && (
+                <div className="border-border mt-4 flex flex-wrap items-center gap-2 border-t pt-4">
+                  <span className="text-muted-foreground mr-1 text-sm">Связаться:</span>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/orders/${order.id}?tab=chat`} scroll={false}>
+                      <MessageSquare /> Чат по перевозке{unread ? ` (${unread})` : ""}
+                    </Link>
+                  </Button>
+                  {counterpartPhone && (
+                    <Button asChild variant="outline" size="sm">
+                      <a href={`tel:${counterpartPhone}`}>
+                        <Phone /> {side === "CUSTOMER" ? "Перевозчику" : "Заказчику"}
+                      </a>
+                    </Button>
+                  )}
+                  {order.driver && (
+                    <Button asChild variant="ghost" size="sm">
+                      <a href={`tel:${order.driver.phone}`}>
+                        <Phone /> Водителю
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
           <UrlTabs
@@ -514,7 +545,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             ]}
           />
         </div>
-        <aside className="order-first lg:order-none">{summary}</aside>
+        <aside>{summary}</aside>
       </div>
     </>
   );

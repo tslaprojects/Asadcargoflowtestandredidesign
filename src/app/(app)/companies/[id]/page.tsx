@@ -67,7 +67,7 @@ export default async function PublicCompanyPage({ params }: { params: Promise<{ 
                         {[1, 2, 3, 4, 5].map((n) => (
                           <Star
                             key={n}
-                            className={n <= r.rating ? "size-4 fill-amber-400 text-amber-400" : "size-4 text-slate-300"}
+                            className={n <= r.rating ? "fill-rating text-rating size-4" : "text-border-strong size-4"}
                             aria-hidden
                           />
                         ))}

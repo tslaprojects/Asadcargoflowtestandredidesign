@@ -17,21 +17,30 @@ type Stop = {
   contactPhone?: string | null;
 };
 
-/** Компактная цепочка маршрута: 🇨🇳 Урумчи → 🇰🇿 Алматы → 🇷🇺 Москва */
+/**
+ * Цепочка маршрута: 🇨🇳 Урумчи → 🇰🇿 Алматы → 🇷🇺 Москва.
+ * compact — только начало и конец, промежуточные точки — счётчиком «+2» (полный маршрут — в подсказке и для скринридера).
+ */
 export function RouteChain({ stops, className, compact }: { stops: Stop[]; className?: string; compact?: boolean }) {
-  const shown = compact && stops.length > 3 ? [stops[0], stops[stops.length - 1]] : stops;
+  const collapsed = compact && stops.length > 2;
+  const shown = collapsed ? [stops[0], stops[stops.length - 1]] : stops;
+  const full = stops.map((s) => s.city).join(" → ");
   return (
-    <span className={cn("inline-flex flex-wrap items-center gap-x-1.5 gap-y-1", className)}>
+    <span className={cn("inline-flex flex-wrap items-center gap-x-1.5 gap-y-1", className)} title={collapsed ? full : undefined}>
       {shown.map((s, i) => (
-        <span key={`${s.city}-${i}`} className="inline-flex items-center gap-1.5">
-          {i > 0 && <ArrowRight className="text-muted-foreground size-3.5 shrink-0" aria-hidden />}
+        <span key={`${s.city}-${i}`} className="inline-flex items-center gap-1.5" aria-hidden>
+          {i > 0 && <ArrowRight className="text-muted-foreground size-3.5 shrink-0" />}
           <span className="inline-flex items-center gap-1 whitespace-nowrap">
-            <span aria-hidden>{countryFlag(s.country)}</span>
+            <span>{countryFlag(s.country)}</span>
             <span>{s.city}</span>
           </span>
         </span>
       ))}
-      {compact && stops.length > 3 && <span className="text-muted-foreground text-xs">(+{stops.length - 2} точки)</span>}
+      {collapsed && (
+        <span className="bg-muted text-muted-foreground num rounded-sm px-1 text-[0.6875rem] leading-4 font-medium" aria-hidden>
+          +{stops.length - 2}
+        </span>
+      )}
       <span className="sr-only">Маршрут: {stops.map((s) => `${s.city}, ${countryName(s.country)}`).join(" — ")}</span>
     </span>
   );
@@ -44,7 +53,7 @@ export function RouteTimeline({ stops, showContacts = true }: { stops: Stop[]; s
       {stops.map((s, i) => {
         const last = i === stops.length - 1;
         const dot =
-          s.type === "PICKUP" ? "bg-primary" : s.type === "DELIVERY" ? "bg-success" : s.type === "BORDER" ? "bg-warning" : "bg-slate-400";
+          s.type === "PICKUP" ? "bg-primary" : s.type === "DELIVERY" ? "bg-success" : s.type === "BORDER" ? "bg-warning" : "bg-neutral";
         return (
           <li key={`${s.city}-${i}`} className="relative flex gap-3 pb-5 last:pb-0">
             {!last && <span className="bg-border absolute top-4 left-[7px] h-full w-0.5" aria-hidden />}

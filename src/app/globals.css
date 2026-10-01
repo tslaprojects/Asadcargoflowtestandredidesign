@@ -1,30 +1,42 @@
 @import "tailwindcss";
 
 /*
- * CargoFlow design tokens (B2B SaaS, светлая тема).
- * Семантические цвета статусов: success / warning / info / danger / neutral.
+ * CargoFlow design system — tokens.
+ * Направление (UI/UX Pro Max, «logistics operations console», density 8 / motion 3):
+ * Minimalism & Swiss Style — navy + trust blue, плотная и спокойная типографика, цвет только со смыслом.
+ * Документация: docs/design-system.md.
  */
 :root {
-  --background: #f6f7f9;
+  /* ── Поверхности и текст ── */
+  --background: #f5f6f8;
   --foreground: #0f172a;
-  --card: #ffffff;
+  --card: #ffffff; /* surface */
   --card-foreground: #0f172a;
+  --surface-secondary: #f8fafc; /* вложенные панели, строки-итоги */
   --muted: #f1f5f9;
-  --muted-foreground: #5b6474;
-  --border: #e2e6ec;
-  --input: #d5dbe3;
+  --muted-foreground: #556070; /* 6.1:1 на белом, 5.7:1 на background */
+  --border: #e3e7ed;
+  --border-strong: #cfd6df; /* hover интерактивных карточек, разделители групп */
+  --input: #838fa1; /* граница полей: 3.3:1 (WCAG 1.4.11) */
   --ring: #2563eb;
-  --primary: #1d4ed8;
+  --overlay: rgb(2 6 23 / 0.45);
+
+  /* ── Бренд и действия ── */
+  --primary: #1d4ed8; /* 6.7:1 на белом */
   --primary-hover: #1e40af;
   --primary-foreground: #ffffff;
   --secondary: #eef2f7;
+  --secondary-hover: #e2e8f0;
   --secondary-foreground: #0f172a;
   --accent: #eff4ff;
   --accent-foreground: #1d4ed8;
   --destructive: #dc2626;
+  --destructive-hover: #b91c1c;
   --destructive-foreground: #ffffff;
 
+  /* ── Семантика состояний (текст ≥ 4.5:1 на своём фоне) ── */
   --success: #15803d;
+  --success-hover: #166534;
   --success-bg: #ecfdf3;
   --success-border: #bbf7d0;
   --warning: #b45309;
@@ -39,12 +51,21 @@
   --neutral: #475569;
   --neutral-bg: #f1f5f9;
   --neutral-border: #e2e8f0;
+  --rating: #f59e0b; /* только заливка звёзд, не текст */
 
+  /* ── Сайдбар (navy) ── */
   --sidebar: #0f172a;
-  --sidebar-foreground: #cbd5e1;
+  --sidebar-foreground: #cbd5e1; /* 12:1 */
+  --sidebar-muted: #8391a7; /* подписи групп, 6.2:1 */
   --sidebar-active: #1e293b;
+  --sidebar-accent: #60a5fa; /* индикатор активного пункта */
+  --sidebar-border: rgb(255 255 255 / 0.08);
 
-  --radius: 0.625rem;
+  /* ── Motion ── */
+  --duration-micro: 120ms; /* hover, focus, нажатие, иконки */
+  --duration-standard: 200ms; /* dropdown, tooltip, карточки, небольшие панели */
+  --duration-complex: 320ms; /* диалоги, боковые панели, прогресс */
+  --duration-exit: 150ms; /* выход ≈ 60–70% входа */
 }
 
 @theme inline {
@@ -52,21 +73,28 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-surface: var(--card);
+  --color-surface-secondary: var(--surface-secondary);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-overlay: var(--overlay);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
+  --color-secondary-hover: var(--secondary-hover);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
+  --color-success-hover: var(--success-hover);
   --color-success-bg: var(--success-bg);
   --color-success-border: var(--success-border);
   --color-warning: var(--warning);
@@ -81,15 +109,176 @@
   --color-neutral: var(--neutral);
   --color-neutral-bg: var(--neutral-bg);
   --color-neutral-border: var(--neutral-border);
+  --color-rating: var(--rating);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar-active: var(--sidebar-active);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-border: var(--sidebar-border);
+
+  /* Радиусы: sm — чипы; md — контролы; lg — элементы внутри карточек, меню; xl — карточки, диалоги; 2xl — мобильные панели */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+
+  /* Тени: только для уровней (карточка → поповер → диалог), не для украшения */
+  --shadow-xs: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow-sm: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
+  --shadow-md: 0 6px 16px -4px rgb(15 23 42 / 0.12), 0 2px 4px -2px rgb(15 23 42 / 0.06);
+  --shadow-lg: 0 16px 40px -12px rgb(15 23 42 / 0.25), 0 4px 10px -4px rgb(15 23 42 / 0.08);
+  --shadow-xl: 0 24px 56px -16px rgb(15 23 42 / 0.3);
+
+  /* Контейнеры */
+  --container-page: 87.5rem; /* 1400 px — рабочая область */
+  --container-form: 52rem; /* формы и мастера */
+  --container-prose: 42rem; /* тексты */
+
+  /* Шрифт: Inter Variable (@fontsource-variable/inter — кириллица, табличные цифры) */
+  --font-sans:
+    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Кривые: вход — замедление, выход — ускорение */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  --animate-fade-in: fade-in var(--duration-standard) var(--ease-out) both;
+  --animate-fade-out: fade-out var(--duration-exit) var(--ease-in) both;
+  --animate-pop-in: pop-in var(--duration-standard) var(--ease-out) both;
+  --animate-pop-out: pop-out var(--duration-exit) var(--ease-in) both;
+  --animate-dialog-in: dialog-in var(--duration-complex) var(--ease-out) both;
+  --animate-dialog-out: dialog-out var(--duration-exit) var(--ease-in) both;
+  --animate-sheet-in-right: sheet-in-right var(--duration-complex) var(--ease-out) both;
+  --animate-sheet-out-right: sheet-out-right var(--duration-standard) var(--ease-in) both;
+  --animate-sheet-in-left: sheet-in-left var(--duration-complex) var(--ease-out) both;
+  --animate-sheet-out-left: sheet-out-left var(--duration-standard) var(--ease-in) both;
+  --animate-sheet-in-bottom: sheet-in-bottom var(--duration-complex) var(--ease-out) both;
+  --animate-sheet-out-bottom: sheet-out-bottom var(--duration-standard) var(--ease-in) both;
+  --animate-rise-in: rise-in 240ms var(--ease-out) both;
+  --animate-page-in: page-in 220ms var(--ease-out) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-live-pulse: live-pulse 2s var(--ease-out) infinite;
+  --animate-check-pop: check-pop 360ms var(--ease-out) both;
+  --animate-highlight: highlight 1.6s var(--ease-out) both;
+  --animate-progress-grow: progress-grow 700ms var(--ease-out) both;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes fade-out {
+    to {
+      opacity: 0;
+    }
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(-2px) scale(0.97);
+    }
+  }
+  @keyframes pop-out {
+    to {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+  @keyframes dialog-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.98);
+    }
+  }
+  @keyframes dialog-out {
+    to {
+      opacity: 0;
+      transform: scale(0.98);
+    }
+  }
+  @keyframes sheet-in-right {
+    from {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes sheet-out-right {
+    to {
+      transform: translateX(100%);
+    }
+  }
+  @keyframes sheet-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes sheet-out-left {
+    to {
+      transform: translateX(-100%);
+    }
+  }
+  @keyframes sheet-in-bottom {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes sheet-out-bottom {
+    to {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+  @keyframes page-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 150% 0;
+    }
+    to {
+      background-position: -50% 0;
+    }
+  }
+  @keyframes live-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 0%, transparent);
+    }
+  }
+  @keyframes check-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.6);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+  }
+  @keyframes progress-grow {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes highlight {
+    from {
+      background-color: var(--accent);
+    }
+  }
 }
 
 @layer base {
@@ -98,28 +287,138 @@
   }
   html {
     -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
   }
   body {
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
     font-feature-settings: "tnum" 1;
+    -webkit-tap-highlight-color: transparent;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
   button:not(:disabled),
-  [role="button"]:not(:disabled) {
+  [role="button"]:not(:disabled),
+  summary {
     cursor: pointer;
+  }
+  a,
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  label {
+    touch-action: manipulation;
+  }
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
   }
 }
 
+/* ── Типографические роли (docs/design-system.md) ── */
+@utility text-display {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+  font-weight: 650;
+  letter-spacing: -0.022em;
+}
+@utility text-h1 {
+  font-size: 1.375rem;
+  line-height: 1.875rem;
+  font-weight: 650;
+  letter-spacing: -0.018em;
+  @media (width >= 40rem) {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+}
+@utility text-h2 {
+  font-size: 1.0625rem;
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+@utility text-h3 {
+  font-size: 0.9375rem;
+  line-height: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+}
+@utility text-h4 {
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+  font-weight: 600;
+}
+@utility text-caption {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted-foreground);
+}
+@utility text-overline {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+/* Операционные числа: цены, вес, км, KPI — табличные цифры, без «прыжков» при обновлении */
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
+@utility num {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+/* Номера документов (CF-O-000002): перечёркнутый ноль отличает 0 от буквы O */
+@utility id-code {
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings:
+    "tnum" 1,
+    "zero" 1;
+  letter-spacing: 0.005em;
+}
 
-/* MapLibre: без лишних теней в карточках */
+/* Скелетон с мягким шиммером (при reduced motion — статичный) */
+@utility skeleton {
+  background-color: var(--muted);
+  background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.65) 50%, transparent 100%);
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: var(--animate-shimmer);
+}
+
+/* Появление новой страницы: короткий fade + сдвиг 4 px (fast + smooth) */
+.page-transition {
+  animation: var(--animate-page-in);
+}
+
+/* ── Reduced motion: полноценный UX без движения ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* MapLibre */
 .maplibregl-ctrl-attrib {
   font-size: 10px;
+}
+.maplibregl-ctrl-group {
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-sm) !important;
 }

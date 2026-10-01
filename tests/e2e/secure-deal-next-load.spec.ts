@@ -54,7 +54,7 @@ test("безопасная сделка → выплата → закрытие 
   await dialog.getByRole("button", { name: "Подтвердить получение груза" }).click();
   await expectToast(shipper.page, "Выплата перевозчику запущена");
   await shipper.page.reload();
-  await expect(shipper.page.getByTestId("order-summary")).toContainText("Закрыто");
+  await expect(shipper.page.getByRole("heading", { level: 1 })).toContainText("Закрыто");
   await expect(shipper.page.getByTestId("summary-secure-deal")).toContainText("Выплачено перевозчику");
   await expect(shipper.page.getByTestId("payment-history")).toContainText("Выплата в обработке");
   await shipper.context.close();

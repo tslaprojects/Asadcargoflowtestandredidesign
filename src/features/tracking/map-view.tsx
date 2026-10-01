@@ -2,6 +2,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Map as MLMap, StyleSpecification } from "maplibre-gl";
 import * as React from "react";
+import { cn } from "@/lib/utils";
 
 export type MapPoint = {
   lat: number;
@@ -165,14 +166,15 @@ export function MapView({
       </div>
     );
   }
+  // className задаёт размер/скругление внешнего блока; холст карты заполняет его целиком.
   return (
-    <div className="relative">
+    <div className={cn("relative overflow-hidden", className)}>
       <div
         ref={ref}
-        className={className}
+        // inline-стиль: CSS MapLibre (.maplibregl-map { position: relative }) перебивает классы позиционирования
+        style={{ position: "absolute", inset: 0, ...(picking ? { cursor: "crosshair" } : {}) }}
         role="img"
         aria-label={`Карта: ${points.map((p) => p.label).join(", ")}`}
-        style={picking ? { cursor: "crosshair" } : undefined}
       />
       {picking && pickHint && (
         <p className="bg-card/90 pointer-events-none absolute top-2 left-2 rounded-md px-2 py-1 text-xs shadow">{pickHint}</p>

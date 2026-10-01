@@ -20,10 +20,12 @@ function Tooltip({
           <T.Content
             side={side}
             sideOffset={6}
-            className={cn("z-50 max-w-xs rounded-md bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow-md")}
+            className={cn(
+              "bg-sidebar data-[state=delayed-open]:animate-pop-in data-[state=closed]:animate-pop-out z-50 max-w-xs origin-(--radix-tooltip-content-transform-origin) rounded-md px-2.5 py-1.5 text-xs text-white shadow-md",
+            )}
           >
             {content}
-            <T.Arrow className="fill-slate-900" />
+            <T.Arrow className="fill-sidebar" />
           </T.Content>
         </T.Portal>
       </T.Root>

@@ -9,19 +9,19 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
   );
 }
 function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
-  return <thead className={cn("bg-muted/60 [&_tr]:border-b", className)} {...props} />;
+  return <thead className={cn("bg-surface-secondary [&_tr]:border-b", className)} {...props} />;
 }
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return <tbody className={cn("[&_tr:last-child]:border-0", className)} {...props} />;
 }
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
-  return <tr className={cn("border-border hover:bg-muted/40 border-b transition-colors", className)} {...props} />;
+  return <tr className={cn("border-border hover:bg-surface-secondary border-b transition-colors duration-100", className)} {...props} />;
 }
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       className={cn(
-        "text-muted-foreground h-9 px-3 text-left align-middle text-xs font-medium tracking-wide whitespace-nowrap uppercase",
+        "text-muted-foreground h-9 px-3 text-left align-middle text-[0.6875rem] font-semibold tracking-[0.06em] whitespace-nowrap uppercase",
         className,
       )}
       {...props}

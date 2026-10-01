@@ -10,14 +10,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </Link>
         <div className="max-w-md space-y-4">
           <h2 className="text-3xl leading-tight font-semibold">Международные грузоперевозки — от заявки до закрытия сделки</h2>
-          <ul className="space-y-2 text-slate-300">
+          <ul className="text-sidebar-foreground space-y-2">
             <li>• Биржа грузов и торги с перевозчиками</li>
             <li>• Договор и электронное подписание</li>
             <li>• Назначение машины и водителя, трекинг рейса</li>
             <li>• Документы, чат, финансы и история сделки</li>
           </ul>
         </div>
-        <p className="text-xs text-slate-500">Китай · Казахстан · Россия · Центральная Азия</p>
+        <p className="text-sidebar-muted text-xs">Китай · Казахстан · Россия · Центральная Азия</p>
       </div>
       <main className="flex items-center justify-center px-4 py-10 sm:px-8">
         <div className="w-full max-w-md">

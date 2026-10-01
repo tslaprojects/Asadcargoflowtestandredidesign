@@ -174,7 +174,12 @@ export function LoadWizard({
               aria-current={i === step ? "step" : undefined}
               className="flex w-full flex-col items-start gap-1.5 text-left"
             >
-              <span className={cn("h-1.5 w-full rounded-full", i < step ? "bg-success" : i === step ? "bg-primary" : "bg-muted")} />
+              <span
+                className={cn(
+                  "h-1.5 w-full rounded-full transition-colors duration-(--duration-complex)",
+                  i < step ? "bg-success" : i === step ? "bg-primary" : "bg-muted",
+                )}
+              />
               <span className={cn("text-xs sm:text-sm", i === step ? "font-medium" : "text-muted-foreground")}>
                 <span className="hidden sm:inline">Шаг {i + 1}. </span>
                 {s}

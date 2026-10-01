@@ -46,16 +46,32 @@ export function OrderTable({
 }) {
   const columns: Column<OrderRow>[] = [
     { key: "number", header: "Номер", cell: (o) => o.publicNumber, primary: true, className: "whitespace-nowrap" },
-    { key: "route", header: "Маршрут", cell: (o) => <RouteChain stops={stopsOf(o)} compact /> },
+    { key: "route", header: "Маршрут", cell: (o) => <RouteChain stops={stopsOf(o)} compact />, mobile: "full" },
+    { key: "status", header: "Статус", cell: (o) => <StatusBadge kind="OrderStatus" value={o.currentStatus} />, mobile: "badge" },
     ...(perspective === "forwarder"
-      ? [{ key: "client", header: "Клиент", cell: (o: OrderRow) => o.load.clientName ?? "—", hideOnMobile: true }]
+      ? [
+          {
+            key: "client",
+            header: "Клиент",
+            cell: (o: OrderRow) => o.load.clientName ?? "—",
+            hideOnMobile: true,
+            hideBelow: "@4xl" as const,
+          },
+        ]
       : []),
-    ...(perspective !== "carrier" ? [{ key: "carrier", header: "Перевозчик", cell: (o: OrderRow) => o.carrier.legalName }] : []),
+    ...(perspective !== "carrier"
+      ? [{ key: "carrier", header: "Перевозчик", cell: (o: OrderRow) => o.carrier.legalName, hideBelow: "@3xl" as const }]
+      : []),
     ...(perspective !== "customer" && perspective !== "forwarder"
-      ? [{ key: "shipper", header: "Заказчик", cell: (o: OrderRow) => o.shipper.legalName }]
+      ? [{ key: "shipper", header: "Заказчик", cell: (o: OrderRow) => o.shipper.legalName, hideBelow: "@3xl" as const }]
       : []),
-    { key: "status", header: "Статус", cell: (o) => <StatusBadge kind="OrderStatus" value={o.currentStatus} /> },
-    { key: "loading", header: "Загрузка", cell: (o) => formatDate(o.loadingDate), hideOnMobile: true },
+    {
+      key: "loading",
+      header: "Загрузка",
+      cell: (o) => <span className="num whitespace-nowrap">{formatDate(o.loadingDate)}</span>,
+      hideOnMobile: true,
+      hideBelow: "@4xl",
+    },
     {
       key: "amount",
       header: "Сумма",
@@ -67,6 +83,7 @@ export function OrderTable({
       header: "Обновлено",
       cell: (o) => <span className="text-muted-foreground whitespace-nowrap">{formatRelative(o.updatedAt)}</span>,
       hideOnMobile: true,
+      hideBelow: "@5xl",
     },
   ];
   return (

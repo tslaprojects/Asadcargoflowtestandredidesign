@@ -408,7 +408,7 @@ function ReviewDialog({ orderId, counterpart }: { orderId: string; counterpart: 
             aria-pressed={v[key] >= n}
             className="rounded p-0.5"
           >
-            <Star className={cn("size-6", v[key] >= n ? "fill-amber-400 text-amber-400" : "text-slate-300")} />
+            <Star className={cn("size-6", v[key] >= n ? "fill-rating text-rating" : "text-border-strong")} />
           </button>
         ))}
       </div>

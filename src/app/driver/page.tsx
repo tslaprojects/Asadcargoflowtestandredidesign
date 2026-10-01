@@ -38,7 +38,7 @@ export default async function DriverHomePage() {
   return (
     <div className="space-y-3 pt-1" data-testid="driver-trip">
       <div className="bg-sidebar rounded-2xl p-4 text-white">
-        <p className="text-sm text-slate-300">Рейс</p>
+        <p className="text-sidebar-foreground text-sm">Рейс</p>
         <p className="text-2xl font-bold" data-testid="driver-trip-number">
           #{order.publicNumber}
         </p>
@@ -46,12 +46,12 @@ export default async function DriverHomePage() {
           {countryFlag(first.country)} {first.city} → {countryFlag(last.country)} {last.city}
         </p>
         {order.vehicle && (
-          <p className="mt-2 text-base text-slate-200">
+          <p className="text-sidebar-foreground mt-2 text-base">
             {order.vehicle.make} {order.vehicle.model} · <span className="font-mono font-semibold">{order.vehicle.plateNumber}</span>
           </p>
         )}
         <div className="mt-3 flex items-center gap-2">
-          <span className="text-sm text-slate-300">Статус:</span>
+          <span className="text-sidebar-foreground text-sm">Статус:</span>
           <StatusBadge kind="OrderStatus" value={order.currentStatus} size="lg" className="uppercase" />
         </div>
       </div>

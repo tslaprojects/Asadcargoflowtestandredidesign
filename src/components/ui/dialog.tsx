@@ -16,10 +16,10 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & { size?: "sm" | "md" | "lg" | "xl" }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="data-[state=open]:animate-in data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-[1px]" />
+      <DialogPrimitive.Overlay className="bg-overlay data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out fixed inset-0 z-50" />
       <DialogPrimitive.Content
         className={cn(
-          "border-border bg-card fixed top-1/2 left-1/2 z-50 grid max-h-[92dvh] w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-xl border p-5 shadow-xl sm:p-6",
+          "border-border bg-card data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out fixed top-1/2 left-1/2 z-50 grid max-h-[92dvh] w-[calc(100%-1.5rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-xl border p-5 shadow-lg sm:p-6",
           size === "sm" && "max-w-sm",
           size === "md" && "max-w-lg",
           size === "lg" && "max-w-2xl",
@@ -30,7 +30,7 @@ function DialogContent({
       >
         {children}
         <DialogPrimitive.Close
-          className="text-muted-foreground hover:bg-muted hover:text-foreground absolute top-3 right-3 rounded-md p-1.5"
+          className="text-muted-foreground hover:bg-muted hover:text-foreground absolute top-3 right-3 rounded-md p-2 transition-colors duration-150"
           aria-label="Закрыть"
         >
           <X className="size-4" />
@@ -47,7 +47,7 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return <div className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)} {...props} />;
 }
 function DialogTitle({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Title>) {
-  return <DialogPrimitive.Title className={cn("text-lg leading-tight font-semibold", className)} {...props} />;
+  return <DialogPrimitive.Title className={cn("text-h2", className)} {...props} />;
 }
 function DialogDescription({ className, ...props }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return <DialogPrimitive.Description className={cn("text-muted-foreground text-sm", className)} {...props} />;
