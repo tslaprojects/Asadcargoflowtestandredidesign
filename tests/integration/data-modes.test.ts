@@ -280,3 +280,82 @@ describe("seed:demo не запускается против реальной б
     }
   }, 60_000);
 });
+
+describe("Демо-аккаунт без компаний в реальной базе", () => {
+  it("в демо занимает место своего персонажа: компания, роль, профиль водителя, переход в кабинет водителя", async () => {
+    const email = `driver-${Date.now()}@cargoflow.demo`;
+    const real = await makeUser();
+    await authDb.user.update({ where: { id: real.id }, data: { email } });
+    const { companyId, driverId } = await runWithDataMode("demo", async () => {
+      const carrier = await makeCompany("CARRIER", "Persona Carrier");
+      const persona = await makeUser({ role: "DRIVER", companyId: carrier.id });
+      await prisma.user.update({ where: { id: persona.id }, data: { email } });
+      const driver = await prisma.driverProfile.create({
+        data: {
+          userId: persona.id,
+          companyId: carrier.id,
+          fullName: "Persona",
+          phone: "+7 700 0",
+          licenseNumber: "P1",
+          licenseCategory: "CE",
+        },
+      });
+      return { companyId: carrier.id, driverId: driver.id };
+    });
+
+    const res = await signIn(email, "demo");
+    expect((res.json.data as unknown as { redirectTo: string }).redirectTo).toBe("/driver");
+    const actor = await getCurrentActor();
+    expect(actor?.active?.companyId).toBe(companyId);
+    expect(actor?.active?.role).toBe("DRIVER");
+    expect((await demo.driverProfile.findUniqueOrThrow({ where: { id: driverId } })).userId).toBe(real.id);
+    // В реальной базе по-прежнему ни компаний, ни профилей
+    expect(await authDb.companyMember.count({ where: { userId: real.id } })).toBe(0);
+
+    // Повторный вход (персонаж уже вытеснен) — то же рабочее место
+    await signIn(email, "demo");
+    expect((await getCurrentActor())?.active?.companyId).toBe(companyId);
+  });
+});
+
+describe("Удаление демо-данных из реальной базы", () => {
+  function purge(...args: string[]) {
+    return execFileSync("npx", ["tsx", "--conditions=react-server", "scripts/purge-demo-from-real.ts", ...args], {
+      env: process.env,
+      encoding: "utf8",
+    });
+  }
+
+  it("удаляет демо-компании с данными, сохраняет учётные записи демо-аккаунтов и реальные данные", async () => {
+    const demoCo = await makeCompany("SHIPPER", "Demo Co");
+    await authDb.company.update({ where: { id: demoCo.id }, data: { registrationNumber: "DEMO-KZ-900001" } });
+    const demoUser = await makeUser({ role: "SHIPPER", companyId: demoCo.id });
+    const demoEmail = `shipper-${Date.now()}@cargoflow.demo`;
+    await authDb.user.update({ where: { id: demoUser.id }, data: { email: demoEmail } });
+    await authDb.notification.create({ data: { userId: demoUser.id, type: "SYSTEM", title: "demo" } });
+
+    // DEMO- номер, но с реальным участником — не трогаем
+    const mixedCo = await makeCompany("CARRIER", "Mixed Co");
+    await authDb.company.update({ where: { id: mixedCo.id }, data: { registrationNumber: "DEMO-KZ-900002" } });
+    await makeUser({ role: "CARRIER_ADMIN", companyId: mixedCo.id });
+
+    await signIn(demoEmail, "real");
+    await call(loadsPOST, req("/api/loads", { method: "POST", body: { load: loadInput({ title: "Демо в реальной" }) } }));
+    await signIn(shipperEmail, "real");
+    await call(loadsPOST, req("/api/loads", { method: "POST", body: { load: loadInput({ title: "Настоящий груз" }) } }));
+
+    const dry = purge();
+    expect(dry).toContain("сухой прогон");
+    expect(await authDb.load.count({ where: { title: "Демо в реальной" } })).toBe(1);
+
+    purge("--apply");
+    expect(await authDb.load.count({ where: { title: "Демо в реальной" } })).toBe(0);
+    expect(await authDb.company.count({ where: { id: demoCo.id } })).toBe(0);
+    expect(await authDb.notification.count({ where: { userId: demoUser.id } })).toBe(0);
+    expect(await authDb.user.count({ where: { id: demoUser.id } })).toBe(1);
+    expect(await authDb.load.count({ where: { title: "Настоящий груз" } })).toBe(1);
+    expect(await authDb.company.count({ where: { id: mixedCo.id } })).toBe(1);
+
+    expect(purge("--apply")).toContain("нечего удалять");
+  }, 120_000);
+});

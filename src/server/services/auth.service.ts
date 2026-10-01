@@ -246,6 +246,7 @@ export async function login(input: z.output<typeof loginSchema>, meta: RequestMe
     // Режим выбран пользователем при входе и проверяется сервером; дальше он хранится только в серверной сессии.
     const dataMode: DataMode = input.dataMode;
     let companyId: string | null = user.memberships[0]?.companyId ?? null;
+    let role: MemberRole | null = user.memberships[0]?.role ?? null;
     if (dataMode === "demo") {
       if (!(await demoWorkspaceReady())) {
         throw new AppError(
@@ -256,7 +257,7 @@ export async function login(input: z.output<typeof loginSchema>, meta: RequestMe
           },
         );
       }
-      companyId = (await provisionDemoIdentity(user.id)).activeCompanyId;
+      ({ activeCompanyId: companyId, role } = await provisionDemoIdentity(user.id));
     }
     await createSession(user.id, companyId, meta, dataMode);
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
@@ -265,12 +266,11 @@ export async function login(input: z.output<typeof loginSchema>, meta: RequestMe
       { action: AuditAction.USER_LOGIN, entityType: "User", entityId: user.id, newValue: { dataMode } },
     );
     logger.info("auth.login", { userId: user.id });
-    const membership = user.memberships[0];
     return {
       userId: user.id,
-      role: membership?.role ?? null,
+      role,
       isAdmin: user.platformRole === "PLATFORM_ADMIN",
-      redirectTo: homePathFor(membership?.role ?? null, user.platformRole === "PLATFORM_ADMIN"),
+      redirectTo: homePathFor(role, user.platformRole === "PLATFORM_ADMIN"),
       dataMode,
     };
   });
@@ -426,8 +426,8 @@ export async function switchDataMode(actor: Actor, dataMode: DataMode, meta: Req
       orderBy: { createdAt: "asc" },
       take: 1,
     });
-    const role = realMemberships[0]?.role ?? null;
-    if (dataMode === actor.dataMode) return { dataMode, redirectTo: homePathFor(role, actor.isAdmin) };
+    let role: MemberRole | null = realMemberships[0]?.role ?? null;
+    if (dataMode === actor.dataMode) return { dataMode, redirectTo: homePathFor(actor.active?.role ?? role, actor.isAdmin) };
     let companyId: string | null = realMemberships[0]?.companyId ?? null;
     if (dataMode === "demo") {
       if (!(await demoWorkspaceReady())) {
@@ -439,7 +439,7 @@ export async function switchDataMode(actor: Actor, dataMode: DataMode, meta: Req
           },
         );
       }
-      companyId = (await provisionDemoIdentity(actor.userId)).activeCompanyId;
+      ({ activeCompanyId: companyId, role } = await provisionDemoIdentity(actor.userId));
     }
     await destroySession();
     await createSession(actor.userId, companyId, meta, dataMode);

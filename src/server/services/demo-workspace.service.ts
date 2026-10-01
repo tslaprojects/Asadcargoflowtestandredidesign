@@ -29,6 +29,8 @@ const ANCHOR_FOR: Record<MemberRole, keyof typeof DEMO_ANCHORS> = {
 /** Заведомо непригодный для входа хеш: в демо-базе пароль не хранится и не проверяется. */
 const NO_PASSWORD = "!demo-mirror:identity-in-real-db";
 
+const displacedEmail = (userId: string) => `displaced+${userId}@demo.cargoflow.invalid`;
+
 /** Демо-база готова к работе: миграции применены и ключевые компании загружены. */
 export async function demoWorkspaceReady(): Promise<boolean> {
   try {
@@ -39,13 +41,13 @@ export async function demoWorkspaceReady(): Promise<boolean> {
   }
 }
 
-export async function provisionDemoIdentity(userId: string): Promise<{ activeCompanyId: string | null }> {
+export async function provisionDemoIdentity(userId: string): Promise<{ activeCompanyId: string | null; role: MemberRole | null }> {
   const demo = dbFor("demo");
   const identity = await authDb.user.findUnique({
     where: { id: userId },
     include: { memberships: { where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" } } },
   });
-  if (!identity || identity.deletedAt) return { activeCompanyId: null };
+  if (!identity || identity.deletedAt) return { activeCompanyId: null, role: null };
 
   const anchors = await demo.company.findMany({
     where: { registrationNumber: { in: Object.values(DEMO_ANCHORS) }, deletedAt: null },
@@ -54,11 +56,15 @@ export async function provisionDemoIdentity(userId: string): Promise<{ activeCom
   const anchorId = (key: keyof typeof DEMO_ANCHORS) => anchors.find((a) => a.registrationNumber === DEMO_ANCHORS[key])?.id ?? null;
 
   return demo.$transaction(async (tx) => {
-    // Демо-персонаж с тем же email (из seed) освобождает адрес — у реального пользователя приоритет.
-    await tx.user.updateMany({
-      where: { email: identity.email, NOT: { id: identity.id } },
-      data: { email: `displaced+${identity.id}@demo.cargoflow.invalid` },
+    // Персонаж seed с тем же email (в т.ч. уже вытесненный при прошлом входе)
+    const persona = await tx.user.findFirst({
+      where: { email: { in: [identity.email, displacedEmail(identity.id)] }, NOT: { id: identity.id } },
+      include: { memberships: { where: { status: "ACTIVE" }, orderBy: { createdAt: "asc" } } },
     });
+    // Персонаж освобождает адрес — у пользователя реальной базы приоритет.
+    if (persona && persona.email !== displacedEmail(identity.id)) {
+      await tx.user.update({ where: { id: persona.id }, data: { email: displacedEmail(identity.id) } });
+    }
     const profile = {
       email: identity.email,
       firstName: identity.firstName,
@@ -77,18 +83,30 @@ export async function provisionDemoIdentity(userId: string): Promise<{ activeCom
       update: profile,
     });
 
+    // Где работать в демо: роль из реальной базы → ключевая демо-компания того же типа.
+    // Демо-аккаунт без компаний в реальной базе (реальная база не хранит демо-данных) занимает место
+    // своего персонажа seed: те же компании, роли и профиль водителя с его рейсами.
+    const plan: { companyId: string; role: MemberRole }[] = identity.memberships.length
+      ? identity.memberships.flatMap((m) => {
+          const companyId = anchorId(ANCHOR_FOR[m.role]);
+          return companyId ? [{ companyId, role: m.role }] : [];
+        })
+      : (persona?.memberships.map((m) => ({ companyId: m.companyId, role: m.role })) ?? []);
+    if (!identity.memberships.length && persona) {
+      const own = await tx.driverProfile.count({ where: { userId: identity.id } });
+      if (!own) await tx.driverProfile.updateMany({ where: { userId: persona.id }, data: { userId: identity.id } });
+    }
+
     let activeCompanyId: string | null = null;
-    for (const m of identity.memberships) {
-      const companyId = anchorId(ANCHOR_FOR[m.role]);
-      if (!companyId) continue;
+    for (const { companyId, role } of plan) {
       await tx.companyMember.upsert({
         where: { companyId_userId: { companyId, userId: identity.id } },
-        create: { companyId, userId: identity.id, role: m.role, status: "ACTIVE" },
-        update: { role: m.role, status: "ACTIVE" },
+        create: { companyId, userId: identity.id, role, status: "ACTIVE" },
+        update: { role, status: "ACTIVE" },
       });
       activeCompanyId ??= companyId;
 
-      if (m.role === "DRIVER") {
+      if (role === "DRIVER") {
         const existing = await tx.driverProfile.findFirst({ where: { userId: identity.id, companyId, deletedAt: null } });
         const driver =
           existing ??
@@ -102,7 +120,7 @@ export async function provisionDemoIdentity(userId: string): Promise<{ activeCom
               licenseCategory: "CE",
             },
           }));
-        // Водителю нужен рейс: забираем один активный демо-рейс у персонажа seed (только в демо-базе).
+        // Водителю нужен рейс: забираем один активный демо-рейс у сгенерированного водителя (только в демо-базе).
         const hasTrip = await tx.transportOrder.count({
           where: { driverId: driver.id, currentStatus: { notIn: ["CLOSED", "CANCELLED", "DELIVERED"] } },
         });
@@ -119,22 +137,26 @@ export async function provisionDemoIdentity(userId: string): Promise<{ activeCom
         }
       }
     }
-    // Лента уведомлений: при первом входе — копия ленты персонажа seed с той же ролью в той же компании
-    const firstRole = identity.memberships[0]?.role;
+    // Лента уведомлений при первом входе: копия ленты своего персонажа, иначе — персонажа с той же ролью в компании
+    const firstRole = plan[0]?.role;
     if (activeCompanyId && firstRole && (await tx.notification.count({ where: { userId: identity.id } })) === 0) {
-      const persona = await tx.companyMember.findFirst({
-        where: { companyId: activeCompanyId, role: firstRole, NOT: { userId: identity.id } },
-        orderBy: { createdAt: "asc" },
-        select: { userId: true },
-      });
-      if (persona) {
-        const feed = await tx.notification.findMany({ where: { userId: persona.userId }, orderBy: { createdAt: "desc" }, take: 200 });
+      const sourceId =
+        persona?.id ??
+        (
+          await tx.companyMember.findFirst({
+            where: { companyId: activeCompanyId, role: firstRole, NOT: { userId: identity.id } },
+            orderBy: { createdAt: "asc" },
+            select: { userId: true },
+          })
+        )?.userId;
+      if (sourceId) {
+        const feed = await tx.notification.findMany({ where: { userId: sourceId }, orderBy: { createdAt: "desc" }, take: 200 });
         await tx.notification.createMany({
           data: feed.map(({ id: _id, userId: _userId, updatedAt: _updatedAt, ...n }) => ({ ...n, userId: identity.id })),
         });
       }
     }
-    logger.info("demo.provisioned", { userId: identity.id, memberships: identity.memberships.length });
-    return { activeCompanyId };
+    logger.info("demo.provisioned", { userId: identity.id, memberships: plan.length });
+    return { activeCompanyId, role: plan[0]?.role ?? null };
   });
 }
