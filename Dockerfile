@@ -22,5 +22,6 @@ COPY --from=build /app ./
 RUN mkdir -p /app/storage /app/.next/cache && chown -R app:app /app/storage /app/.next/cache
 USER app
 EXPOSE 3000
-# Миграции → (только при DEMO_SEED=1 и пустой базе) демо-данные → сервер. PORT задаёт хостинг, по умолчанию 3000.
-CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/demo-seed-if-empty.mjs && npx next start -p ${PORT:-3000}"]
+# Миграции → сервер (сразу, чтобы пройти healthcheck). Демо-данные (только при DEMO_SEED=1) грузятся в фоне:
+# на слабом CPU seed идёт минутами и не должен блокировать старт. PORT задаёт хостинг, по умолчанию 3000.
+CMD ["sh", "-c", "npx prisma migrate deploy && (node scripts/demo-seed-if-empty.mjs &) && exec npx next start -p ${PORT:-3000}"]
