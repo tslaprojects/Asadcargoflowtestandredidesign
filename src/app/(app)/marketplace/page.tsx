@@ -61,11 +61,13 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           description="Измените фильтры или загляните позже — новые грузы появляются постоянно."
         />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <ul className="divide-border border-border bg-card divide-y overflow-hidden rounded-lg border" data-testid="load-list">
           {data.items.map((l) => (
-            <LoadCard key={l.id} load={l as unknown as LoadCardData} />
+            <li key={l.id}>
+              <LoadCard load={l as unknown as LoadCardData} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/marketplace" searchParams={params} />
     </>

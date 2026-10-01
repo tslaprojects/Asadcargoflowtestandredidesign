@@ -350,3 +350,29 @@ export function DefinitionList({ items, className }: { items: { label: string; v
     </dl>
   );
 }
+
+/** Скелетон рабочего пространства: карта на всю область + панель списка (Операции, Перевозки, Автопарк). */
+export function WorkspaceSkeleton({ label = "Загрузка рабочего пространства" }: { label?: string }) {
+  return (
+    <div className="relative h-full overflow-hidden" role="status" aria-label={label}>
+      <div className="skeleton absolute inset-x-0 top-0 h-[38%] lg:h-full" />
+      <div className="bg-card border-border absolute inset-x-0 top-[38%] bottom-0 space-y-3 border-t p-4 lg:top-3 lg:right-auto lg:bottom-3 lg:left-3 lg:w-[23rem] lg:rounded-lg lg:border lg:shadow-md">
+        <Skeleton className="h-6 w-32" />
+        <Skeleton className="h-3.5 w-48" />
+        <div className="grid grid-cols-5 gap-2 pt-1">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-10" />
+          ))}
+        </div>
+        <Skeleton className="h-8 w-full" />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="space-y-1.5 py-1">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3 w-1/2" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

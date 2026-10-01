@@ -214,6 +214,7 @@ export function AppShell({
           collapsed ? "w-16 px-3" : "w-56 px-3",
         )}
         data-collapsed={collapsed || undefined}
+        aria-label="Навигация CargoFlow"
       >
         <Link
           href={home}
@@ -275,7 +276,7 @@ export function AppShell({
         </Link>
         {searchable && (
           <>
-            <CommandTrigger onOpen={() => setCommandOpen(true)} className="ml-1 hidden max-w-md md:flex" />
+            <CommandTrigger onOpen={() => setCommandOpen(true)} className="ml-1 hidden w-auto max-w-md min-w-0 flex-1 md:flex" />
             <button
               type="button"
               onClick={() => setCommandOpen(true)}

@@ -125,7 +125,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/notifications" searchParams={params} />
       <p className="text-muted-foreground mt-4 text-xs">
         События дублируются на email (в локальной среде — в лог сервера). Настройки —{" "}
-        <Link className="text-primary" href="/profile">
+        <Link className="text-primary underline underline-offset-2" href="/profile">
           в профиле
         </Link>
         .

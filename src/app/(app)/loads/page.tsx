@@ -60,11 +60,13 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Sear
           action={{ href: "/loads/new", label: "Создать первый груз" }}
         />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <ul className="divide-border border-border bg-card divide-y overflow-hidden rounded-lg border" data-testid="load-list">
           {data.items.map((l) => (
-            <LoadCard key={l.id} load={l as unknown as LoadCardData} showCompany={false} />
+            <li key={l.id}>
+              <LoadCard load={l as unknown as LoadCardData} showCompany={false} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/loads" searchParams={params} />
     </>

@@ -10,8 +10,9 @@ const cardInteractive =
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   return <div className={cn("flex flex-col gap-1 px-4 pt-4 pb-3 sm:px-5", className)} {...props} />;
 }
-function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
-  return <h3 className={cn("text-h3", className)} {...props} />;
+/** Заголовок панели — h2 (не пропускает уровень после h1 страницы), визуально — роль text-h3. */
+function CardTitle({ className, ...props }: React.ComponentProps<"h2">) {
+  return <h2 className={cn("text-h3", className)} {...props} />;
 }
 function CardDescription({ className, ...props }: React.ComponentProps<"p">) {
   return <p className={cn("text-muted-foreground text-sm", className)} {...props} />;

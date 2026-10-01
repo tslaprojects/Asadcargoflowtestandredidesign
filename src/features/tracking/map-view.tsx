@@ -121,6 +121,7 @@ export function MapView({
         for (const p of points) {
           const el = document.createElement("div");
           el.style.cssText = `width:${p.kind === "VEHICLE" ? 20 : 14}px;height:${p.kind === "VEHICLE" ? 20 : 14}px;border-radius:9999px;background:${COLORS[p.kind]};border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)`;
+          el.setAttribute("role", "img");
           el.setAttribute("aria-label", p.label);
           new maplibregl.Marker({ element: el })
             .setLngLat([p.lng, p.lat])
@@ -159,7 +160,7 @@ export function MapView({
         ref={ref}
         // inline-стиль: CSS MapLibre (.maplibregl-map { position: relative }) перебивает классы позиционирования
         style={{ position: "absolute", inset: 0, ...(picking ? { cursor: "crosshair" } : {}) }}
-        role="img"
+        role="region"
         aria-label={`Карта: ${points.map((p) => p.label).join(", ")}`}
       />
       {picking && pickHint && (

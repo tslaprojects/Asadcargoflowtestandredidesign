@@ -1,7 +1,25 @@
-# CargoFlow Design System
+# CargoFlow Design System — Transportation OS
 
-Направление (UI/UX Pro Max, `logistics operations console`, density 8 / motion 3): **Minimalism & Swiss Style** —
-navy + trust blue, плотная спокойная типографика, цвет только со смыслом, движение только для объяснения изменений.
+**CargoFlow — не CRM, а операционная система перевозок.** Модель интерфейса:
+`ОПЕРАЦИИ → КАРТА → ЖИВЫЕ ОБЪЕКТЫ → КОНТЕКСТ → ДЕЙСТВИЕ` и цепочка `ГРУЗ → МАРШРУТ → МАШИНА → ВОДИТЕЛЬ → СОБЫТИЯ → ДОКУМЕНТЫ → ОПЛАТА`.
+Светлое рабочее пространство, графитовая навигационная полоса, тонкие функциональные границы, умеренные радиусы,
+цвет передаёт только состояние объекта, движение объясняет изменения.
+
+## Модель экранов
+
+| Тип экрана                                                 | Где                                                              | Устройство                                                                                                                                                                                                                  |
+| ---------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Рабочее пространство (карта + список + контекстная панель) | Операции `/dashboard`, Перевозки `/orders`, Автопарк `/vehicles` | `LiveWorkspace` / `FleetWorkspace` + `MapWorkspace`; выбор объекта — `?selected=` (ссылкой можно поделиться), Esc закрывает панель; на мобильном — карта сверху, список снизу, панель — bottom sheet (свайп вниз закрывает) |
+| Операционный объект                                        | Перевозка `/orders/[id]`                                         | шапка трекинга (карта, факты) + **Journey timeline** этапов рейса + действия + вкладки                                                                                                                                      |
+| Ростер / сеть                                              | Водители, Перевозчики                                            | плотные строки с состоянием, текущим рейсом, доступностью и последним событием                                                                                                                                              |
+| Контекстные списки                                         | Документы, Финансы, События                                      | группировка по перевозке; чек-лист пакета документов; цепочка перевозка → перевозчик → ставка → платежи; приоритеты событий                                                                                                 |
+| Таблицы                                                    | Администрирование, отчёты                                        | `DataTable` — только для массового управления и учёта                                                                                                                                                                       |
+
+## Состояние объекта (`lib/operations.ts`)
+
+Производное «здоровье» перевозки (бизнес-статусы не меняются): `moving` — в рейсе по графику, `arriving` — на разгрузке
+или доставка в ближайшие 24 ч, `delayed` — плановая доставка прошла (или загрузка просрочена > 24 ч), `waiting` — документы,
+назначение, ожидание загрузки, `attention` — спор/пауза, `done`, `cancelled`. Цвета: токены `--map-*` и тон `delayed`.
 Источник истины — `src/app/globals.css` (токены) и `src/components/**` (компоненты).
 
 ## Цвета (семантические токены)
@@ -16,7 +34,9 @@ navy + trust blue, плотная спокойная типографика, ц�
 | `secondary(-hover)`, `accent`                                                        | второстепенные кнопки; подсветка текущего элемента                                           |
 | `destructive(-hover)`                                                                | опасные действия                                                                             |
 | `success` / `warning` / `info` / `danger` / `neutral` (+ `-bg`, `-border`)           | статусы: завершено / требует действия / в процессе / ошибка-спор / не начато (текст ≥ 4.5:1) |
-| `sidebar`, `sidebar-foreground`, `sidebar-muted`, `sidebar-active`, `sidebar-accent` | навигация (navy)                                                                             |
+| `sidebar`, `sidebar-foreground`, `sidebar-muted`, `sidebar-active`, `sidebar-accent` | навигационная полоса (graphite)                                                              |
+| `delayed` (+ `-bg`, `-border`)                                                       | задержка объекта (оранжевый, отличается от warning «ждёт действия» по светлоте)              |
+| `--map-moving`, `--map-waiting`, `--map-delayed`, `--map-done`, `--map-route`        | маркеры и линии маршрутов на карте                                                           |
 | `rating`                                                                             | только заливка звёзд                                                                         |
 | `overlay`                                                                            | подложка диалогов и панелей                                                                  |
 
@@ -38,6 +58,8 @@ navy + trust blue, плотная спокойная типографика, ц�
 | Caption                | `text-caption`, `text-xs`      | 12 / 16                                            | 400 |
 | Overline / label групп | `text-overline`                | 11 / 16, uppercase, +0.06em                        | 600 |
 | Числа                  | `num`                          | табличные цифры                                    | —   |
+| Операционная метрика   | `text-metric`                  | 20 / 24, табличные цифры (не KPI-карточка)         | 650 |
+| Метаданные объекта     | `text-meta`                    | 12 / 16, muted, табличные цифры                    | 400 |
 | Номера документов      | `id-code`                      | табличные + перечёркнутый 0 (`CF-O-000002`: 0 ≠ O) | —   |
 
 Поля ввода — 16 px на мобильном (без автозума iOS), 14 px с 640 px.
@@ -51,8 +73,8 @@ navy + trust blue, плотная спокойная типографика, ц�
 
 ## Радиусы
 
-`sm` 6 px — чипы, счётчики · `md` 8 px — кнопки, поля, пункты меню · `lg` 10 px — элементы внутри карточек, меню, плитки иконок ·
-`xl` 12 px — карточки, диалоги, панели · `2xl` 16 px — мобильные нижние панели · `full` — бейджи статусов, аватары.
+Умеренные: `sm` 5 px — статусы, чипы · `md` 7 px — кнопки, поля, пункты меню · `lg` 9 px — панели, карточки, строки-группы ·
+`xl` 11 px — диалоги, командная строка · `2xl` 16 px — bottom sheet · `full` — точки состояния, аватары. Статусы — не «таблетки».
 
 ## Тени (уровни, не украшение)
 
@@ -82,23 +104,31 @@ navy + trust blue, плотная спокойная типографика, ц�
 
 ## Компоненты
 
-| Компонент                                                                            | Где                                         | Заметки                                                                            |
-| ------------------------------------------------------------------------------------ | ------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `Button`                                                                             | `ui/button.tsx`                             | 7 вариантов, размеры с touch-высотой 40 px на мобильном, `loading`, press-feedback |
-| `Input`, `Textarea`, `NativeSelect`, `Checkbox`                                      | `ui/input.tsx`, `ui/checkbox.tsx`           | мягкое кольцо фокуса, `aria-invalid`, 16 px на мобильном                           |
-| `Field`, `FormError`                                                                 | `common/field.tsx`                          | подпись, подсказка, ошибка с `aria-describedby`; ошибки появляются плавно          |
-| `Card`, `cardInteractive`                                                            | `ui/card.tsx`                               | интерактивная карточка — рамка + тень на hover без сдвига раскладки                |
-| `Dialog`, `Sheet`, `DropdownMenu`, `Tooltip`, `Tabs`                                 | `ui/*`                                      | вход/выход, overscroll-contain, маска прокрутки вкладок на мобильном               |
-| `StatusBadge`                                                                        | `common/status-badge.tsx`                   | единый реестр статусов (тон + иконка + текст), «живой» индикатор для движения      |
-| `DataTable`                                                                          | `common/data-table.tsx`                     | приоритет колонок (`hideBelow`), мобильные карточки (`mobile: "badge" \| "full"`)  |
-| `FilterBar`                                                                          | `common/filter-bar.tsx`                     | поиск + 3 фильтра в строке, остальное — «Фильтры (n)»; на мобильном свёрнуто       |
-| `PageHeader`, `EmptyState`, `ErrorState`, `KpiCard`, `PageSkeleton`, `TableSkeleton` | `common/misc.tsx`                           | скелетоны повторяют структуру (`list` / `detail` / `dashboard`)                    |
-| `RouteChain`, `RouteTimeline`                                                        | `common/route-timeline.tsx`                 | compact: начало → конец `+N`                                                       |
-| `ActionList`                                                                         | `features/orders/action-list.tsx`           | «Требуют вашего действия», сортировка danger → warning → info                      |
-| `OrderTrackingHeader`                                                                | `features/orders/order-tracking-header.tsx` | карта + фаза + прогресс маршрута + ключевые факты                                  |
-| `OrderStatusTimeline`                                                                | `features/orders/order-status-timeline.tsx` | монотонные этапы (`lib/state-machine/order-progress.ts`)                           |
-| `LoadCard`                                                                           | `features/loads/load-card.tsx`              | маршрут и цена → груз → параметры → заказчик                                       |
-| `AppShell`                                                                           | `components/layout/app-shell.tsx`           | сайдбар с группами и сворачиванием (cookie), нижнее меню ≤ 4 + «Меню»              |
+| Компонент                                                                            | Где                                         | Заметки                                                                                                                                         |
+| ------------------------------------------------------------------------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Button`                                                                             | `ui/button.tsx`                             | 7 вариантов, размеры с touch-высотой 40 px на мобильном, `loading`, press-feedback                                                              |
+| `Input`, `Textarea`, `NativeSelect`, `Checkbox`                                      | `ui/input.tsx`, `ui/checkbox.tsx`           | мягкое кольцо фокуса, `aria-invalid`, 16 px на мобильном                                                                                        |
+| `Field`, `FormError`                                                                 | `common/field.tsx`                          | подпись, подсказка, ошибка с `aria-describedby`; ошибки появляются плавно                                                                       |
+| `Card`, `cardInteractive`                                                            | `ui/card.tsx`                               | интерактивная карточка — рамка + тень на hover без сдвига раскладки                                                                             |
+| `Dialog`, `Sheet`, `DropdownMenu`, `Tooltip`, `Tabs`                                 | `ui/*`                                      | вход/выход, overscroll-contain, маска прокрутки вкладок на мобильном                                                                            |
+| `StatusBadge`                                                                        | `common/status-badge.tsx`                   | единый реестр статусов (тон + иконка + текст), «живой» индикатор для движения                                                                   |
+| `DataTable`                                                                          | `common/data-table.tsx`                     | приоритет колонок (`hideBelow`), мобильные карточки (`mobile: "badge" \| "full"`)                                                               |
+| `FilterBar`                                                                          | `common/filter-bar.tsx`                     | поиск + 3 фильтра в строке, остальное — «Фильтры (n)»; на мобильном свёрнуто                                                                    |
+| `PageHeader`, `EmptyState`, `ErrorState`, `KpiCard`, `PageSkeleton`, `TableSkeleton` | `common/misc.tsx`                           | скелетоны повторяют структуру (`list` / `detail` / `dashboard`)                                                                                 |
+| `RouteChain`, `RouteTimeline`                                                        | `common/route-timeline.tsx`                 | compact: начало → конец `+N`                                                                                                                    |
+| `ActionList`                                                                         | `features/orders/action-list.tsx`           | «Требуют вашего действия», сортировка danger → warning → info                                                                                   |
+| `OrderTrackingHeader`                                                                | `features/orders/order-tracking-header.tsx` | карта + фаза + прогресс маршрута + ключевые факты                                                                                               |
+| `OrderStatusTimeline`                                                                | `features/orders/order-status-timeline.tsx` | монотонные этапы (`lib/state-machine/order-progress.ts`)                                                                                        |
+| `LoadCard`                                                                           | `features/loads/load-card.tsx`              | строка плотного списка: маршрут и груз → параметры и даты → заказчик/статус → цена                                                              |
+| `AppShell`                                                                           | `components/layout/app-shell.tsx`           | компактная полоса иконок с подсказками (можно развернуть, cookie), шапка 48 px, нижнее меню ≤ 4 + «Меню»; рабочие пространства — на всю область |
+| `CommandBar`, `CommandTrigger`                                                       | `components/layout/command-bar.tsx`         | ⌘K / Ctrl+K: перевозки, грузы, машины, компании, разделы; ↑↓ Enter Esc; combobox + listbox                                                      |
+| `MapWorkspace`, `MapControls`                                                        | `features/tracking/map-workspace.tsx`       | маркеры по состоянию, плавное перемещение, прорисовка маршрута, камера к объекту, свои контролы                                                 |
+| `LiveWorkspace`                                                                      | `features/operations/live-workspace.tsx`    | индикаторы-фильтры, вкладки панели, поиск по списку, панель/bottom sheet                                                                        |
+| `ShipmentList`, `ShipmentDetailPanel`                                                | `features/operations/*`                     | живые объекты и контекстная панель (машина, водитель, срок, позиция, этапы, переходы)                                                           |
+| `JourneyTimeline`                                                                    | `features/operations/journey-timeline.tsx`  | подготовка → загрузка → отправление → [граница → таможня] → разгрузка → получение                                                               |
+| `EventStream`, `HealthBadge`, `HealthDot`, `OperationalMetric`                       | `features/operations/*`                     | поток событий, состояние объекта, компактная метрика-фильтр                                                                                     |
+| `FleetWorkspace`                                                                     | `features/fleet/fleet-workspace.tsx`        | машины на карте, список, панель машины с действиями                                                                                             |
+| `WorkspaceSkeleton`                                                                  | `common/misc.tsx`                           | загрузка рабочего пространства: карта + панель списка                                                                                           |
 
 ## Статусы перевозки
 

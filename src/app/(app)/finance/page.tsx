@@ -46,29 +46,29 @@ export default async function FinancePage({ searchParams }: { searchParams: Sear
       {totals.length > 0 && (
         <div className="border-border bg-card mb-4 grid divide-y overflow-hidden rounded-lg border md:grid-cols-2 md:divide-x md:divide-y-0 xl:grid-cols-4">
           {totals.map(([cur, t]) => (
-            <dl key={cur} className="grid grid-cols-3 gap-2 px-4 py-3">
-              <div className="col-span-3 flex items-center gap-2">
-                <span className="text-overline">{cur}</span>
-              </div>
-              <div>
-                <dt className="text-meta">По договорам</dt>
-                <dd className="text-sm font-semibold">
-                  <MoneyDisplay amount={t.contracted} currency={cur} />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-meta">Оплачено</dt>
-                <dd className="text-success text-sm font-semibold">
-                  <MoneyDisplay amount={t.paid} currency={cur} />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-meta">Остаток</dt>
-                <dd className="text-warning text-sm font-semibold">
-                  <MoneyDisplay amount={t.outstanding} currency={cur} />
-                </dd>
-              </div>
-            </dl>
+            <div key={cur} className="px-4 py-3">
+              <p className="text-overline mb-1.5">{cur}</p>
+              <dl className="grid grid-cols-3 gap-2">
+                <div>
+                  <dt className="text-meta">По договорам</dt>
+                  <dd className="text-sm font-semibold">
+                    <MoneyDisplay amount={t.contracted} currency={cur} />
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-meta">Оплачено</dt>
+                  <dd className="text-success text-sm font-semibold">
+                    <MoneyDisplay amount={t.paid} currency={cur} />
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-meta">Остаток</dt>
+                  <dd className="text-warning text-sm font-semibold">
+                    <MoneyDisplay amount={t.outstanding} currency={cur} />
+                  </dd>
+                </div>
+              </dl>
+            </div>
           ))}
         </div>
       )}
