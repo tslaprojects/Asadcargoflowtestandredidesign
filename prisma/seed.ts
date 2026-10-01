@@ -53,10 +53,12 @@ function file(buf: Buffer, name: string, type: string) {
   return new File([new Uint8Array(buf)], name, { type });
 }
 
+/** Очищает таблицы ТЕКУЩЕЙ схемы соединения (в демо-режиме — демо-схема; реальная не затрагивается). */
 async function truncateAll() {
+  const [{ schema }] = await prisma.$queryRaw<{ schema: string }[]>`SELECT current_schema() AS schema`;
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
-    SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
-  const list = tables.map((t) => `"public"."${t.tablename}"`).join(", ");
+    SELECT tablename FROM pg_tables WHERE schemaname = ${schema} AND tablename <> '_prisma_migrations'`;
+  const list = tables.map((t) => `"${schema}"."${t.tablename}"`).join(", ");
   if (list) await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
   for (const seq of ["load_number_seq", "order_number_seq", "contract_number_seq"]) {
     await prisma.$executeRawUnsafe(`ALTER SEQUENCE "${seq}" RESTART WITH 1`);
@@ -276,6 +278,14 @@ async function main() {
       `В базе ${realUsers} пользователей не из демо — seed их удалит. Если это действительно тестовая база, запустите с SEED_FORCE=1.`,
     );
   }
+  await seedScenarios();
+}
+
+/**
+ * Сценарии демо-данных (ключевые компании, сделки, топливо). Очищает таблицы текущей схемы.
+ * Вызывается из `npm run db:seed` (локальная база) и из `npm run seed:demo` (в контексте демо-базы).
+ */
+export async function seedScenarios() {
   console.log("→ Очистка базы данных");
   await truncateAll();
 
@@ -1034,9 +1044,12 @@ async function main() {
   ]);
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+// Автозапуск только при прямом вызове (`npm run db:seed`), не при импорте из prisma/seed-demo.ts
+if (process.argv[1]?.replace(/\\/g, "/").endsWith("prisma/seed.ts")) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}

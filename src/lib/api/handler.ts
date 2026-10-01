@@ -4,7 +4,8 @@ import { ZodError, type z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import type { Actor, RequestMeta } from "@/lib/auth/actor";
 import { enforceRateLimit, type RATE_LIMITS } from "@/lib/auth/rate-limit";
-import { getCurrentActor, getRequestMeta } from "@/lib/auth/session";
+import { getCurrentActor, getRequestMeta, getSessionDataMode } from "@/lib/auth/session";
+import { runWithDataMode } from "@/lib/db/data-mode";
 import { prisma } from "@/lib/db/prisma";
 import { AppError, errors, isAppError, type FieldErrors } from "@/lib/errors";
 import { logger } from "@/lib/logger";
@@ -119,7 +120,12 @@ export function route<P extends Params = Params, A extends boolean = true>(
   options: Options<A>,
   fn: (ctx: HandlerCtx<P, A>) => Promise<unknown>,
 ) {
-  return async (req: NextRequest, context: { params: Promise<P> }) => {
+  // Режим данных — только из серверной сессии (не из тела/заголовков запроса); без сессии — реальная база.
+  // Весь обработчик выполняется в контексте режима: сервисы получают нужную базу через общий провайдер.
+  return async (req: NextRequest, context: { params: Promise<P> }) =>
+    runWithDataMode((await getSessionDataMode()) ?? "real", () => handle(req, context));
+
+  async function handle(req: NextRequest, context: { params: Promise<P> }) {
     const started = Date.now();
     let actor: Actor | null = null;
     let idemKey: string | null = null;
@@ -181,7 +187,7 @@ export function route<P extends Params = Params, A extends boolean = true>(
       });
       return fail("INTERNAL_ERROR", "Внутренняя ошибка сервера. Попробуйте ещё раз.", 500);
     }
-  };
+  }
 }
 
 /** Разбор и валидация JSON тела запроса. */

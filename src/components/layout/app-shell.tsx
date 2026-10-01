@@ -6,6 +6,7 @@ import * as React from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ClientActor } from "@/lib/auth/actor";
 import { cn } from "@/lib/utils";
+import { DataModeBadge, DataModeSwitchDialog } from "@/features/auth/data-mode";
 import { CompanySwitcher } from "./company-switcher";
 import { GlobalSearch } from "./global-search";
 import { navItems, SIDEBAR_COOKIE, type NavItem, type NavKind } from "./nav-config";
@@ -126,6 +127,7 @@ export function AppShell({
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(sidebarCollapsed);
+  const [modeDialog, setModeDialog] = React.useState(false);
   const pathname = usePathname();
   const primary = navItems(kind)
     .filter((i) => i.primary)
@@ -204,8 +206,13 @@ export function AppShell({
         </button>
       </aside>
 
-      {/* Шапка */}
-      <header className="border-border bg-card/95 supports-[backdrop-filter]:bg-card/85 sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-3 backdrop-blur sm:px-5">
+      {/* Шапка; в демо-режиме — предупреждающая полоса сверху, чтобы режим был заметен на любом экране */}
+      <header
+        className={cn(
+          "border-border bg-card/95 supports-[backdrop-filter]:bg-card/85 sticky top-0 z-20 flex h-14 items-center gap-2 border-b px-3 backdrop-blur sm:px-5",
+          actor.dataMode === "demo" && "border-t-warning border-t-2",
+        )}
+      >
         <button
           type="button"
           className="hover:bg-muted grid size-10 place-items-center rounded-md transition-colors duration-150 lg:hidden"
@@ -219,6 +226,14 @@ export function AppShell({
         </Link>
         {kind !== "driver" && <GlobalSearch className="ml-1 hidden max-w-md flex-1 md:block" />}
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <button
+            type="button"
+            onClick={() => setModeDialog(true)}
+            className="rounded-full transition-opacity duration-150 hover:opacity-80"
+            aria-label={`Режим данных: ${actor.dataMode === "demo" ? "демо-база" : "реальная база"}. Сменить режим`}
+          >
+            <DataModeBadge mode={actor.dataMode} />
+          </button>
           {actor.memberships.length > 0 && <CompanySwitcher actor={actor} />}
           <NotificationBell />
           <UserMenu actor={actor} kind={kind} />
@@ -279,6 +294,8 @@ export function AppShell({
           Меню
         </button>
       </nav>
+
+      <DataModeSwitchDialog current={actor.dataMode} open={modeDialog} onOpenChange={setModeDialog} />
 
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="bg-sidebar border-sidebar-border p-3 text-white">

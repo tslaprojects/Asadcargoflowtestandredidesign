@@ -1,5 +1,6 @@
 import "server-only";
 import type { CompanyType, MemberRole, PlatformRole, VerificationStatus } from "@/generated/prisma/enums";
+import { currentDataMode, type DataMode } from "@/lib/db/data-mode";
 import { prisma } from "@/lib/db/prisma";
 import { errors } from "@/lib/errors";
 import { permissionsForRole, type Permission } from "@/lib/permissions";
@@ -32,6 +33,8 @@ export type Actor = {
   /** Активная компания (контекст работы пользователя). */
   active: ActorMembership | null;
   permissions: Set<Permission>;
+  /** Режим данных сессии (из серверной сессии; не меняет права). */
+  dataMode: DataMode;
   ip: string | null;
   userAgent: string | null;
 };
@@ -97,6 +100,7 @@ export async function buildActor(
     memberships,
     active,
     permissions: permissionsForMembership(active, isAdmin),
+    dataMode: currentDataMode() ?? "real",
     ip: opts.meta?.ip ?? null,
     userAgent: opts.meta?.userAgent ?? null,
   };
@@ -153,5 +157,6 @@ export function toClientActor(actor: Actor): ClientActor {
     memberships: actor.memberships,
     active: actor.active,
     permissions: [...actor.permissions],
+    dataMode: actor.dataMode,
   };
 }

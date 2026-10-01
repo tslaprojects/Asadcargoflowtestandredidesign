@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { api, errorMessage } from "@/lib/client/api";
 import { loginSchema } from "@/lib/validation/auth";
+import { DataModeSelector, useRememberedDataMode } from "./data-mode";
 import type { z } from "zod";
 
 type Values = z.input<typeof loginSchema>;
@@ -30,11 +31,12 @@ export function LoginForm() {
   const [error, setError] = React.useState<string | null>(null);
   const form = useForm<Values>({ resolver: zodResolver(loginSchema), defaultValues: { email: "", password: "" } });
   const { errors, isSubmitting } = form.formState;
+  const [dataMode, setDataMode] = useRememberedDataMode("real");
 
   const onSubmit = form.handleSubmit(async (values) => {
     setError(null);
     try {
-      const res = await api<{ redirectTo: string }>("/api/auth/login", { body: values });
+      const res = await api<{ redirectTo: string }>("/api/auth/login", { body: { ...values, dataMode } });
       const safeNext = safeRedirectPath(next, window.location.origin);
       window.location.assign(safeNext ?? res.redirectTo);
     } catch (e) {
@@ -53,6 +55,7 @@ export function LoginForm() {
       <p className="text-muted-foreground mt-1 text-sm">Цифровая платформа международных грузоперевозок</p>
       <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
         <FormError message={error} />
+        <DataModeSelector value={dataMode} onChange={setDataMode} />
         <Field id="email" label="Email" error={errors.email?.message} required>
           <Input type="email" autoComplete="email" inputMode="email" {...form.register("email")} />
         </Field>

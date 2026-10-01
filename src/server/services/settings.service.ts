@@ -3,6 +3,7 @@ import type { CargoType, Currency } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 import { audit, AuditAction } from "@/lib/audit/audit";
 import { requirePermission, type Actor } from "@/lib/auth/actor";
+import { currentDataMode, type DataMode } from "@/lib/db/data-mode";
 import { prisma, type Tx } from "@/lib/db/prisma";
 import { errors } from "@/lib/errors";
 
@@ -43,15 +44,17 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
 
 /** Короткий кэш: настройки читаются почти в каждой операции, а меняются редко. */
 const CACHE_MS = 5_000;
-const g = globalThis as unknown as { __cfSettings?: { at: number; value: PlatformSettings } };
+// Кеш по режиму данных: настройки демо-базы не должны попадать в реальный режим и наоборот.
+const g = globalThis as unknown as { __cfSettings?: Partial<Record<DataMode, { at: number; value: PlatformSettings }>> };
 
 export async function getSettings(tx: Tx = prisma): Promise<PlatformSettings> {
-  const cached = g.__cfSettings;
+  const mode = currentDataMode() ?? "real";
+  const cached = g.__cfSettings?.[mode];
   if (cached && Date.now() - cached.at < CACHE_MS && process.env.NODE_ENV !== "test") return cached.value;
   const rows = await tx.platformSetting.findMany();
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   const value = { ...DEFAULT_SETTINGS, ...(map as Partial<PlatformSettings>) };
-  g.__cfSettings = { at: Date.now(), value };
+  (g.__cfSettings ??= {})[mode] = { at: Date.now(), value };
   return value;
 }
 

@@ -155,10 +155,12 @@ async function setup() {
   try {
     log("Генерация Prisma Client...");
     run("npx", ["prisma", "generate"], env);
-    log("Применение миграций...");
-    run("npx", ["prisma", "migrate", "deploy"], env);
-    log("Загрузка демо-данных...");
+    log("Применение миграций (реальная и демо-база)...");
+    run("npx", ["tsx", "scripts/db-modes.ts", "migrate"], env);
+    log("Загрузка демо-аккаунтов...");
     run("npx", ["tsx", "--conditions=react-server", "prisma/seed.ts"], env);
+    log("Загрузка демо-базы...");
+    run("npx", ["tsx", "--conditions=react-server", "prisma/seed-demo.ts"], env);
   } finally {
     await stopEmbedded();
   }

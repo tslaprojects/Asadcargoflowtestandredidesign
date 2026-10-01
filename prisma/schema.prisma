@@ -543,10 +543,18 @@ model User {
   fuelInvestigationAttachments FuelInvestigationAttachment[] @relation("FuelInvestigationAttachmentUploader")
 }
 
+/// Режим данных сессии: с какой базой работают бизнес-данные (identity — общая, в реальной базе).
+enum DataMode {
+  REAL
+  DEMO
+}
+
 model Session {
   id              String    @id @default(uuid()) @db.Uuid
   tokenHash       String    @unique
   userId          String    @db.Uuid
+  /// Задаётся сервером при входе/переключении; клиент не может изменить режим запросом.
+  dataMode        DataMode  @default(REAL)
   activeCompanyId String?   @db.Uuid
   ipAddress       String?
   userAgent       String?

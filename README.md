@@ -75,8 +75,9 @@ git clone <repo> cargoflow && cd cargoflow
 cp .env.example .env            # при необходимости поправьте значения
 docker compose up -d            # PostgreSQL (+ БД cargoflow_test) и MinIO
 npm install                     # postinstall выполнит prisma generate
-npm run db:deploy               # применить миграции
-npm run db:seed                 # демо-данные (ОЧИЩАЕТ базу!)
+npm run db:migrate:all          # миграции реальной и демо-базы (схема cargoflow_demo)
+npm run db:seed                 # сценарии в реальной базе разработки (ОЧИЩАЕТ её!)
+npm run seed:demo               # демо-база: ≈100 грузов, 20 машин, 40 клиентов (только DEMO)
 npm run dev                     # http://localhost:3000
 ```
 
@@ -87,6 +88,7 @@ npm run dev                     # http://localhost:3000
 | Переменная                                 | Назначение                                                                                                                                                                                                                                       |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `DATABASE_URL`                             | строка подключения PostgreSQL                                                                                                                                                                                                                    |
+| `DEMO_DATABASE_URL`                        | демо-база (режим «🧪 Демо-база» при входе); пусто — та же СУБД, схема `cargoflow_demo`. Подробно — [docs/DATABASE_MODES.md](docs/DATABASE_MODES.md)                                                                                              |
 | `TEST_DATABASE_URL`                        | **отдельная** БД для integration/E2E тестов (она очищается!)                                                                                                                                                                                     |
 | `APP_URL`                                  | публичный URL приложения (ссылки в письмах, проверка Origin)                                                                                                                                                                                     |
 | `APP_SECRET`                               | зарезервировано для будущих подписанных ссылок (сейчас не используется)                                                                                                                                                                          |
@@ -104,7 +106,7 @@ npm run dev                     # http://localhost:3000
 | `FUEL_CARD_PROVIDER`                       | провайдер топливных карт: `demo` — симулятор (все операции помечены DEMO DATA)                                                                                                                                                                   |
 | `FUEL_CARD_WEBHOOK_SECRET`                 | секрет HMAC для `POST /api/integrations/fuel-cards/:provider/webhook`; пусто — webhook отключён                                                                                                                                                  |
 | `TELEMATICS_WEBHOOK_SECRET`                | секрет HMAC для `POST /api/integrations/telematics/:provider/ingest` (CAN, датчик уровня, GPS); пусто — приём отключён                                                                                                                           |
-| `DEMO_SEED`                                | `1` — демо-стенд: при старте контейнера загрузить демо-данные, если в базе только демо-аккаунты (реальные данные не трогаются); регистрация на стенде закрыта (`ALLOW_PUBLIC_REGISTRATION=1` — открыть)                                          |
+| `DEMO_SEED`                                | `1` — демо-стенд: при старте контейнера загрузить демо-базу, если она пуста (пишет только в DEMO; реальная база не трогается); регистрация на стенде закрыта (`ALLOW_PUBLIC_REGISTRATION=1` — открыть)                                           |
 | `DEMO_ADMIN_PASSWORD`                      | пароль демо-администратора в production (≥ 12 символов); не задан — случайный, нигде не выводится                                                                                                                                                |
 | `NEXT_PUBLIC_SHOW_DEMO`                    | `1` — кнопки демо-аккаунтов на странице входа в production (встраивается при сборке)                                                                                                                                                             |
 
