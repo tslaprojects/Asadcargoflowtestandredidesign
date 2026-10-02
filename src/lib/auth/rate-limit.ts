@@ -39,6 +39,8 @@ export const RATE_LIMITS = {
   critical: { limit: 60, windowMs: 60_000 },
   upload: { limit: 60, windowMs: 60_000 },
   chat: { limit: 60, windowMs: 60_000 },
+  /** Превью маршрута в мастере груза (внешний провайдер маршрутов, бесплатный тариф ограничен) */
+  routePreview: { limit: 20, windowMs: 60_000 },
 } as const;
 
 export function enforceRateLimit(bucket: keyof typeof RATE_LIMITS, key: string) {

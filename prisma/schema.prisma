@@ -845,6 +845,16 @@ model Load {
   originCity         String?
   destinationCountry String?
   destinationCity    String?
+  // Маршрут по дорогам (провайдер маршрутизации) или оценка по прямой; пересчитывается при изменении точек
+  routeDistanceKm    Float?
+  routeDurationMin   Int?
+  /// Линия маршрута [lng, lat][], упрощённая до ≤ ~500 точек
+  routeGeometry      Json?
+  routeSource        RouteSource?
+  routeProvider      String?
+  routeComputedAt    DateTime?      @db.Timestamptz(3)
+  /// Хеш координат точек, по которым посчитан маршрут: изменились точки — маршрут устарел
+  routeStopsHash     String?
   publishedAt        DateTime?      @db.Timestamptz(3)
   cancelledAt        DateTime?      @db.Timestamptz(3)
   cancelReason       String?
@@ -867,6 +877,30 @@ model Load {
   @@index([originCountry, originCity])
   @@index([destinationCountry, destinationCity])
   @@index([companyId, status])
+}
+
+/// Откуда километраж: маршрут по дорогам от провайдера или оценка (по прямой × коэффициент)
+enum RouteSource {
+  PROVIDER
+  ESTIMATE
+}
+
+/// Кэш геокодирования внешним провайдером (не бизнес-данные). Пустые координаты — «не найдено» (повтор после срока).
+model GeocodeCache {
+  id         String   @id @default(uuid()) @db.Uuid
+  country    String
+  /// Нормализованный запрос: город | улица | дом
+  query      String
+  latitude   Float?
+  longitude  Float?
+  /// address | street | city
+  accuracy   String?
+  confidence Float?
+  provider   String
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@unique([country, query])
 }
 
 model LoadStop {

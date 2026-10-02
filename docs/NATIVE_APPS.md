@@ -57,6 +57,16 @@ flutter run --dart-define=CARGOFLOW_API=http://10.0.2.2:3000   # Android-эму�
 flutter build apk --release --dart-define=CARGOFLOW_API=https://cargoflow.example.com
 ```
 
+Подложка карт — тайлы Geoapify (стиль `positron`), ключ задаётся при сборке; без ключа — тайлы OpenStreetMap (только для разработки):
+
+```bash
+flutter build apk --release --dart-define=CARGOFLOW_API=https://cargoflow.example.com --dart-define=GEOAPIFY_KEY=<публичный ключ карт>
+```
+
+Ключ попадает в приложение, поэтому используйте отдельный публичный ключ Geoapify с ограничениями (по приложению/реферу) — не серверный `GEOAPIFY_API_KEY`. В CI ключ берётся из переменной репозитория `GEOAPIFY_KEY`.
+
+**Навигаторы.** В приложении водителя «Маршрут в навигаторе» открывает выбор: Яндекс Навигатор (не установлен — Яндекс Карты, затем веб), 2ГИС (приложение → веб), Google Карты. Последний выбор запоминается и предлагается первым. Схемы URL — в `docs/ROUTING.md`; разрешения: `LSApplicationQueriesSchemes` (iOS) и `<queries>` (Android 11+).
+
 В release-сборках Android и iOS разрешён только HTTPS (локальная сеть / `localhost` — только для разработки).
 
 Демо-вход: режим «Демо-база», учётные записи из раздела «Demo accounts» README (например `driver@cargoflow.demo` — для приложения водителя).

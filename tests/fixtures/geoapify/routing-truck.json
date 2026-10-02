@@ -1,0 +1,40 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "mode": "truck",
+        "waypoints": [
+          { "location": [76.8897, 43.2389], "original_index": 0 },
+          { "location": [69.5901, 42.3417], "original_index": 1 },
+          { "location": [69.2401, 41.2995], "original_index": 2 }
+        ],
+        "units": "metric",
+        "distance": 812345,
+        "distance_units": "meters",
+        "time": 41520.5,
+        "legs": [
+          { "distance": 690000, "time": 35000, "steps": [] },
+          { "distance": 122345, "time": 6520.5, "steps": [] }
+        ]
+      },
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [76.8897, 43.2389],
+            [75.5, 43.0],
+            [72.1, 42.8],
+            [69.5901, 42.3417]
+          ],
+          [
+            [69.5901, 42.3417],
+            [69.4, 41.8],
+            [69.2401, 41.2995]
+          ]
+        ]
+      }
+    }
+  ]
+}

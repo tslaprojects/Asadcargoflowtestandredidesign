@@ -28,6 +28,8 @@ import { OrderTrackingHeader } from "@/features/orders/order-tracking-header";
 import { JourneyTimeline } from "@/features/operations/journey-timeline";
 import { orderProgress } from "@/lib/state-machine/order-progress";
 import { MapView, type MapPoint } from "@/features/tracking/map-view";
+import { routeLines } from "@/features/tracking/route-line";
+import { RouteDistance } from "@/components/common/route-distance";
 import { guard, pageActor } from "@/server/page-context";
 import { unreadForOrder } from "@/server/services/chat.service";
 import { DRIVER_DOCUMENT_TYPES, listOrderDocuments } from "@/server/services/document.service";
@@ -138,6 +140,12 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             rating={ratings[order.shipper.id]}
           />
         </div>
+        {order.load.routeDistanceKm != null && (
+          <div>
+            <p className="text-muted-foreground text-xs">Расстояние</p>
+            <RouteDistance route={order.load} />
+          </div>
+        )}
         <div>
           <p className="text-muted-foreground text-xs">Перевозчик</p>
           <CompanyBadge
@@ -276,7 +284,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
           </p>
         </CardHeader>
         <CardContent>
-          <MapView points={points} className="h-[420px] w-full overflow-hidden rounded-lg" />
+          <MapView points={points} lines={routeLines(order.load)} className="h-[420px] w-full overflow-hidden rounded-lg" />
           <p className="text-muted-foreground mt-2 text-xs">
             Позиция передаётся водителем из приложения (геолокация браузера) — это не непрерывный GPS-трекинг.
           </p>
@@ -404,6 +412,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             vehicle={order.vehicle}
             driver={order.driver}
             points={points}
+            lines={routeLines(order.load)}
           />
           <Card>
             <CardHeader>

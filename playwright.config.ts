@@ -42,6 +42,8 @@ export default defineConfig({
           DEMO_DATABASE_URL: "",
           APP_URL: baseURL,
           STORAGE_DRIVER: "local",
+          // E2E без внешних сервисов: километраж — оценка
+          GEOAPIFY_API_KEY: "",
           STORAGE_LOCAL_DIR: "./storage-e2e",
           EMAIL_DRIVER: "none",
           // Плановую задачу в E2E запускают тесты явно

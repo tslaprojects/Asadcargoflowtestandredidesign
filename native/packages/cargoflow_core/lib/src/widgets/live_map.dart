@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../domain/map_tiles.dart';
 import '../models/operations.dart';
 import '../theme/tokens.dart';
 
@@ -81,9 +82,10 @@ class _LiveMapState extends State<LiveMap> {
         ),
         children: [
           TileLayer(
-            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+            urlTemplate: MapTiles.urlTemplate(),
             userAgentPackageName: 'kz.cargoflow.app',
-            tileBuilder: (context, tile, _) => ColorFiltered(colorFilter: _muted, child: tile),
+            // Стиль Geoapify уже приглушён; тайлы OSM приглушаем фильтром
+            tileBuilder: MapTiles.usesGeoapify ? null : (context, tile, _) => ColorFiltered(colorFilter: _muted, child: tile),
           ),
           PolylineLayer(polylines: [
             for (final i in widget.items)
@@ -128,7 +130,7 @@ class _LiveMapState extends State<LiveMap> {
                   ),
                 ),
           ]),
-          const RichAttributionWidget(attributions: [TextSourceAttribution('© OpenStreetMap contributors')]),
+          RichAttributionWidget(attributions: [TextSourceAttribution(MapTiles.attribution())]),
           Positioned(
             top: 12,
             right: 12,

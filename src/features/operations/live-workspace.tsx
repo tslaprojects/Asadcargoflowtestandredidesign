@@ -38,7 +38,8 @@ export function toMapObject(o: LiveObject): MapObject {
     label: `${o.publicNumber}: ${o.origin} → ${o.destination}, ${o.statusLabel}`,
     health: o.health,
     position: o.position,
-    route: o.stops.filter((s) => s.point).map((s) => [s.point!.lng, s.point!.lat] as [number, number]),
+    // Маршрут по дорогам, если посчитан; иначе — прямые между точками
+    route: o.routeLine ?? o.stops.filter((s) => s.point).map((s) => [s.point!.lng, s.point!.lat] as [number, number]),
   };
 }
 

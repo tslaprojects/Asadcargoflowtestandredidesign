@@ -5,7 +5,7 @@ import { roadKm } from "@/lib/geo/distance";
 import { formatDate, formatNumber, formatRelative } from "@/lib/format";
 import { ORDER_PHASE_LABELS, type OrderProgress } from "@/lib/state-machine/order-progress";
 import { cn } from "@/lib/utils";
-import { MapView, type MapPoint } from "@/features/tracking/map-view";
+import { MapView, type MapLine, type MapPoint } from "@/features/tracking/map-view";
 
 type Stop = { city: string; country: string; latitude: number | null; longitude: number | null };
 type Location = { latitude: number | null; longitude: number | null; createdAt: Date | string } | null;
@@ -60,6 +60,7 @@ export function OrderTrackingHeader({
   vehicle,
   driver,
   points,
+  lines,
 }: {
   progress: OrderProgress;
   stops: Stop[];
@@ -69,6 +70,8 @@ export function OrderTrackingHeader({
   vehicle: { make: string; model: string; plateNumber: string } | null;
   driver: { fullName: string; phone: string } | null;
   points: MapPoint[];
+  /** Линия маршрута по дорогам; нет — точки соединяются пунктиром */
+  lines?: MapLine[];
 }) {
   const origin = stops[0];
   const destination = stops[stops.length - 1];
@@ -205,7 +208,7 @@ export function OrderTrackingHeader({
         </div>
         {showMap && (
           <div className="border-border min-h-56 border-t lg:border-t-0 lg:border-l">
-            <MapView points={points} className="bg-muted h-full min-h-56 w-full" />
+            <MapView points={points} lines={lines} className="bg-muted h-full min-h-56 w-full" />
           </div>
         )}
       </div>

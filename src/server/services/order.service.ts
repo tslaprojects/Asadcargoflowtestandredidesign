@@ -1,6 +1,6 @@
 import "server-only";
 import type { z } from "zod";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import type { ActionSource, OrderStatus } from "@/generated/prisma/enums";
 import { audit, AuditAction } from "@/lib/audit/audit";
 import type { Actor } from "@/lib/auth/actor";
@@ -373,6 +373,8 @@ async function republishLoadCopy(tx: Tx, actor: Actor, loadId: string, orderNumb
   const copy = await tx.load.create({
     data: {
       ...data,
+      // Точки те же — маршрут копируется без пересчёта
+      routeGeometry: (data.routeGeometry ?? Prisma.DbNull) as Prisma.InputJsonValue | typeof Prisma.DbNull,
       publicNumber,
       status: stillActual ? "PUBLISHED" : "DRAFT",
       visibility: stillActual ? (invitations.length ? "INVITE_ONLY" : "MARKETPLACE") : "DRAFT",

@@ -6,7 +6,9 @@ import { countryFlag } from "@/lib/geo/countries";
 import { formatDateTime, formatWeight } from "@/lib/format";
 import { label } from "@/lib/i18n";
 import { toPlain } from "@/lib/serialize";
+import { RouteDistance } from "@/components/common/route-distance";
 import { DriverTripActions } from "@/features/driver/driver-trip";
+import { NavigatorLinks } from "@/features/driver/navigator-links";
 import { pageActor } from "@/server/page-context";
 import { getMyTrip } from "@/server/services/driver-trip.service";
 import { driverMovement } from "@/server/services/next-load.service";
@@ -76,7 +78,10 @@ export default async function DriverHomePage() {
       )}
 
       <div className="border-border bg-card rounded-2xl border p-4">
-        <p className="mb-3 text-sm font-semibold">Маршрут</p>
+        <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-sm font-semibold">Маршрут</p>
+          {order.load.routeDistanceKm != null && <RouteDistance route={order.load} className="text-sm" />}
+        </div>
         <ol className="space-y-3">
           {stops.map((s, i) => (
             <li key={s.id} className="flex gap-3">
@@ -94,16 +99,11 @@ export default async function DriverHomePage() {
                     {s.contactName ?? "Контакт"}: {s.contactPhone}
                   </a>
                 )}
-                {s.latitude !== null && s.longitude !== null && (
-                  <a
-                    className="text-primary block"
-                    href={`https://www.openstreetmap.org/?mlat=${s.latitude}&mlon=${s.longitude}#map=12/${s.latitude}/${s.longitude}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Открыть на карте
-                  </a>
-                )}
+                <NavigatorLinks
+                  className="mt-2"
+                  testId={`driver-navigator-${i + 1}`}
+                  target={{ lat: s.latitude, lng: s.longitude, address: s.fullAddress, city: s.city }}
+                />
               </div>
             </li>
           ))}

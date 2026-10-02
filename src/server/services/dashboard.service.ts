@@ -163,6 +163,7 @@ export async function carrierDashboard(actor: Actor) {
       },
       orderBy: { publishedAt: "desc" },
       take: 5,
+      omit: { routeGeometry: true },
       include: {
         stops: { orderBy: { sequence: "asc" }, select: { country: true, city: true, type: true, sequence: true } },
         company: { select: { legalName: true, verificationStatus: true } },

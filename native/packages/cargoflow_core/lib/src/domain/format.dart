@@ -45,4 +45,20 @@ abstract final class Fmt {
     if (kg >= 1000) return '${NumberFormat('#,##0.#', 'ru').format(kg / 1000)} т';
     return '${NumberFormat.decimalPattern('ru').format(kg.round())} кг';
   }
+
+  /// Километраж: «1 240 км»; оценка — «≈ 1 240 км (оценка)».
+  static String distance(double? km, {bool estimate = false}) {
+    if (km == null) return '—';
+    final v = NumberFormat.decimalPattern('ru').format(km < 10 ? (km * 10).round() / 10 : km.round());
+    return estimate ? '≈ $v км (оценка)' : '$v км';
+  }
+
+  /// Время в пути: «45 мин», «18 ч 30 мин», «2 д 4 ч».
+  static String duration(int? min) {
+    if (min == null || min < 0) return '—';
+    if (min < 60) return '$min мин';
+    final d = min ~/ 1440, h = (min % 1440) ~/ 60, m = min % 60;
+    if (d > 0) return h > 0 ? '$d д $h ч' : '$d д';
+    return m > 0 ? '$h ч $m мин' : '$h ч';
+  }
 }

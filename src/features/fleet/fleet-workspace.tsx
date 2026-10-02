@@ -93,7 +93,7 @@ export function FleetWorkspace({
           label: `${v.plateNumber}: ${v.trip!.origin} → ${v.trip!.destination}, ${v.trip!.statusLabel}`,
           health: v.trip!.health,
           position: v.trip!.position,
-          route: v.trip!.stops.filter((s) => s.point).map((s) => [s.point!.lng, s.point!.lat] as [number, number]),
+          route: v.trip!.routeLine ?? v.trip!.stops.filter((s) => s.point).map((s) => [s.point!.lng, s.point!.lat] as [number, number]),
         })),
     [vehicles],
   );

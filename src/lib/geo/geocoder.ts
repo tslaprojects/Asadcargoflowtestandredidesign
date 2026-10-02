@@ -5,8 +5,27 @@
  */
 export type GeoPoint = { latitude: number; longitude: number };
 
+/** Что ищем: город, а если указаны улица / дом — полный адрес. */
+export type GeocodeQuery = { country: string; city: string; street?: string | null; building?: string | null };
+/** Точность найденной точки. */
+export type GeocodeAccuracy = "address" | "street" | "city";
+export type GeocodeResult = GeoPoint & { accuracy: GeocodeAccuracy; confidence?: number | null };
+
 export interface Geocoder {
   geocodeCity(country: string, city: string): Promise<GeoPoint | null>;
+  /** Город или адрес. Справочник находит только города; внешний провайдер — и адреса. */
+  geocode(q: GeocodeQuery): Promise<GeocodeResult | null>;
+}
+
+/** Нормализованный ключ запроса для кэша: регистр, ё/е, пробелы. Пустые улица/дом не участвуют. */
+export function normalizeGeocodeQuery(q: GeocodeQuery): string {
+  const n = (v: string | null | undefined) =>
+    (v ?? "")
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[\s,]+/g, " ")
+      .trim();
+  return [n(q.city), n(q.street), n(q.building)].join("|").replace(/\|+$/, "");
 }
 
 type CityEntry = { country: string; names: string[]; lat: number; lng: number };
@@ -46,11 +65,20 @@ const CITIES: CityEntry[] = [
   { country: "BY", names: ["минск", "minsk"], lat: 53.9006, lng: 27.559 },
 ];
 
+function lookupCity(country: string, city: string): GeoPoint | null {
+  const needle = city.trim().toLowerCase().replace(/ё/g, "е");
+  const hit = CITIES.find((c) => c.country === country.toUpperCase() && c.names.includes(needle));
+  return hit ? { latitude: hit.lat, longitude: hit.lng } : null;
+}
+
+/** Справочник городов коридора: без сети, только уровень города. */
 export const localGeocoder: Geocoder = {
   async geocodeCity(country, city) {
-    const needle = city.trim().toLowerCase();
-    const hit = CITIES.find((c) => c.country === country.toUpperCase() && c.names.includes(needle));
-    return hit ? { latitude: hit.lat, longitude: hit.lng } : null;
+    return lookupCity(country, city);
+  },
+  async geocode(q) {
+    const p = lookupCity(q.country, q.city);
+    return p ? { ...p, accuracy: "city", confidence: 1 } : null;
   },
 };
 

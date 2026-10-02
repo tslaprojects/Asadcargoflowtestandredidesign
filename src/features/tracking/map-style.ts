@@ -1,9 +1,19 @@
 import type { StyleSpecification } from "maplibre-gl";
 
 /**
- * Базовый стиль карт CargoFlow. NEXT_PUBLIC_MAP_STYLE_URL — свой векторный стиль; по умолчанию —
- * растровые тайлы OpenStreetMap, приглушённые (низкая насыщенность): подложка не спорит с объектами и статусами.
+ * Базовый стиль карт CargoFlow (по приоритету):
+ * 1. NEXT_PUBLIC_MAP_STYLE_URL — свой векторный стиль;
+ * 2. NEXT_PUBLIC_GEOAPIFY_KEY — векторный стиль Geoapify «positron» (светло-серый, приглушённый:
+ *    подложка не спорит со статусами на карте);
+ * 3. без ключа — растровые тайлы tile.openstreetmap.org, приглушённые. Только для разработки:
+ *    политика OSM запрещает продакшен-нагрузку на их тайл-серверы.
  */
+export const GEOAPIFY_STYLE = "positron";
+
+export function geoapifyStyleUrl(key: string, style = GEOAPIFY_STYLE): string {
+  return `https://maps.geoapify.com/v1/styles/${style}/style.json?apiKey=${encodeURIComponent(key)}`;
+}
+
 const MUTED_OSM: StyleSpecification = {
   version: 8,
   sources: {
@@ -27,7 +37,9 @@ const MUTED_OSM: StyleSpecification = {
 };
 
 export function mapStyle(): StyleSpecification | string {
-  return process.env.NEXT_PUBLIC_MAP_STYLE_URL || MUTED_OSM;
+  if (process.env.NEXT_PUBLIC_MAP_STYLE_URL) return process.env.NEXT_PUBLIC_MAP_STYLE_URL;
+  const key = process.env.NEXT_PUBLIC_GEOAPIFY_KEY?.trim();
+  return key ? geoapifyStyleUrl(key) : MUTED_OSM;
 }
 
 /** Цвета объектов на карте по операционному состоянию (совпадают с токенами --map-*). */

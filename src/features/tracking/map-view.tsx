@@ -17,7 +17,7 @@ export type MapLine = { coordinates: [number, number][]; color: string; dashed?:
 
 /**
  * Карта на MapLibre GL (open-source). Стиль задаётся NEXT_PUBLIC_MAP_STYLE_URL,
- * по умолчанию — растровые тайлы OpenStreetMap. Провайдер карт заменяется без изменения компонентов.
+ * иначе NEXT_PUBLIC_GEOAPIFY_KEY (Geoapify), без них — тайлы OpenStreetMap (dev). Провайдер карт заменяется без изменения компонентов.
  */
 const COLORS: Record<MapPoint["kind"], string> = {
   PICKUP: "#1d4ed8",

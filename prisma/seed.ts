@@ -23,6 +23,7 @@ import { signContract } from "@/server/services/contract.service";
 import { uploadOrderDocument } from "@/server/services/document.service";
 import { assignDriver, assignVehicle, changeStatus, confirmDelivery, reportDelivered } from "@/server/services/order.service";
 import { createLoad } from "@/server/services/load.service";
+import { setGeoProviders } from "@/server/geo/providers";
 import { createPayment } from "@/server/services/payment.service";
 import { createReview } from "@/server/services/review.service";
 import { addLocation } from "@/server/services/tracking.service";
@@ -267,6 +268,8 @@ async function runOrderToSigned(customer: Actor, carrier: Actor, load: Awaited<R
 }
 
 async function main() {
+  // Сиды в сеть не ходят: координаты — из справочника, километраж — оценка
+  setGeoProviders({ routing: null, geocoder: null });
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_PRODUCTION_SEED !== "1") {
     throw new Error("Seed очищает базу данных. В production запуск запрещён (ALLOW_PRODUCTION_SEED=1 для принудительного запуска).");
   }

@@ -1,6 +1,7 @@
 import { Calendar, Scale } from "lucide-react";
 import Link from "next/link";
 import { CompanyBadge, MoneyDisplay } from "@/components/common/misc";
+import { RouteDistance, type RouteSummary } from "@/components/common/route-distance";
 import { RouteChain } from "@/components/common/route-timeline";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,7 @@ export type LoadCardData = {
   company: { id: string; legalName: string; verificationStatus: string };
   _count?: { bids: number };
   bids?: { status: string; amount: number; currency: string }[];
-};
+} & Partial<RouteSummary>;
 
 /**
  * Строка груза на бирже / в списке (плотный операционный список вместо сетки карточек).
@@ -69,6 +70,18 @@ export function LoadCard({ load, showCompany = true }: { load: LoadCardData; sho
             )}
           </span>
         </p>
+        {load.routeDistanceKm != null && (
+          <p className="min-w-0 truncate">
+            <RouteDistance
+              compact
+              route={{
+                routeDistanceKm: load.routeDistanceKm,
+                routeDurationMin: load.routeDurationMin ?? null,
+                routeSource: load.routeSource ?? null,
+              }}
+            />
+          </p>
+        )}
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm md:flex-col md:items-start">
         {showCompany && <CompanyBadge name={load.company.legalName} verification={load.company.verificationStatus} link={false} />}

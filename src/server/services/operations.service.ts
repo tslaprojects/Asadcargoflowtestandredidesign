@@ -2,6 +2,7 @@ import "server-only";
 import type { OrderStatus, StopType } from "@/generated/prisma/enums";
 import type { Actor } from "@/lib/auth/actor";
 import { prisma } from "@/lib/db/prisma";
+import { parseRouteGeometry, thinLine } from "@/lib/geo/routing";
 import { orderHealth, tripProgress, type Health } from "@/lib/operations";
 import { ACTIVE_STATUSES, ORDER_STATUS_LABELS } from "@/lib/state-machine/order-state-machine";
 import { ordersWhereForActiveCompany, ordersWhereForActor } from "./access";
@@ -27,6 +28,11 @@ export type LiveObject = {
   origin: string;
   destination: string;
   stops: LiveStop[];
+  /** Линия маршрута по дорогам [lng, lat][] (прорежена для карты); null — соединять точки. */
+  routeLine: [number, number][] | null;
+  /** Километраж маршрута груза и его источник (PROVIDER — по дорогам, ESTIMATE — оценка). */
+  distanceKm: number | null;
+  distanceSource: "PROVIDER" | "ESTIMATE" | null;
   /** Последняя позиция: GPS/отметка водителя, иначе — оценка по маршруту и статусу. */
   position: (GeoPoint & { at: string | null; source: "tracking" | "estimated" }) | null;
   progress: number;
@@ -66,6 +72,9 @@ const liveSelect = {
       weightKg: true,
       originCity: true,
       destinationCity: true,
+      routeGeometry: true,
+      routeSource: true,
+      routeDistanceKm: true,
       stops: {
         orderBy: { sequence: "asc" as const },
         select: { type: true, city: true, country: true, latitude: true, longitude: true },
@@ -146,6 +155,10 @@ async function toLiveObjects(rows: Row[], now = new Date()): Promise<LiveObject[
       origin: r.load.originCity ?? stops[0]?.city ?? "—",
       destination: r.load.destinationCity ?? stops[stops.length - 1]?.city ?? "—",
       stops,
+      // Оценка — это прямые между точками: их и так рисует карта
+      routeLine: r.load.routeSource === "PROVIDER" ? thinRoute(r.load.routeGeometry) : null,
+      distanceKm: r.load.routeDistanceKm,
+      distanceSource: r.load.routeSource,
       position,
       progress: tripProgress(r.currentStatus),
       vehicle: r.vehicle,
@@ -154,6 +167,13 @@ async function toLiveObjects(rows: Row[], now = new Date()): Promise<LiveObject[
       shipper: r.shipper,
     };
   });
+}
+
+/** Карта операций показывает много объектов: линия маршрута прореживается до 150 точек. */
+const LIVE_ROUTE_POINTS = 150;
+function thinRoute(geometry: unknown): [number, number][] | null {
+  const line = parseRouteGeometry(geometry);
+  return line ? thinLine(line, LIVE_ROUTE_POINTS) : null;
 }
 
 export function indicatorsFor(objects: LiveObject[]): OperationsIndicators {

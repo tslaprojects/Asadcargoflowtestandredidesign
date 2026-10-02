@@ -12,6 +12,7 @@ import type { Currency, LoadStatus, NotificationType, OrderStatus } from "@/gene
 import { prisma } from "@/lib/db/prisma";
 import { roadKm } from "@/lib/geo/distance";
 import { storage } from "@/lib/storage/storage";
+import { estimatedRouteFields } from "@/server/geo/load-route";
 import { createContractInTx } from "@/server/services/contract.service";
 import { DEMO_ANCHORS } from "@/server/services/demo-workspace.service";
 import {
@@ -504,6 +505,8 @@ export async function generateDemoWorld(opts: { seed?: string; now?: Date } = {}
         timezone: s.city.tz,
       }),
     );
+    // Сиды в сеть не ходят: километраж — оценка по прямой × коэффициент
+    Object.assign(loads[loads.length - 1], estimatedRouteFields(stopList.map((s) => ({ latitude: s.city.lat, longitude: s.city.lng }))));
 
     // Ставки на бирже: 1–3 предложения на грузе «идут торги»
     if (p.kind === "load" && p.status === "BIDDING") {

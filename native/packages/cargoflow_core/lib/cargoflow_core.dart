@@ -6,6 +6,8 @@ export 'src/auth/session.dart';
 export 'src/domain/driver_steps.dart';
 export 'src/domain/format.dart';
 export 'src/domain/journey.dart';
+export 'src/domain/map_tiles.dart';
+export 'src/domain/navigators.dart';
 export 'src/domain/priority.dart';
 export 'src/domain/statuses.dart';
 export 'src/models/actor.dart';

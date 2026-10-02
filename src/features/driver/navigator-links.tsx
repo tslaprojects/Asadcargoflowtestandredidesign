@@ -1,0 +1,32 @@
+import { Navigation } from "lucide-react";
+import { t } from "@/lib/i18n";
+import { NAVIGATOR_APPS, navigatorWebLink, type NavTarget } from "@/lib/geo/navigators";
+import { cn } from "@/lib/utils";
+
+/**
+ * «Маршрут в навигаторе»: Яндекс, 2ГИС, Google — обычные https-ссылки.
+ * На телефоне ссылку перехватывает установленное приложение, иначе откроется веб-версия карт.
+ */
+export function NavigatorLinks({ target, className, testId }: { target: NavTarget; className?: string; testId?: string }) {
+  return (
+    <div className={cn("space-y-1.5", className)} data-testid={testId}>
+      <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+        <Navigation className="size-3.5" aria-hidden /> {t("route.navigator")}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {NAVIGATOR_APPS.map((app) => (
+          <a
+            key={app}
+            href={navigatorWebLink(app, target)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border-border bg-card hover:bg-muted active:bg-muted inline-flex min-h-10 items-center rounded-lg border px-3 text-sm font-medium"
+            data-navigator={app}
+          >
+            {t(`route.navigators.${app}`)}
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}

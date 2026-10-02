@@ -82,6 +82,10 @@
 	<array>
 		<string>tel</string>
 		<string>maps</string>
+		<string>yandexnavi</string>
+		<string>yandexmaps</string>
+		<string>dgis</string>
+		<string>comgooglemaps</string>
 	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>

@@ -8,6 +8,7 @@ import 'screens/history.dart';
 import 'screens/profile.dart';
 import 'screens/trip.dart';
 import 'services/location.dart';
+import 'services/navigator.dart';
 import 'services/outbox.dart';
 
 /// CargoFlow Водитель — нативное приложение для iOS и Android: текущий рейс, этапы,
@@ -27,10 +28,12 @@ Future<void> main() async {
 }
 
 class DriverApp extends StatelessWidget {
-  const DriverApp({super.key, required this.session, required this.outbox, required this.location});
+  const DriverApp({super.key, required this.session, required this.outbox, required this.location, this.navigator});
   final SessionController session;
   final Outbox outbox;
   final LocationService location;
+  /// Запуск навигаторов (подменяется в тестах)
+  final NavigatorLauncher? navigator;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +43,7 @@ class DriverApp extends StatelessWidget {
         Provider.value(value: session.api),
         ChangeNotifierProvider.value(value: outbox),
         ChangeNotifierProvider.value(value: location),
+        Provider<NavigatorLauncher>(create: (_) => navigator ?? NavigatorLauncher()),
       ],
       child: MaterialApp(
         title: 'CargoFlow Водитель',

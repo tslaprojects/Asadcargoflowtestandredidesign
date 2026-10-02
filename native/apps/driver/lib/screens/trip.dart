@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/location.dart';
+import '../services/navigator.dart';
 import '../services/outbox.dart';
 import 'deliver.dart';
 
@@ -224,14 +225,11 @@ class _TripViewState extends State<TripView> {
     ).whenComplete(ctrl.dispose);
   }
 
-  Future<void> _navigate(RouteStop stop) async {
-    final p = stop.point;
-    final q = p != null ? '${p.latitude},${p.longitude}' : Uri.encodeComponent('${stop.address ?? ''} ${stop.city}');
-    final uri = Platform.isIOS ? Uri.parse('http://maps.apple.com/?daddr=$q') : Uri.parse('geo:0,0?q=$q');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      await launchUrl(Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$q'), mode: LaunchMode.externalApplication);
-    }
-  }
+  Future<void> _navigate(RouteStop stop) => showNavigatorSheet(
+        context,
+        context.read<NavigatorLauncher>(),
+        NavTarget(lat: stop.point?.latitude, lng: stop.point?.longitude, address: stop.address, city: stop.city),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -268,6 +266,16 @@ class _TripViewState extends State<TripView> {
             const SizedBox(height: 4),
             Text([trip.title, Fmt.weight(trip.weightKg), ?trip.vehicle].where((s) => s.isNotEmpty).join(' · '),
                 style: text.bodyMedium?.copyWith(color: CF.mutedForeground)),
+            if (trip.distanceKm != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  [Fmt.distance(trip.distanceKm, estimate: trip.distanceEstimated), if (trip.durationMin != null) 'в пути ~${Fmt.duration(trip.durationMin)}']
+                      .join(' · '),
+                  key: const ValueKey('trip-distance'),
+                  style: text.bodyMedium,
+                ),
+              ),
           ]),
           _Card(key: const ValueKey('next-step'), children: [
             const Overline('Следующее действие'),

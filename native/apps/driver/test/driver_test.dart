@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cargoflow_core/cargoflow_core.dart';
 import 'package:cargoflow_driver/main.dart';
 import 'package:cargoflow_driver/services/location.dart';
+import 'package:cargoflow_driver/services/navigator.dart';
 import 'package:cargoflow_driver/services/outbox.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -41,6 +42,9 @@ Map<String, dynamic> _trip(String status) => {
         'load': {
           'title': 'Запчасти',
           'weightKg': 12000,
+          'routeDistanceKm': 806.4,
+          'routeDurationMin': 690,
+          'routeSource': 'PROVIDER',
           'stops': [
             {'type': 'PICKUP', 'city': 'Алматы', 'country': 'KZ', 'latitude': 43.2, 'longitude': 76.9},
             {'type': 'DELIVERY', 'city': 'Ташкент', 'country': 'UZ', 'latitude': 41.3, 'longitude': 69.2},
@@ -56,6 +60,7 @@ Map<String, dynamic> _trip(String status) => {
 
 void main() {
   setUpAll(() => initializeDateFormatting('ru'));
+  navigatorTests();
 
   group('Outbox', () {
     setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -188,6 +193,73 @@ void main() {
     expect(body['status'], 'AT_LOADING');
     expect(body['latitude'], 43.25);
 
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(minutes: 2));
+  });
+}
+
+void navigatorTests() {
+  testWidgets('навигатор: выбор 2ГИС → нет приложения → веб (lon,lat); выбор запоминается и предлагается первым', (tester) async {
+    FlutterSecureStorage.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({});
+    final client = MockClient((req) async => _json(switch (req.url.path) {
+          '/api/auth/login' => _ok({'token': 'drv_' * 10, 'dataMode': 'demo'}),
+          '/api/auth/me' => _ok(_me),
+          '/api/driver/trip' => _ok(_trip('WAITING_FOR_LOADING')),
+          '/api/driver/trips' => _ok({'items': [], 'total': 0, 'page': 1, 'pageSize': 50}),
+          '/api/driver/profile' => _ok([]),
+          _ => {'success': false, 'error': {'code': 'NOT_FOUND', 'message': 'нет'}},
+        }));
+    final tokens = SecureTokenStore();
+    final api = ApiClient(baseUrl: 'http://test', tokens: tokens, httpClient: client);
+    final session = SessionController(api: api, tokens: tokens);
+    final outbox = Outbox(api);
+    final opened = <Uri>[];
+    final launcher = NavigatorLauncher(
+      ios: false,
+      canLaunch: (u) async => false, // приложения навигаторов не установлены
+      launch: (u) async {
+        opened.add(u);
+        return true;
+      },
+    );
+
+    tester.view.physicalSize = const Size(430, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(DriverApp(session: session, outbox: outbox, location: LocationService(outbox, locate: (_) async => null), navigator: launcher));
+    await session.restore();
+    await tester.pumpAndSettle();
+    api.baseUrl = 'http://test';
+    await tester.tap(find.text('Демо-база'));
+    await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'driver@cargoflow.demo');
+    await tester.enterText(find.widgetWithText(TextFormField, 'Пароль'), 'Demo1234!');
+    await tester.tap(find.widgetWithText(FilledButton, 'Войти'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    // Километраж маршрута по дорогам
+    expect(find.textContaining('806 км'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Маршрут в навигаторе'));
+    await tester.tap(find.text('Маршрут в навигаторе'));
+    await tester.pumpAndSettle();
+    expect(find.text('Яндекс Навигатор'), findsOneWidget);
+    expect(find.text('2ГИС'), findsOneWidget);
+    expect(find.text('Google Карты'), findsOneWidget);
+    await tester.tap(find.text('2ГИС'));
+    await tester.pumpAndSettle();
+    // Следующая точка — загрузка в Алматы; 2ГИС: сначала долгота
+    expect(opened.single.toString(), 'https://2gis.ru/routeSearch/rsType/car/to/76.9,43.2');
+
+    await tester.tap(find.text('Маршрут в навигаторе'));
+    await tester.pumpAndSettle();
+    final tiles = tester.widgetList<ListTile>(find.byType(ListTile)).where((t) => t.key is ValueKey<String>).toList();
+    expect((tiles.first.key! as ValueKey<String>).value, 'navigator-dgis');
+    expect(find.text('последний выбор'), findsOneWidget);
+
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(minutes: 2));
   });

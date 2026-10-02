@@ -5,7 +5,8 @@ const isDev = process.env.NODE_ENV !== "production";
 /**
  * Content-Security-Policy. Next.js App Router встраивает inline-скрипты данных RSC, поэтому script-src
  * допускает 'unsafe-inline' (без nonce), но запрещает сторонние источники скриптов, фреймы и плагины.
- * Картам MapLibre нужны тайлы/стили по https и web worker из blob:.
+ * Картам MapLibre нужны тайлы/стили по https и web worker из blob:. Стиль Geoapify (maps.geoapify.com): style.json,
+ * векторные тайлы, шрифты (glyphs) и спрайты грузятся через fetch (connect-src https:), картинки спрайтов — img-src https:.
  */
 const csp = [
   "default-src 'self'",

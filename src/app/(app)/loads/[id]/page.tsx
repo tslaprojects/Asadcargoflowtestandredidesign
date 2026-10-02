@@ -2,6 +2,7 @@ import { ArrowRight, MessageCircleQuestion } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CompanyBadge, DefinitionList, EmptyState, MoneyDisplay, PageHeader } from "@/components/common/misc";
+import { RouteDistance } from "@/components/common/route-distance";
 import { RouteChain, RouteTimeline } from "@/components/common/route-timeline";
 import { StatusBadge } from "@/components/common/status-badge";
 import { UrlTabs } from "@/components/common/url-tabs";
@@ -15,6 +16,8 @@ import { DocumentList } from "@/features/documents/document-list";
 import { DocumentUploader } from "@/features/documents/document-uploader";
 import { AnswerQuestionForm, AskQuestionDialog, BidCard, BidDialog, type BidView } from "@/features/loads/bid-components";
 import { LoadOwnerActions } from "@/features/loads/load-owner-actions";
+import { MapView } from "@/features/tracking/map-view";
+import { routeLines, stopPoints } from "@/features/tracking/route-line";
 import { guard, pageActor } from "@/server/page-context";
 import { getLoadDetail } from "@/server/services/load.service";
 
@@ -49,6 +52,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
             items={[
               { label: "Загрузка", value: formatDateRange(load.loadingDateFrom, load.loadingDateTo) },
               { label: "Доставка", value: formatDateRange(load.deliveryDateFrom, load.deliveryDateTo) },
+              ...(load.routeDistanceKm != null ? [{ label: "Расстояние", value: <RouteDistance route={load} /> }] : []),
               { label: "Груз", value: `${load.title} · ${label("CargoType", load.cargoType)}` },
               { label: "Вес / объём", value: `${formatWeight(load.weightKg)}${load.volumeM3 ? ` · ${formatVolume(load.volumeM3)}` : ""}` },
               { label: "Кузов", value: load.bodyType ? label("BodyType", load.bodyType) : "Любой" },
@@ -248,11 +252,15 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
             value: "route",
             label: "Маршрут",
             content: (
-              <Card>
-                <CardContent className="pt-5">
-                  <RouteTimeline stops={load.stops} showContacts={isOwner || !!load.order} />
-                </CardContent>
-              </Card>
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                <Card>
+                  <CardContent className="space-y-4 pt-5">
+                    {load.routeDistanceKm != null && <RouteDistance route={load} className="text-sm font-medium" />}
+                    <RouteTimeline stops={load.stops} showContacts={isOwner || !!load.order} />
+                  </CardContent>
+                </Card>
+                <MapView points={stopPoints(load.stops)} lines={routeLines(load)} className="h-[380px] w-full overflow-hidden rounded-lg" />
+              </div>
             ),
           },
           { value: "cargo", label: "Груз", content: cargo },

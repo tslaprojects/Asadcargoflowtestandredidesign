@@ -229,6 +229,9 @@ class DriverTrip {
     this.shipperName,
     this.cargoNotes,
     this.lastLocationAt,
+    this.distanceKm,
+    this.durationMin,
+    this.distanceEstimated = true,
   });
 
   final String orderId;
@@ -244,6 +247,10 @@ class DriverTrip {
   final String? shipperName;
   final String? cargoNotes;
   final DateTime? lastLocationAt;
+  /// Километраж и время в пути маршрута груза; distanceEstimated — оценка, а не маршрут по дорогам.
+  final double? distanceKm;
+  final int? durationMin;
+  final bool distanceEstimated;
 
   RouteStop? get pickup => stops.where((s) => s.type == 'PICKUP').firstOrNull;
   RouteStop? get delivery => stops.where((s) => s.type == 'DELIVERY').lastOrNull;
@@ -267,6 +274,9 @@ class DriverTrip {
       shipperName: _m(o['shipper'])['legalName'] as String?,
       cargoNotes: load['notes'] as String?,
       lastLocationAt: _t(_m(data['lastLocation'])['createdAt']),
+      distanceKm: _d(load['routeDistanceKm']),
+      durationMin: (load['routeDurationMin'] as num?)?.toInt(),
+      distanceEstimated: load['routeSource'] != 'PROVIDER',
     );
   }
 }

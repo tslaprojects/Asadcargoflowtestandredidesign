@@ -96,16 +96,22 @@ test("полный сценарий цифровой перевозки", async 
   await expect(shipper.getByLabel("Валюта")).toHaveValue("USD");
   await shipper.getByRole("button", { name: "Предпросмотр" }).click();
   await expect(shipper.getByTestId("load-preview")).toContainText("E2E Электроника");
+  // Километраж в предпросмотре: без ключа провайдера — оценка
+  await expect(shipper.getByTestId("route-preview")).toContainText(/≈\s[\d\s\u00a0\u202f]+\sкм \(оценка\)/);
   await shipper.getByRole("button", { name: "Опубликовать груз" }).click();
   await shipper.waitForURL(/\/loads\/[0-9a-f-]{36}$/);
   const loadUrl = shipper.url();
   const loadHeading = await shipper.getByRole("heading", { level: 1 }).innerText();
   const loadNumber = loadHeading.match(/CF-L-\d{6}/)![0];
   await expect(shipper.getByRole("heading", { level: 1 })).toContainText("Опубликован");
+  // Карточка груза: километраж маршрута (оценка без ключа провайдера)
+  await expect(shipper.getByTestId("route-distance").first()).toContainText("(оценка)");
+  await expect(shipper.getByTestId("route-distance").first()).toHaveAttribute("data-route-source", "ESTIMATE");
 
   // ── 3. Перевозчик видит груз на бирже и предлагает цену ──
   const { page: carrier } = await login(browser, "carrier@cargoflow.demo");
   await carrier.goto(`/marketplace?q=${loadNumber}`);
+  await expect(carrier.getByTestId("load-card").filter({ hasText: loadNumber }).getByTestId("route-distance")).toContainText("км");
   await carrier.getByTestId("load-card").filter({ hasText: loadNumber }).click();
   await carrier.waitForURL(loadUrl);
   await carrier.getByTestId("open-bid-dialog").first().click();
@@ -125,6 +131,8 @@ test("полный сценарий цифровой перевозки", async 
   await shipper.waitForURL(/\/orders\/[0-9a-f-]{36}\?tab=contract/);
   const orderUrl = shipper.url().split("?")[0];
   const orderNumber = (await shipper.getByRole("heading", { level: 1 }).innerText()).match(/CF-O-\d{6}/)![0];
+  // Карточка перевозки: километраж маршрута груза
+  await expect(shipper.getByTestId("order-summary").getByTestId("route-distance")).toContainText("(оценка)");
 
   // ── 5. Подписание договора обеими сторонами ──
   const sign = async (page: Page, password: string) => {

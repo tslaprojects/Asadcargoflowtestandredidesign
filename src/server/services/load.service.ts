@@ -6,11 +6,12 @@ import { requireActiveCompany, requireCompanyPermission, requirePermission, type
 import { prisma, type Tx } from "@/lib/db/prisma";
 import { AppError, errors } from "@/lib/errors";
 import { defaultTimezone } from "@/lib/geo/countries";
-import { geocoder } from "@/lib/geo/geocoder";
 import { isCarrierRole, isCustomerRole } from "@/lib/permissions";
 import { nextPublicNumber } from "@/lib/numbering";
 import type { z } from "zod";
 import type { loadInputSchema, loadListQuerySchema } from "@/lib/validation/load";
+import { geocodePoint } from "@/server/geo/geocoding";
+import { computeLoadRoute, currentRouteHash } from "@/server/geo/load-route";
 import { requireLoadRelation } from "./access";
 import { expireStaleBids } from "./bid.service";
 import { actualLoadWhere } from "@/lib/validation/bid";
@@ -24,12 +25,13 @@ type ListQuery = z.output<typeof loadListQuerySchema>;
 export const EDITABLE_LOAD_STATUSES: LoadStatus[] = ["DRAFT", "PUBLISHED"];
 export const CANCELLABLE_LOAD_STATUSES: LoadStatus[] = ["DRAFT", "PUBLISHED", "BIDDING"];
 
+/** Точки груза с координатами: указанные пользователем или найденные геокодером (справочник → кэш → провайдер). */
 async function buildStops(input: LoadParsed) {
   return Promise.all(
     input.stops.map(async (s, i) => {
       let { latitude, longitude } = s;
       if (latitude === null || longitude === null) {
-        const point = await geocoder.geocodeCity(s.country, s.city);
+        const point = await geocodePoint({ country: s.country, city: s.city, street: s.street, building: s.building });
         if (point) ({ latitude, longitude } = point);
       }
       const fullAddress = s.fullAddress ?? [s.street, s.building, s.city, s.region, s.postalCode].filter(Boolean).join(", ") ?? null;
@@ -121,6 +123,8 @@ export async function createLoad(actor: Actor, input: LoadParsed, opts: { publis
   const membership = assertCustomerCompany(actor);
   if (opts.publish) requirePermission(actor, "LOAD_PUBLISH");
   const stops = await buildStops(input);
+  // Маршрут считается до транзакции: внешние запросы не держат блокировки
+  const route = await computeLoadRoute(stops);
 
   return prisma.$transaction(async (tx) => {
     const invitees = await validateInvitees(tx, input.visibility === "INVITE_ONLY" ? input.invitedCarrierIds : []);
@@ -128,6 +132,7 @@ export async function createLoad(actor: Actor, input: LoadParsed, opts: { publis
     const load = await tx.load.create({
       data: {
         ...loadData(input),
+        ...route,
         publicNumber,
         companyId: membership.companyId,
         createdByUserId: actor.userId,
@@ -158,6 +163,8 @@ export async function updateLoad(actor: Actor, loadId: string, input: LoadParsed
   if (relation !== "OWNER") throw errors.forbidden("Редактировать груз может только его владелец.");
   requireCompanyPermission(actor, load.companyId, "LOAD_EDIT");
   const stops = await buildStops(input);
+  // Точки не изменились (тот же хеш) — маршрут не пересчитывается; запросы к провайдеру — вне транзакции
+  const route = await computeLoadRoute(stops, await currentRouteHash(loadId));
 
   return prisma.$transaction(async (tx) => {
     await lockLoad(tx, loadId);
@@ -188,6 +195,7 @@ export async function updateLoad(actor: Actor, loadId: string, input: LoadParsed
       where: { id: loadId },
       data: {
         ...loadData(input),
+        ...route,
         visibility: current.status === "DRAFT" ? "DRAFT" : invitees.length ? "INVITE_ONLY" : "MARKETPLACE",
         stops: { create: stops },
         invitations: { create: invitees.map((carrierCompanyId) => ({ carrierCompanyId })) },
@@ -471,6 +479,8 @@ export async function listLoads(actor: Actor, q: ListQuery) {
       orderBy,
       skip: (q.page - 1) * q.pageSize,
       take: q.pageSize,
+      // Линия маршрута нужна только карточке груза — в списках не передаётся
+      omit: { routeGeometry: true },
       include: {
         stops: { orderBy: { sequence: "asc" }, select: { sequence: true, type: true, country: true, city: true } },
         company: { select: { id: true, legalName: true, tradeName: true, verificationStatus: true } },

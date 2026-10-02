@@ -21,6 +21,7 @@ import { CURRENCIES } from "@/lib/money";
 import { zonedToUtc } from "@/lib/tz";
 import { cn } from "@/lib/utils";
 import { loadInputSchema, type LoadInput } from "@/lib/validation/load";
+import { RoutePreview } from "./route-preview";
 import { defaultWizardValues, emptyStop, type WizardValues } from "./wizard-values";
 
 function toPayload(v: WizardValues): LoadInput {
@@ -510,6 +511,16 @@ export function LoadWizard({
                   contactPhone: (s.contactPhone as string) || null,
                 }))}
               />
+              <div className="mt-4">
+                <RoutePreview
+                  stops={payloadPreview.stops.map((s) => ({
+                    country: s.country,
+                    city: s.city,
+                    street: (s.street as string) || null,
+                    building: (s.building as string) || null,
+                  }))}
+                />
+              </div>
             </div>
             <div className="space-y-4">
               <h3 className="text-sm font-semibold">{values.title}</h3>

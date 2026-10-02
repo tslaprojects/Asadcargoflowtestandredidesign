@@ -52,6 +52,9 @@ class LiveObject {
     required this.driverPhone,
     required this.carrierName,
     required this.shipperName,
+    this.routeLine = const [],
+    this.distanceKm,
+    this.distanceEstimated = true,
   });
 
   final String id;
@@ -77,8 +80,12 @@ class LiveObject {
   final String? driverPhone;
   final String carrierName;
   final String shipperName;
+  /// Линия маршрута по дорогам (с сервера); пусто — маршрут рисуется прямыми между точками.
+  final List<LatLng> routeLine;
+  final double? distanceKm;
+  final bool distanceEstimated;
 
-  List<LatLng> get route => stops.where((s) => s.point != null).map((s) => s.point!).toList();
+  List<LatLng> get route => routeLine.length > 1 ? routeLine : stops.where((s) => s.point != null).map((s) => s.point!).toList();
 
   factory LiveObject.fromJson(Map<String, dynamic> j) {
     final pos = j['position'];
@@ -98,6 +105,9 @@ class LiveObject {
       origin: '${j['origin']}',
       destination: '${j['destination']}',
       stops: ((j['stops'] as List?) ?? []).map((s) => Stop.fromJson(s as Map<String, dynamic>)).toList(),
+      routeLine: parseRouteLine(j['routeLine']),
+      distanceKm: (j['distanceKm'] as num?)?.toDouble(),
+      distanceEstimated: j['distanceSource'] != 'PROVIDER',
       position: pos is Map<String, dynamic> ? LatLng(_d(pos['lat'])!, _d(pos['lng'])!) : null,
       positionAt: pos is Map<String, dynamic> ? _t(pos['at']) : null,
       positionEstimated: pos is Map<String, dynamic> && pos['source'] == 'estimated',
@@ -161,4 +171,14 @@ class OperationsData {
         actions: ((j['actions'] as List?) ?? []).map((o) => ActionItem.fromJson(o as Map<String, dynamic>)).toList(),
         kind: '${j['kind']}',
       );
+}
+
+/// Линия маршрута с сервера: [[lng, lat], ...] (порядок GeoJSON) → точки карты.
+List<LatLng> parseRouteLine(Object? raw) {
+  if (raw is! List) return const [];
+  final out = <LatLng>[];
+  for (final c in raw) {
+    if (c is List && c.length >= 2 && c[0] is num && c[1] is num) out.add(LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()));
+  }
+  return out.length > 1 ? out : const [];
 }
