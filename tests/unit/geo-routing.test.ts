@@ -19,6 +19,7 @@ import {
   type RoutingProvider,
 } from "@/lib/geo/routing";
 
+const nbsp = (v: string) => v.replace(/\u00a0|\u202f/g, " ");
 const fixture = (name: string) => JSON.parse(readFileSync(path.join(__dirname, "../fixtures/geoapify", name), "utf8")) as unknown;
 const ALMATY: LatLng = { lat: 43.2389, lng: 76.8897 };
 const SHYMKENT: LatLng = { lat: 42.3417, lng: 69.5901 };
@@ -58,6 +59,17 @@ describe("Geoapify: разбор ответов", () => {
     expect(r.geometry).toHaveLength(6);
     expect(r.geometry[0]).toEqual([76.8897, 43.2389]);
     expect(r.geometry.at(-1)).toEqual([69.2401, 41.2995]);
+  });
+
+  it("реальный ответ Geoapify (Алматы → Ташкент, mode=truck, сокращённая геометрия): 943,2 км, 13 ч 9 мин", () => {
+    const r = parseGeoapifyRoute(fixture("routing-truck-almaty-tashkent.json"))!;
+    expect(r.distanceKm).toBe(943.2);
+    expect(r.durationMin).toBe(789);
+    // Порядок координат GeoJSON — [lng, lat]
+    expect(r.geometry[0]).toEqual([76.889965, 43.239044]);
+    expect(r.geometry.at(-1)).toEqual([69.239681, 41.298809]);
+    expect(r.geometry).toHaveLength(14);
+    expect(nbsp(formatDuration(r.durationMin))).toBe("13 ч 9 мин");
   });
 
   it("маршрут: пустой / битый ответ — null", () => {
