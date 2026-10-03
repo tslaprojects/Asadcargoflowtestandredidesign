@@ -14,8 +14,8 @@ export function etaLabel(o: Pick<LiveObject, "health" | "deliveryDate" | "loadin
 }
 
 /**
- * Список живых объектов (перевозок): состояние, маршрут, статус, машина, водитель, срок.
- * Выбор строки открывает контекстную панель и показывает объект на карте.
+ * Список перевозок, как список писем в Mail: маршрут жирным, номер и статус, машина и водитель,
+ * срок справа. Выбранная строка залита акцентом.
  */
 export function ShipmentList({
   objects,
@@ -29,49 +29,58 @@ export function ShipmentList({
   className?: string;
 }) {
   return (
-    <ul className={cn("divide-border divide-y", className)} data-testid="shipment-list">
+    <ul className={cn("px-2 pb-2", className)} data-testid="shipment-list">
       {objects.map((o, i) => {
         const selected = o.id === selectedId;
+        const prevSelected = i > 0 && objects[i - 1].id === selectedId;
         return (
-          <li key={o.id} className="animate-rise-in" style={{ animationDelay: `${Math.min(i, 8) * 25}ms` }}>
+          <li key={o.id} className="animate-rise-in" style={{ animationDelay: `${Math.min(i, 8) * 20}ms` }}>
             <button
               type="button"
               onClick={() => onSelect(o.id)}
               aria-pressed={selected}
               data-testid="shipment-row"
               className={cn(
-                "relative block w-full px-4 py-2.5 text-left transition-colors duration-150",
-                selected ? "bg-accent" : "hover:bg-surface-secondary",
+                "relative block w-full rounded-md px-2.5 text-left transition-colors duration-(--duration-micro)",
+                selected ? "bg-selection text-selection-foreground" : "hover:bg-fill-quaternary",
               )}
             >
-              <span
-                aria-hidden
-                className={cn(
-                  "bg-primary absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full transition-opacity duration-150",
-                  selected ? "opacity-100" : "opacity-0",
-                )}
-              />
-              <span className="flex items-center gap-2">
-                <HealthDot health={o.health} live={selected} />
-                <span className="id-code text-muted-foreground text-xs font-medium">{o.publicNumber}</span>
-                <span className={cn("text-meta ml-auto", o.health === "delayed" && "text-delayed font-medium")}>{etaLabel(o)}</span>
-              </span>
-              <span className="mt-0.5 block truncate text-sm leading-5 font-semibold">
-                {o.origin} <span className="text-muted-foreground font-normal">→</span> {o.destination}
-              </span>
-              <span className="text-muted-foreground block truncate text-xs leading-4">
-                {o.statusLabel}
-                {o.vehicle && <> · {o.vehicle.plateNumber}</>}
-                {o.driver && <> · {o.driver.fullName}</>}
-              </span>
-              {o.progress > 0 && o.progress < 1 && (
-                <span className="bg-muted mt-1.5 block h-0.5 overflow-hidden rounded-full" aria-hidden>
+              <span className={cn("block py-2.5", i > 0 && !selected && !prevSelected && "hairline-t")}>
+                <span className="flex items-center gap-2">
+                  <HealthDot health={o.health} live={selected} className={cn(selected && "ring-selection-foreground/80 ring-2")} />
+                  <span className="min-w-0 flex-1 truncate font-semibold">
+                    {o.origin} <span className={cn("font-normal", selected ? "opacity-75" : "text-muted-foreground")}>→</span>{" "}
+                    {o.destination}
+                  </span>
                   <span
-                    className={cn("block h-full rounded-full", o.health === "delayed" ? "bg-delayed" : "bg-primary")}
-                    style={{ width: `${Math.round(o.progress * 100)}%` }}
-                  />
+                    className={cn(
+                      "text-footnote num shrink-0",
+                      selected ? "opacity-85" : o.health === "delayed" ? "text-delayed font-medium" : "text-muted-foreground",
+                    )}
+                  >
+                    {etaLabel(o)}
+                  </span>
                 </span>
-              )}
+                <span className={cn("text-footnote mt-0.5 block truncate pl-4", selected ? "opacity-85" : "text-muted-foreground")}>
+                  <span className="id-code">{o.publicNumber}</span> · {o.statusLabel}
+                  {o.vehicle && <> · {o.vehicle.plateNumber}</>}
+                  {o.driver && <> · {o.driver.fullName}</>}
+                </span>
+                {o.progress > 0 && o.progress < 1 && (
+                  <span
+                    className={cn("mt-1.5 ml-4 block h-[3px] overflow-hidden rounded-full", selected ? "bg-white/30" : "bg-fill-secondary")}
+                    aria-hidden
+                  >
+                    <span
+                      className={cn(
+                        "block h-full rounded-full",
+                        selected ? "bg-selection-foreground" : o.health === "delayed" ? "bg-delayed" : "bg-primary",
+                      )}
+                      style={{ width: `${Math.round(o.progress * 100)}%` }}
+                    />
+                  </span>
+                )}
+              </span>
             </button>
           </li>
         );

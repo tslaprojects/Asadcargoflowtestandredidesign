@@ -66,11 +66,11 @@ export function ListRow({
     <>
       {leading && <span className="text-muted-foreground flex shrink-0 items-center">{leading}</span>}
       <span data-row-content className="flex min-w-0 flex-1 items-center gap-3 py-2.5 pr-4 lg:py-2">
-        <span className="min-w-0 flex-1">
+        <span className="min-w-24 flex-1">
           <span className="block truncate">{title}</span>
           {subtitle && <span className="text-subheadline text-muted-foreground mt-0.5 block truncate">{subtitle}</span>}
         </span>
-        {value !== undefined && <span className="text-muted-foreground shrink-0 text-right">{value}</span>}
+        {value !== undefined && <span className="text-muted-foreground max-w-[70%] min-w-0 truncate text-right">{value}</span>}
         {interactive && <ChevronRight className="text-tertiary-foreground size-4 shrink-0" aria-hidden />}
       </span>
     </>

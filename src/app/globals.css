@@ -701,6 +701,33 @@
 .maplibregl-ctrl-group {
   border-radius: var(--radius-md) !important;
   box-shadow: var(--elev-menu) !important;
+  background: var(--menu-solid) !important;
+}
+.maplibregl-ctrl-group button + button {
+  border-top-color: var(--border) !important;
+}
+.maplibregl-popup-content {
+  background: var(--elevated);
+  color: var(--foreground);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elev-menu);
+  padding: 0.375rem 0.625rem;
+  font-size: var(--fs-subheadline);
+}
+.maplibregl-popup-tip {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+    filter: invert(1);
+  }
+  .maplibregl-ctrl-attrib {
+    background: rgb(28 28 30 / 0.7) !important;
+    color: var(--muted-foreground);
+  }
+  .maplibregl-ctrl-attrib a {
+    color: var(--muted-foreground) !important;
+  }
 }
 
 /* ── Временные псевдонимы старых классов: удаляются на финальной зачистке ── */
