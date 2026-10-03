@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input, NativeSelect } from "@/components/ui/input";
 import { api } from "@/lib/client/api";
 import { useAction } from "@/lib/client/use-action";
-import { COUNTRIES, countryFlag } from "@/lib/geo/countries";
+import { COUNTRIES } from "@/lib/geo/countries";
 import { cn } from "@/lib/utils";
 import { MapView } from "@/features/tracking/map-view";
 
@@ -143,8 +143,8 @@ export function NextLoadPlanner({
 
   const choice = (active: boolean) =>
     cn(
-      "hover:border-primary/50 flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-body font-medium transition-colors",
-      active && "border-primary bg-primary/5 text-link",
+      "flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left font-medium transition-colors duration-(--duration-micro)",
+      active ? "bg-accent text-link ring-primary/40 ring-1 ring-inset" : "bg-fill-quaternary hover:bg-fill-tertiary",
     );
 
   return (
@@ -171,7 +171,7 @@ export function NextLoadPlanner({
             >
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.flag} {c.code}
+                  {c.code}
                 </option>
               ))}
             </NativeSelect>
@@ -197,7 +197,7 @@ export function NextLoadPlanner({
         <p className="text-body font-semibold">Что дальше?</p>
         {ret && (
           <button type="button" className={choice(mode === "RETURN")} onClick={() => setMode("RETURN")} data-testid="nl-return">
-            <RotateCcw className="size-4" aria-hidden /> Вернуться в {countryFlag(ret.country)} {ret.city}
+            <RotateCcw className="size-4" aria-hidden /> Вернуться в {ret.city}
           </button>
         )}
         <div className="flex flex-wrap gap-2" role="group" aria-label="Быстрые направления">
@@ -207,8 +207,8 @@ export function NextLoadPlanner({
               key={`${c.country}-${c.city}`}
               onClick={() => toggleCity(c)}
               className={cn(
-                "hover:border-primary/50 text-body rounded-full border px-3 py-1.5 transition-colors",
-                mode === "PICK" && has(c.city) && "border-primary bg-primary text-primary-foreground",
+                "rounded-full px-3 py-1.5 transition-colors duration-(--duration-micro)",
+                mode === "PICK" && has(c.city) ? "bg-primary text-primary-foreground" : "bg-fill-tertiary hover:bg-fill-secondary",
               )}
               aria-pressed={mode === "PICK" && has(c.city)}
             >
@@ -223,7 +223,7 @@ export function NextLoadPlanner({
           <NativeSelect aria-label="Страна направления" value={otherCountry} onChange={(e) => setOtherCountry(e.target.value)}>
             {COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
-                {c.flag} {c.code}
+                {c.code}
               </option>
             ))}
           </NativeSelect>
@@ -326,7 +326,7 @@ export function NextLoadPlanner({
                         [free.lng, free.lat],
                         [mapPoint.lng, mapPoint.lat],
                       ],
-                      color: "#7c3aed",
+                      color: "#ff9500",
                       dashed: true,
                     },
                   ]

@@ -226,7 +226,7 @@ export type BidView = {
 
 function NegotiationHistory({ messages }: { messages: BidView["messages"] }) {
   return (
-    <ol className="space-y-2 border-l-2 pl-3" aria-label="История переговоров">
+    <ol className="hairline-l border-border-strong space-y-2 pl-3" aria-label="История переговоров">
       {messages.map((m) => (
         <li key={m.id} className="text-body">
           <div className="flex flex-wrap items-baseline gap-x-2">
@@ -279,7 +279,7 @@ export function BidCard({
     });
 
   return (
-    <div className={cn("bg-card rounded-lg p-4", bid.status === "ACCEPTED" ? "border-success-border" : "")} data-testid="bid-card">
+    <div className={cn("bg-card rounded-lg p-4", bid.status === "ACCEPTED" && "ring-success/45 ring-1 ring-inset")} data-testid="bid-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <CompanyBadge id={bid.carrier.id} name={bid.carrier.legalName} verification={bid.carrier.verificationStatus} rating={rating} />

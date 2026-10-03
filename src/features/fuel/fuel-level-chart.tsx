@@ -74,7 +74,7 @@ export function FuelLevelChart({ points, refuels, capacity }: { points: Point[];
                 cx={x(t)}
                 cy={y(near.v)}
                 r={5}
-                fill={r.alert ? "#c2410c" : "#15803d"}
+                className={r.alert ? "fill-delayed" : "fill-success"}
                 stroke="var(--color-card)"
                 strokeWidth={2}
               >

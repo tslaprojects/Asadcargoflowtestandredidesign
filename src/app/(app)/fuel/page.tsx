@@ -92,7 +92,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
               <Link
                 key={v.id}
                 href={`/fuel/vehicles/${v.id}`}
-                className="bg-card hover:border-primary/40 flex flex-col gap-3 rounded-lg border p-4 shadow-xs transition-colors"
+                className="bg-card hover:bg-surface-secondary flex flex-col gap-3 rounded-lg p-4 transition-colors"
                 data-testid="fleet-card"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -177,19 +177,19 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
             <MapView points={points} lines={[]} className="h-[320px] w-full overflow-hidden rounded-lg" />
             <ul className="text-muted-foreground text-footnote mt-2 flex flex-wrap gap-x-4 gap-y-1" aria-label="Обозначения">
               <li>
-                <span className="mr-1 inline-block size-2.5 rounded-full bg-[#dc2626]" aria-hidden />
+                <span className="mr-1 inline-block size-2.5 rounded-full bg-[var(--map-attention)]" aria-hidden />
                 автомобиль
               </li>
               <li>
-                <span className="mr-1 inline-block size-2.5 rounded-full bg-[#15803d]" aria-hidden />
+                <span className="mr-1 inline-block size-2.5 rounded-full bg-[var(--map-done)]" aria-hidden />
                 заправка совпадает
               </li>
               <li>
-                <span className="mr-1 inline-block size-2.5 rounded-full bg-[#c2410c]" aria-hidden />
+                <span className="mr-1 inline-block size-2.5 rounded-full bg-[var(--map-delayed)]" aria-hidden />
                 требует проверки
               </li>
               <li>
-                <span className="mr-1 inline-block size-2.5 rounded-full bg-[#64748b]" aria-hidden />
+                <span className="mr-1 inline-block size-2.5 rounded-full bg-[var(--map-cancelled)]" aria-hidden />
                 нет данных для проверки
               </li>
             </ul>
@@ -211,7 +211,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                   <li key={a.id}>
                     <Link
                       href={`/fuel/anomalies/${a.id}`}
-                      className="hover:border-primary/40 text-body block rounded-lg border p-2.5 transition-colors"
+                      className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-2.5 transition-colors"
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="font-medium">{label("FuelAnomalyType", a.type)}</span>
@@ -458,7 +458,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                 <li key={a.id}>
                   <Link
                     href={`/fuel/anomalies/${a.id}`}
-                    className="hover:border-primary/40 text-body block rounded-lg border p-3 transition-colors"
+                    className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-3 transition-colors"
                   >
                     <span className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium">{label("FuelAnomalyType", a.type)}</span>
@@ -492,7 +492,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                 <li key={i.id}>
                   <Link
                     href={`/fuel/investigations/${i.id}`}
-                    className="hover:border-primary/40 text-body block rounded-lg border p-3 transition-colors"
+                    className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-3 transition-colors"
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="font-medium">{i.title}</span>

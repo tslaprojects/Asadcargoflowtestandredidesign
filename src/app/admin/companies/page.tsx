@@ -4,7 +4,6 @@ import { FilterBar } from "@/components/common/filter-bar";
 import { PageHeader, RatingInline } from "@/components/common/misc";
 import { Pagination } from "@/components/common/pagination";
 import { StatusBadge } from "@/components/common/status-badge";
-import { countryFlag } from "@/lib/geo/countries";
 import { formatDate } from "@/lib/format";
 import { enumOptions, label } from "@/lib/i18n";
 import { toPlain } from "@/lib/serialize";
@@ -38,7 +37,7 @@ export default async function AdminCompanies({ searchParams }: { searchParams: S
           { key: "name", header: "Компания", primary: true, cell: (c) => c.legalName },
           { key: "type", header: "Тип", cell: (c) => label("CompanyType", c.type) },
           { key: "reg", header: "Рег. номер", cell: (c) => <span className="text-footnote font-mono">{c.registrationNumber}</span> },
-          { key: "country", header: "Страна", cell: (c) => `${countryFlag(c.country)} ${c.country}` },
+          { key: "country", header: "Страна", cell: (c) => c.country },
           { key: "ver", header: "Верификация", cell: (c) => <StatusBadge kind="VerificationStatus" value={c.verificationStatus} /> },
           { key: "members", header: "Сотрудники", cell: (c) => c._count.members, hideOnMobile: true },
           { key: "orders", header: "Заказы", cell: (c) => c._count.shipperOrders + c._count.carrierOrders },

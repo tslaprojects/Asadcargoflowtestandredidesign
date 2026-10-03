@@ -77,7 +77,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
                         key={t}
                         className={cn(
                           "bg-fill-quaternary text-footnote inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5",
-                          present.has(t) ? "border-success-border bg-success-bg text-success" : "text-muted-foreground",
+                          present.has(t) ? "bg-success-bg text-success" : "text-muted-foreground",
                         )}
                       >
                         {present.has(t) ? <Check className="size-3" aria-hidden /> : <Minus className="size-3" aria-hidden />}

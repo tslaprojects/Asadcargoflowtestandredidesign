@@ -5,7 +5,6 @@ import { FilterBar } from "@/components/common/filter-bar";
 import { EmptyState, PageHeader, RatingInline } from "@/components/common/misc";
 import { Pagination } from "@/components/common/pagination";
 import { StatusBadge } from "@/components/common/status-badge";
-import { countryFlag } from "@/lib/geo/countries";
 import { toPlain } from "@/lib/serialize";
 import { cn } from "@/lib/utils";
 import { pageActorWith, pageNum, sp, type SearchParams } from "@/server/page-context";
@@ -68,9 +67,7 @@ export default async function CarriersPage({ searchParams }: { searchParams: Sea
                     <div className="min-w-0">
                       <p className="group-hover:text-link text-body truncate font-semibold transition-colors">{c.legalName}</p>
                       <p className="text-meta flex flex-wrap items-center gap-2">
-                        <span>
-                          {countryFlag(c.country)} {c.city}
-                        </span>
+                        <span>{c.city}</span>
                         <StatusBadge kind="VerificationStatus" value={c.verificationStatus} />
                       </p>
                     </div>

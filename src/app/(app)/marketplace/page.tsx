@@ -31,7 +31,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
             type: "select",
             name: "country",
             label: "Страна на маршруте",
-            options: COUNTRIES.map((c) => ({ value: c.code, label: `${c.flag} ${c.name}` })),
+            options: COUNTRIES.map((c) => ({ value: c.code, label: c.name })),
           },
           { type: "date", name: "dateFrom", label: "Загрузка с" },
           { type: "date", name: "dateTo", label: "Загрузка по" },

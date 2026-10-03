@@ -5,7 +5,6 @@ import { EmptyState, MoneyDisplay, PageHeader } from "@/components/common/misc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { countryFlag } from "@/lib/geo/countries";
 import { formatDate, formatDateRange, formatWeight } from "@/lib/format";
 import { label } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -66,7 +65,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
           [movement.originLng, movement.originLat],
           [d.longitude, d.latitude],
         ],
-        color: "#7c3aed",
+        color: "#ff9500",
         dashed: true,
         width: 4,
         opacity: 0.5,
@@ -84,7 +83,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
           [a.longitude!, a.latitude],
           [b.longitude!, b.latitude],
         ],
-        color: "#0891b2",
+        color: "#30b0c7",
         width: 2.5,
       });
     }
@@ -124,8 +123,10 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
                       key={v.id}
                       href={vehicleHref(v.id)}
                       className={cn(
-                        "hover:border-primary/40 text-body block rounded-lg border p-3 transition-colors",
-                        selected?.id === v.id && "border-primary bg-primary/5",
+                        "block rounded-md p-3 transition-colors duration-(--duration-micro)",
+                        selected?.id === v.id
+                          ? "bg-selection text-selection-foreground [&_*]:!text-selection-foreground"
+                          : "hover:bg-fill-quaternary",
                       )}
                     >
                       <span className="flex items-center justify-between gap-2">
@@ -292,7 +293,7 @@ function MatchCard({ m }: { m: Match }) {
           <p className="text-muted-foreground text-footnote font-medium">{m.load.publicNumber}</p>
           <p className="truncate font-semibold">{m.load.title}</p>
           <p className="text-body mt-1 font-medium">
-            {countryFlag(a.country)} {a.city} → {countryFlag(b.country)} {b.city}
+            {a.city} → {b.city}
           </p>
         </div>
         <Badge tone={m.directionMatch === "ON_ROUTE" ? "success" : "info"} className="shrink-0">

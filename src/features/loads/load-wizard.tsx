@@ -1,5 +1,5 @@
 "use client";
-import { ArrowDown, Check, MapPin, Plus, Trash2 } from "lucide-react";
+import { Check, MapPin, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { useFieldArray, useForm, useWatch, type FieldPath } from "react-hook-form";
@@ -14,7 +14,7 @@ import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, ApiError, errorMessage, newIdempotencyKey } from "@/lib/client/api";
 import { formatVolume, formatWeight } from "@/lib/format";
-import { COUNTRIES, countryFlag, countryName, defaultTimezone } from "@/lib/geo/countries";
+import { COUNTRIES, countryName, defaultTimezone } from "@/lib/geo/countries";
 import { knownCities } from "@/lib/geo/geocoder";
 import { enumOptions, label } from "@/lib/i18n";
 import { CURRENCIES } from "@/lib/money";
@@ -449,8 +449,8 @@ export function LoadWizard({
                   <label
                     key={v}
                     className={cn(
-                      "bg-fill-quaternary text-body flex cursor-pointer items-start gap-2 rounded-lg p-3",
-                      values.visibility === v ? "border-primary bg-accent" : "",
+                      "flex cursor-pointer items-start gap-2 rounded-lg p-3 transition-colors duration-(--duration-micro)",
+                      values.visibility === v ? "bg-accent ring-primary/40 ring-1 ring-inset" : "bg-fill-quaternary hover:bg-fill-tertiary",
                     )}
                   >
                     <input type="radio" value={v} className="mt-0.5 accent-[var(--primary)]" {...form.register("visibility")} />
@@ -567,10 +567,10 @@ export function LoadWizard({
         </Card>
       )}
 
-      <div className="bg-card/95 sticky bottom-16 z-10 flex flex-wrap items-center justify-between gap-2 rounded-lg p-3 backdrop-blur lg:bottom-3">
+      <div className="material-bar shadow-menu sticky bottom-[calc(3.875rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl p-2.5 lg:bottom-4">
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={() => (preview ? setPreview(false) : setStep(Math.max(0, step - 1)))}
           disabled={(!preview && step === 0) || submitting !== null}
         >
@@ -582,7 +582,7 @@ export function LoadWizard({
               {(mode === "create" || loadStatus === "DRAFT") && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => submit("draft")}
                   loading={submitting === "draft"}
                   loadingText="Сохраняем..."

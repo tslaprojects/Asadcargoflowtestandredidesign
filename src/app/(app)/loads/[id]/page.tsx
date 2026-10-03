@@ -164,7 +164,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
   const bidsTab = (
     <div className="space-y-3">
       {canBid && !myActiveBid && (
-        <div className="border-info-border bg-info-bg flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
+        <div className="bg-info-bg flex flex-wrap items-center justify-between gap-3 rounded-lg p-4">
           <p className="text-info text-body">Предложите свою цену — заказчик получит уведомление.</p>
           <BidDialog loadId={load.id} currency={load.currency} targetPrice={load.targetPrice} />
         </div>
@@ -240,7 +240,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
         }
       />
       {load.status === "CANCELLED" && (
-        <p className="border-danger-border bg-danger-bg text-danger text-body mb-4 rounded-lg border px-3 py-2">
+        <p className="bg-danger-bg text-danger text-body mb-4 rounded-lg px-3 py-2">
           Груз отменён{load.cancelReason ? `: ${load.cancelReason}` : ""}.
         </p>
       )}

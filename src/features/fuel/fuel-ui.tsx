@@ -13,10 +13,7 @@ export function DemoBadge({ className }: { className?: string }) {
 
 export function DemoBanner() {
   return (
-    <div
-      className="border-warning-border bg-warning-bg/60 text-body mb-4 flex flex-wrap items-center gap-2 rounded-lg border p-3"
-      role="note"
-    >
+    <div className="bg-warning-bg/60 text-body mb-4 flex flex-wrap items-center gap-2 rounded-lg p-3" role="note">
       <DemoBadge />
       <span>Демо-режим: топливные карты, заправки и телематика симулированы. Реальные деньги, топливо и устройства не участвуют.</span>
     </div>

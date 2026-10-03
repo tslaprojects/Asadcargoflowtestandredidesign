@@ -62,7 +62,11 @@ export default async function InvestigationPage({ params }: { params: Promise<{ 
             </CardHeader>
             <CardContent className="space-y-2">
               {inv.anomalies.map((a) => (
-                <Link key={a.id} href={`/fuel/anomalies/${a.id}`} className="hover:border-primary/40 text-body block rounded-lg border p-3">
+                <Link
+                  key={a.id}
+                  href={`/fuel/anomalies/${a.id}`}
+                  className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-3"
+                >
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-medium">{label("FuelAnomalyType", a.type)}</span>
                     <StatusBadge kind="FuelAnomalyStatus" value={a.status} />

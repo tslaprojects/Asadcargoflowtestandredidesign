@@ -278,7 +278,10 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
                 <ul className="space-y-2">
                   {r.anomalies.map((a) => (
                     <li key={a.id}>
-                      <Link href={`/fuel/anomalies/${a.id}`} className="hover:border-primary/40 text-body block rounded-lg border p-2.5">
+                      <Link
+                        href={`/fuel/anomalies/${a.id}`}
+                        className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-2.5"
+                      >
                         <span className="flex items-center justify-between gap-2">
                           <span className="flex items-center gap-1.5 font-medium">
                             <AlertTriangle className="size-3.5" aria-hidden /> {label("FuelAnomalyType", a.type)}
