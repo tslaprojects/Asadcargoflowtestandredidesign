@@ -1,84 +1,242 @@
 @import "tailwindcss";
 
 /*
- * CargoFlow — Transportation OS. Design tokens.
- * Направление: операционный центр управления перевозками (не CRM): светлое рабочее пространство,
- * графитовая навигационная полоса, тонкие функциональные границы, цвет передаёт только состояние объекта.
+ * CargoFlow — визуальный язык системных приложений Apple (macOS Mail/Finder/Settings, iOS Settings/Wallet).
+ * Светлая и тёмная темы переключаются по системе. Цвет — только состояние и главное действие;
+ * группы разделяются волосяными линиями, тени есть только у плавающих поверхностей.
  * Документация: docs/design-system.md.
  */
+
 :root {
-  /* ── Поверхности и текст ── */
-  --background: #f2f4f7; /* рабочее пространство */
-  --foreground: #0b1220; /* ink */
-  --card: #ffffff; /* панели */
-  --card-foreground: #0b1220;
-  --surface-secondary: #f7f8fa; /* вложенные панели, шапки таблиц */
-  --muted: #eef0f4;
-  --muted-foreground: #556070; /* 6.1:1 на белом, 5.5:1 на background */
-  --border: #e2e6ec;
-  --border-strong: #cdd3dc;
-  --input: #838fa1; /* граница полей: 3.3:1 (WCAG 1.4.11) */
-  --ring: #2563eb;
-  --overlay: rgb(5 9 18 / 0.5);
+  color-scheme: light dark;
 
-  /* ── Бренд и действия ── */
-  --primary: #1d4ed8; /* signal blue, 6.7:1 на белом */
-  --primary-hover: #1e40af;
+  /* ── Поверхности ── */
+  --background: #f2f2f7; /* systemGroupedBackground */
+  --card: #ffffff; /* secondarySystemGroupedBackground */
+  --surface-secondary: #f7f7f9; /* шапки таблиц, вложенные области */
+  --elevated: #ffffff; /* диалоги, поповеры без материала */
+  --muted: #ededf0;
+
+  /* ── Текст (label / secondaryLabel / tertiaryLabel) ── */
+  --foreground: #1d1d1f;
+  --card-foreground: #1d1d1f;
+  --muted-foreground: #6e6e73; /* 5.1:1 на белом, 4.6:1 на фоне */
+  --tertiary-foreground: #8e8e93; /* только плейсхолдеры и неактивное */
+
+  /* ── Линии ── */
+  --border: rgb(60 60 67 / 0.17); /* separator */
+  --border-strong: #c6c6c8; /* opaqueSeparator */
+  --input: #8e8e93; /* граница поля: 3.3:1 (WCAG 1.4.11) */
+  --hairline: 1px;
+
+  /* ── Заливки контролов (systemFill …) ── */
+  --fill: rgb(120 120 128 / 0.2);
+  --fill-secondary: rgb(120 120 128 / 0.16);
+  --fill-tertiary: rgb(118 118 128 / 0.12);
+  --fill-quaternary: rgb(116 116 128 / 0.08);
+
+  /* ── Акцент ── */
+  --primary: #0068d6; /* заливка главного действия, белый текст 5.3:1 */
+  --primary-hover: #0058b8;
   --primary-foreground: #ffffff;
-  --secondary: #eef1f6;
-  --secondary-hover: #e2e7ef;
-  --secondary-foreground: #0b1220;
-  --accent: #eaf1ff;
-  --accent-foreground: #1d4ed8;
-  --destructive: #dc2626;
-  --destructive-hover: #b91c1c;
+  --link: #0068d6; /* текстовый акцент: 5.3:1 на белом, 4.8:1 на фоне */
+  --ring: color-mix(in srgb, var(--primary) 60%, transparent);
+  --secondary: var(--fill-tertiary);
+  --secondary-hover: var(--fill-secondary);
+  --secondary-foreground: var(--foreground);
+  --accent: color-mix(in srgb, var(--primary) 11%, var(--card));
+  --accent-foreground: var(--link);
+  --destructive: #d70015;
+  --destructive-hover: #b80012;
   --destructive-foreground: #ffffff;
+  --selection: var(--primary);
+  --selection-foreground: #ffffff;
+  --selection-muted: rgb(0 0 0 / 0.07);
 
-  /* ── Состояния объектов (текст ≥ 4.5:1 на своём фоне) ──
-     success  — доставлено / завершено       info     — движется / в процессе
-     warning  — ждёт действия / ожидание      delayed  — опаздывает
-     danger   — ошибка / спор / отмена        neutral  — не начато / неактивно */
-  --success: #15803d;
-  --success-hover: #166534;
-  --success-bg: #ebfaf0;
-  --success-border: #bbf0cd;
-  --warning: #a65200;
-  --warning-bg: #fff7e6;
-  --warning-border: #fcdca0;
-  --info: #1d4ed8;
-  --info-bg: #edf3ff;
-  --info-border: #c7d8fe;
-  --delayed: #c2410c;
-  --delayed-bg: #fff2ea;
-  --delayed-border: #fdcfb3;
-  --danger: #b91c1c;
-  --danger-bg: #fef1f1;
-  --danger-border: #fbcaca;
-  --neutral: #4a5565;
-  --neutral-bg: #f0f2f5;
-  --neutral-border: #dde2e9;
-  --rating: #f59e0b; /* только заливка звёзд, не текст */
+  /* ── Состояния объектов (текст ≥ 4.5:1 на карточке и на своём фоне) ──
+     success — доставлено/завершено · info — движется/в процессе · warning — ждёт действия
+     delayed — опаздывает · danger — ошибка/спор/отмена · neutral — не начато */
+  --success: #1f7a35;
+  --success-hover: #1a682d;
+  --warning: #946200;
+  --info: #00718f;
+  --delayed: #c43c00;
+  --danger: #d70015;
+  --neutral: #6e6e73;
+  --rating: #ffcc00; /* только заливка звёзд */
 
-  /* ── Навигационная полоса (graphite) ── */
-  --sidebar: #0e131c;
-  --sidebar-foreground: #c3cad6; /* 11:1 */
-  --sidebar-muted: #8a94a6; /* 6:1 */
-  --sidebar-active: #1d2533;
-  --sidebar-accent: #5b8cff; /* индикатор активного раздела */
-  --sidebar-border: rgb(255 255 255 / 0.07);
+  /* ── Материалы (полупрозрачные панели окна) ── */
+  --sidebar: rgb(236 236 240 / 0.74);
+  --sidebar-solid: #ececf0;
+  --sidebar-foreground: #1d1d1f;
+  --sidebar-muted: #6e6e73;
+  --sidebar-active: rgb(0 0 0 / 0.075);
+  --sidebar-accent: var(--primary);
+  --sidebar-border: rgb(0 0 0 / 0.1);
+  --bar: rgb(255 255 255 / 0.76);
+  --bar-solid: #ffffff;
+  --menu: rgb(248 248 250 / 0.84);
+  --menu-solid: #f8f8fa;
+  --overlay: rgb(0 0 0 / 0.22);
 
-  /* ── Карта: цвета объектов (маркеры, линии маршрутов) ── */
-  --map-moving: #1d4ed8;
-  --map-waiting: #d97706;
-  --map-delayed: #ea580c;
-  --map-done: #16a34a;
-  --map-route: #1d4ed8;
+  /* ── Тени: контур 0.5 px + мягкая тень, только у плавающих поверхностей ── */
+  --shadow-menu: 0 0 0 0.5px rgb(0 0 0 / 0.12), 0 10px 32px -6px rgb(0 0 0 / 0.2);
+  --shadow-dialog: 0 0 0 0.5px rgb(0 0 0 / 0.1), 0 24px 64px -12px rgb(0 0 0 / 0.32);
+  --shadow-control: 0 0.5px 1px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.06);
+
+  /* ── Карта: цвета объектов (маркеры, линии), читаются и из JS ── */
+  --map-moving: #007aff;
+  --map-arriving: #30b0c7;
+  --map-waiting: #d99a00;
+  --map-delayed: #ff9500;
+  --map-attention: #ff3b30;
+  --map-done: #34c759;
+  --map-cancelled: #8e8e93;
+  --map-route: #007aff;
+  --map-land: #f2f2f7;
+
+  /* ── Типографика: iOS-шкала (узкие экраны) ── */
+  --fs-large-title: 1.875rem;
+  --lh-large-title: 2.25rem;
+  --fs-title1: 1.5rem;
+  --lh-title1: 1.875rem;
+  --fs-title2: 1.25rem;
+  --lh-title2: 1.625rem;
+  --fs-title3: 1.0625rem;
+  --lh-title3: 1.375rem;
+  --fs-headline: 0.9375rem;
+  --lh-headline: 1.25rem;
+  --fs-body: 0.9375rem;
+  --lh-body: 1.3125rem;
+  --fs-callout: 0.875rem;
+  --lh-callout: 1.1875rem;
+  --fs-subheadline: 0.8125rem;
+  --lh-subheadline: 1.125rem;
+  --fs-footnote: 0.75rem;
+  --lh-footnote: 1rem;
+  --fs-caption: 0.6875rem;
+  --lh-caption: 0.875rem;
 
   /* ── Motion ── */
-  --duration-micro: 120ms; /* hover, focus, нажатие, иконки */
-  --duration-standard: 200ms; /* dropdown, tooltip, панели списка */
-  --duration-complex: 320ms; /* диалоги, боковые панели, bottom sheet, прогресс */
-  --duration-exit: 150ms; /* выход ≈ 60–70% входа */
+  --duration-micro: 100ms;
+  --duration-standard: 200ms;
+  --duration-complex: 340ms;
+  --duration-exit: 160ms;
+}
+
+/* macOS-шкала на широких экранах: плотнее, как в Mail и Finder */
+@media (width >= 64rem) {
+  :root {
+    --fs-large-title: 1.625rem;
+    --lh-large-title: 2rem;
+    --fs-title1: 1.375rem;
+    --lh-title1: 1.75rem;
+    --fs-title2: 1.0625rem;
+    --lh-title2: 1.375rem;
+    --fs-title3: 0.9375rem;
+    --lh-title3: 1.25rem;
+    --fs-headline: 0.8125rem;
+    --lh-headline: 1.125rem;
+    --fs-body: 0.8125rem;
+    --lh-body: 1.1875rem;
+    --fs-callout: 0.75rem;
+    --lh-callout: 1rem;
+    --fs-subheadline: 0.75rem;
+    --lh-subheadline: 1rem;
+    --fs-footnote: 0.6875rem;
+    --lh-footnote: 0.875rem;
+    --fs-caption: 0.6875rem;
+    --lh-caption: 0.875rem;
+  }
+}
+
+@media (min-resolution: 2dppx) {
+  :root {
+    --hairline: 0.5px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #161618;
+    --card: #1f1f21;
+    --surface-secondary: #252527;
+    --elevated: #2c2c2e;
+    --muted: #2a2a2d;
+
+    --foreground: #f5f5f7;
+    --card-foreground: #f5f5f7;
+    --muted-foreground: #a1a1a6; /* 7.1:1 на карточке */
+    --tertiary-foreground: #77777c;
+
+    --border: rgb(84 84 88 / 0.55);
+    --border-strong: #3a3a3c;
+    --input: #77777c;
+
+    --fill: rgb(120 120 128 / 0.36);
+    --fill-secondary: rgb(120 120 128 / 0.32);
+    --fill-tertiary: rgb(118 118 128 / 0.24);
+    --fill-quaternary: rgb(118 118 128 / 0.18);
+
+    --primary: #0071e3; /* белый текст 4.7:1 */
+    --primary-hover: #0a7ff0;
+    --link: #4aa3ff; /* 6.5:1 на карточке */
+    --accent: color-mix(in srgb, var(--primary) 22%, var(--card));
+    --destructive: #e5202a;
+    --destructive-hover: #f03a3f;
+    --selection-muted: rgb(255 255 255 / 0.1);
+
+    --success: #30d158;
+    --success-hover: #4ad66d;
+    --warning: #ffd60a;
+    --info: #64d2ff;
+    --delayed: #ff9f0a;
+    --danger: #ff453a;
+    --neutral: #98989d;
+    --rating: #ffd60a;
+
+    --sidebar: rgb(42 42 45 / 0.72);
+    --sidebar-solid: #2a2a2d;
+    --sidebar-foreground: #f5f5f7;
+    --sidebar-muted: #a1a1a6;
+    --sidebar-active: rgb(255 255 255 / 0.1);
+    --sidebar-border: rgb(0 0 0 / 0.5);
+    --bar: rgb(31 31 33 / 0.74);
+    --bar-solid: #1f1f21;
+    --menu: rgb(44 44 46 / 0.82);
+    --menu-solid: #2c2c2e;
+    --overlay: rgb(0 0 0 / 0.48);
+
+    --shadow-menu: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.5), 0 12px 36px -6px rgb(0 0 0 / 0.6);
+    --shadow-dialog: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.5), 0 28px 72px -12px rgb(0 0 0 / 0.7);
+    --shadow-control: 0 0 0 0.5px rgb(255 255 255 / 0.08), 0 1px 1px rgb(0 0 0 / 0.3);
+
+    --map-moving: #0a84ff;
+    --map-arriving: #40c8e0;
+    --map-waiting: #ffd60a;
+    --map-delayed: #ff9f0a;
+    --map-attention: #ff453a;
+    --map-done: #30d158;
+    --map-cancelled: #98989d;
+    --map-route: #0a84ff;
+    --map-land: #1c1c1e;
+  }
+}
+
+/* Пониженная прозрачность и браузеры без backdrop-filter — непрозрачные материалы */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --sidebar: var(--sidebar-solid);
+    --bar: var(--bar-solid);
+    --menu: var(--menu-solid);
+  }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root {
+    --sidebar: var(--sidebar-solid);
+    --bar: var(--bar-solid);
+    --menu: var(--menu-solid);
+  }
 }
 
 @theme inline {
@@ -88,16 +246,23 @@
   --color-card-foreground: var(--card-foreground);
   --color-surface: var(--card);
   --color-surface-secondary: var(--surface-secondary);
+  --color-elevated: var(--elevated);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-tertiary-foreground: var(--tertiary-foreground);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-overlay: var(--overlay);
+  --color-fill: var(--fill);
+  --color-fill-secondary: var(--fill-secondary);
+  --color-fill-tertiary: var(--fill-tertiary);
+  --color-fill-quaternary: var(--fill-quaternary);
   --color-primary: var(--primary);
   --color-primary-hover: var(--primary-hover);
   --color-primary-foreground: var(--primary-foreground);
+  --color-link: var(--link);
   --color-secondary: var(--secondary);
   --color-secondary-hover: var(--secondary-hover);
   --color-secondary-foreground: var(--secondary-foreground);
@@ -106,61 +271,71 @@
   --color-destructive: var(--destructive);
   --color-destructive-hover: var(--destructive-hover);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-selection: var(--selection);
+  --color-selection-foreground: var(--selection-foreground);
+  --color-selection-muted: var(--selection-muted);
+
   --color-success: var(--success);
   --color-success-hover: var(--success-hover);
-  --color-success-bg: var(--success-bg);
-  --color-success-border: var(--success-border);
+  --color-success-bg: color-mix(in srgb, var(--success) 12%, var(--card));
+  --color-success-border: color-mix(in srgb, var(--success) 32%, var(--card));
   --color-warning: var(--warning);
-  --color-warning-bg: var(--warning-bg);
-  --color-warning-border: var(--warning-border);
+  --color-warning-bg: color-mix(in srgb, var(--warning) 13%, var(--card));
+  --color-warning-border: color-mix(in srgb, var(--warning) 34%, var(--card));
   --color-info: var(--info);
-  --color-info-bg: var(--info-bg);
-  --color-info-border: var(--info-border);
+  --color-info-bg: color-mix(in srgb, var(--info) 12%, var(--card));
+  --color-info-border: color-mix(in srgb, var(--info) 32%, var(--card));
   --color-delayed: var(--delayed);
-  --color-delayed-bg: var(--delayed-bg);
-  --color-delayed-border: var(--delayed-border);
+  --color-delayed-bg: color-mix(in srgb, var(--delayed) 12%, var(--card));
+  --color-delayed-border: color-mix(in srgb, var(--delayed) 32%, var(--card));
   --color-danger: var(--danger);
-  --color-danger-bg: var(--danger-bg);
-  --color-danger-border: var(--danger-border);
+  --color-danger-bg: color-mix(in srgb, var(--danger) 10%, var(--card));
+  --color-danger-border: color-mix(in srgb, var(--danger) 30%, var(--card));
   --color-neutral: var(--neutral);
-  --color-neutral-bg: var(--neutral-bg);
-  --color-neutral-border: var(--neutral-border);
+  --color-neutral-bg: color-mix(in srgb, var(--neutral) 12%, var(--card));
+  --color-neutral-border: color-mix(in srgb, var(--neutral) 30%, var(--card));
   --color-rating: var(--rating);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-muted: var(--sidebar-muted);
   --color-sidebar-active: var(--sidebar-active);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-border: var(--sidebar-border);
+  --color-bar: var(--bar);
+  --color-menu: var(--menu);
 
-  /* Радиусы — умеренные: sm — чипы и статусы; md — контролы; lg — панели и элементы списков; xl — диалоги; 2xl — bottom sheet */
-  --radius-sm: 0.3125rem;
-  --radius-md: 0.4375rem;
-  --radius-lg: 0.5625rem;
-  --radius-xl: 0.6875rem;
-  --radius-2xl: 1rem;
+  /* Радиусы: xs — метки · sm — кнопки и поля · md — пункты меню, мелкие плашки · lg — группы и списки ·
+     xl — диалоги и поповеры · 2xl — шиты */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.25rem;
 
-  /* Тени — только уровни (панель → поповер → диалог → выезжающая панель) */
-  --shadow-xs: 0 1px 1px rgb(11 18 32 / 0.04);
-  --shadow-sm: 0 1px 2px rgb(11 18 32 / 0.06), 0 1px 1px rgb(11 18 32 / 0.03);
-  --shadow-md: 0 6px 16px -6px rgb(11 18 32 / 0.14), 0 2px 4px -2px rgb(11 18 32 / 0.06);
-  --shadow-lg: 0 18px 44px -14px rgb(11 18 32 / 0.26), 0 4px 10px -4px rgb(11 18 32 / 0.08);
-  --shadow-xl: 0 24px 60px -18px rgb(11 18 32 / 0.32);
+  /* Тени: у карточек и кнопок их нет */
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: var(--shadow-control);
+  --shadow-md: var(--shadow-menu);
+  --shadow-lg: var(--shadow-dialog);
+  --shadow-xl: var(--shadow-dialog);
+  --shadow-control: var(--shadow-control);
+  --shadow-menu: var(--shadow-menu);
+  --shadow-dialog: var(--shadow-dialog);
 
-  /* Контейнеры */
-  --container-page: 87.5rem; /* 1400 px — рабочая область */
-  --container-form: 52rem; /* формы и мастера */
-  --container-prose: 42rem; /* тексты */
+  --container-page: 87.5rem;
+  --container-form: 46rem;
+  --container-prose: 40rem;
 
-  /* Шрифт: Inter Variable (@fontsource-variable/inter — кириллица, табличные цифры) */
-  --font-sans:
-    "Inter Variable", "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  /* SF Pro на устройствах Apple, Inter (кириллица, табличные цифры) — на остальных */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter Variable", "Inter", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Кривые: вход — замедление, выход — ускорение */
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Кривая iOS: быстрый старт, долгое мягкое торможение, без перелёта */
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.2, 1);
 
   --animate-fade-in: fade-in var(--duration-standard) var(--ease-out) both;
   --animate-fade-out: fade-out var(--duration-exit) var(--ease-in) both;
@@ -174,14 +349,15 @@
   --animate-sheet-out-left: sheet-out-left var(--duration-standard) var(--ease-in) both;
   --animate-sheet-in-bottom: sheet-in-bottom var(--duration-complex) var(--ease-out) both;
   --animate-sheet-out-bottom: sheet-out-bottom var(--duration-standard) var(--ease-in) both;
-  --animate-rise-in: rise-in 240ms var(--ease-out) both;
-  --animate-page-in: page-in 220ms var(--ease-out) both;
-  --animate-shimmer: shimmer 1.6s linear infinite;
-  --animate-live-pulse: live-pulse 2s var(--ease-out) infinite;
-  --animate-check-pop: check-pop 360ms var(--ease-out) both;
-  --animate-highlight: highlight 1.6s var(--ease-out) both;
-  --animate-progress-grow: progress-grow 700ms var(--ease-out) both;
+  --animate-rise-in: rise-in var(--duration-standard) var(--ease-out) both;
+  --animate-page-in: fade-in 180ms var(--ease-out) both;
+  --animate-pulse-soft: pulse-soft 1.4s var(--ease-in-out) infinite;
+  --animate-live-pulse: live-pulse 2.2s var(--ease-out) infinite;
+  --animate-check-pop: check-pop var(--duration-standard) var(--ease-out) both;
+  --animate-highlight: highlight 1.4s var(--ease-out) both;
+  --animate-progress-grow: progress-grow 600ms var(--ease-out) both;
   --animate-panel-in: panel-in var(--duration-complex) var(--ease-out) both;
+  --animate-push-in: push-in var(--duration-complex) var(--ease-out) both;
   --animate-route-draw: route-draw 900ms var(--ease-out) both;
 
   @keyframes fade-in {
@@ -197,19 +373,19 @@
   @keyframes pop-in {
     from {
       opacity: 0;
-      transform: translateY(-2px) scale(0.97);
+      transform: scale(0.96);
     }
   }
   @keyframes pop-out {
     to {
       opacity: 0;
-      transform: scale(0.97);
+      transform: scale(0.98);
     }
   }
   @keyframes dialog-in {
     from {
       opacity: 0;
-      transform: translateY(8px) scale(0.98);
+      transform: scale(1.04);
     }
   }
   @keyframes dialog-out {
@@ -251,40 +427,27 @@
   @keyframes rise-in {
     from {
       opacity: 0;
-      transform: translateY(6px);
-    }
-  }
-  @keyframes page-in {
-    from {
-      opacity: 0;
       transform: translateY(4px);
     }
   }
-  @keyframes shimmer {
-    from {
-      background-position: 150% 0;
-    }
-    to {
-      background-position: -50% 0;
+  @keyframes pulse-soft {
+    50% {
+      opacity: 0.55;
     }
   }
   @keyframes live-pulse {
     0% {
-      box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent);
+      box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 40%, transparent);
     }
     70%,
     100% {
-      box-shadow: 0 0 0 6px color-mix(in srgb, currentColor 0%, transparent);
+      box-shadow: 0 0 0 5px color-mix(in srgb, currentColor 0%, transparent);
     }
   }
   @keyframes check-pop {
-    0% {
+    from {
       opacity: 0;
-      transform: scale(0.6);
-    }
-    60% {
-      opacity: 1;
-      transform: scale(1.08);
+      transform: scale(0.7);
     }
   }
   @keyframes progress-grow {
@@ -295,7 +458,13 @@
   @keyframes panel-in {
     from {
       opacity: 0;
-      transform: translateX(12px);
+      transform: translateX(8px);
+    }
+  }
+  @keyframes push-in {
+    from {
+      transform: translateX(24%);
+      opacity: 0;
     }
   }
   @keyframes route-draw {
@@ -319,13 +488,17 @@
   }
   html {
     -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
   body {
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
-    font-feature-settings: "tnum" 1;
+    font-size: var(--fs-body);
+    line-height: var(--lh-body);
+    letter-spacing: -0.003em;
     -webkit-tap-highlight-color: transparent;
   }
   h1,
@@ -334,8 +507,8 @@
     text-wrap: balance;
   }
   :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
+    outline: 3px solid var(--ring);
+    outline-offset: 1px;
   }
   button:not(:disabled),
   [role="button"]:not(:disabled),
@@ -352,79 +525,89 @@
     touch-action: manipulation;
   }
   ::selection {
-    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    background: color-mix(in srgb, var(--primary) 24%, transparent);
+  }
+  ::placeholder {
+    color: var(--tertiary-foreground);
+  }
+  /* Иконки lucide тоньше — ближе к SF Symbols */
+  svg.lucide {
+    stroke-width: 1.75;
   }
 }
 
-/* ── Типографические роли (docs/design-system.md) ── */
-@utility text-display {
-  font-size: 1.875rem;
-  line-height: 2.25rem;
-  font-weight: 650;
-  letter-spacing: -0.022em;
+/* ── Типографические роли (имена Apple) ── */
+@utility text-large-title {
+  font-size: var(--fs-large-title);
+  line-height: var(--lh-large-title);
+  font-weight: 700;
+  letter-spacing: -0.024em;
 }
-@utility text-h1 {
-  font-size: 1.375rem;
-  line-height: 1.875rem;
-  font-weight: 650;
-  letter-spacing: -0.018em;
-  @media (width >= 40rem) {
-    font-size: 1.5rem;
-    line-height: 2rem;
-  }
+@utility text-title1 {
+  font-size: var(--fs-title1);
+  line-height: var(--lh-title1);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
-@utility text-h2 {
-  font-size: 1.0625rem;
-  line-height: 1.5rem;
+@utility text-title2 {
+  font-size: var(--fs-title2);
+  line-height: var(--lh-title2);
+  font-weight: 650;
+  letter-spacing: -0.016em;
+}
+@utility text-title3 {
+  font-size: var(--fs-title3);
+  line-height: var(--lh-title3);
   font-weight: 600;
   letter-spacing: -0.012em;
 }
-@utility text-h3 {
-  font-size: 0.9375rem;
-  line-height: 1.375rem;
+@utility text-headline {
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
   font-weight: 600;
   letter-spacing: -0.006em;
 }
-@utility text-h4 {
-  font-size: 0.8125rem;
-  line-height: 1.25rem;
-  font-weight: 600;
+@utility text-body {
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  letter-spacing: -0.003em;
+}
+@utility text-callout {
+  font-size: var(--fs-callout);
+  line-height: var(--lh-callout);
+}
+@utility text-subheadline {
+  font-size: var(--fs-subheadline);
+  line-height: var(--lh-subheadline);
+}
+@utility text-footnote {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
 }
 @utility text-caption {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--muted-foreground);
+  font-size: var(--fs-caption);
+  line-height: var(--lh-caption);
 }
-@utility text-overline {
-  font-size: 0.6875rem;
-  line-height: 1rem;
+/* Заголовок группы в списке или сайдбаре: мелкий, полужирный, вторичный, обычный регистр */
+@utility text-section {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: var(--muted-foreground);
 }
-/* Операционная метрика: компактное крупное число (не KPI-карточка) */
-@utility text-metric {
-  font-size: 1.25rem;
-  line-height: 1.5rem;
-  font-weight: 650;
+/* Крупная цифра сводки */
+@utility text-figure {
+  font-size: var(--fs-title1);
+  line-height: var(--lh-title1);
+  font-weight: 600;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
-/* Метаданные объекта: номер, время, источник */
-@utility text-meta {
-  font-size: 0.75rem;
-  line-height: 1rem;
-  color: var(--muted-foreground);
-  font-variant-numeric: tabular-nums;
-}
-/* Операционные числа: цены, вес, км, KPI — табличные цифры, без «прыжков» при обновлении */
 @utility tabular {
   font-variant-numeric: tabular-nums;
 }
 @utility num {
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
 }
 /* Номера документов (CF-O-000002): перечёркнутый ноль отличает 0 от буквы O */
 @utility id-code {
@@ -432,24 +615,67 @@
   font-feature-settings:
     "tnum" 1,
     "zero" 1;
-  letter-spacing: 0.005em;
 }
 
-/* Скелетон с мягким шиммером (при reduced motion — статичный) */
+/* ── Материалы ── */
+@utility material-sidebar {
+  background-color: var(--sidebar);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+@utility material-bar {
+  background-color: var(--bar);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+@utility material-menu {
+  background-color: var(--menu);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* ── Волосяные линии (0.5 px на Retina) ── */
+@utility hairline {
+  border-style: solid;
+  border-width: var(--hairline);
+}
+@utility hairline-t {
+  border-top-style: solid;
+  border-top-width: var(--hairline);
+}
+@utility hairline-b {
+  border-bottom-style: solid;
+  border-bottom-width: var(--hairline);
+}
+@utility hairline-l {
+  border-left-style: solid;
+  border-left-width: var(--hairline);
+}
+@utility hairline-r {
+  border-right-style: solid;
+  border-right-width: var(--hairline);
+}
+
+/* Заглушка загрузки: спокойная пульсация вместо «блика» */
 @utility skeleton {
-  background-color: var(--muted);
-  background-image: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 0.65) 50%, transparent 100%);
-  background-size: 200% 100%;
-  background-repeat: no-repeat;
-  animation: var(--animate-shimmer);
+  background-color: var(--fill-quaternary);
+  border-radius: var(--radius-xs);
+  animation: var(--animate-pulse-soft);
 }
 
-/* Появление новой страницы: короткий fade + сдвиг 4 px (fast + smooth) */
+/* Скрытая прокрутка по горизонтали (сегменты, чипы) */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .page-transition {
   animation: var(--animate-page-in);
 }
 
-/* ── Reduced motion: полноценный UX без движения ── */
+/* ── Reduced motion: всё понятно без движения ── */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -467,5 +693,55 @@
 }
 .maplibregl-ctrl-group {
   border-radius: var(--radius-md) !important;
-  box-shadow: var(--shadow-sm) !important;
+  box-shadow: var(--shadow-menu) !important;
+}
+
+/* ── Временные псевдонимы старых классов: удаляются на финальной зачистке ── */
+@utility text-display {
+  font-size: var(--fs-large-title);
+  line-height: var(--lh-large-title);
+  font-weight: 700;
+  letter-spacing: -0.024em;
+}
+@utility text-h1 {
+  font-size: var(--fs-large-title);
+  line-height: var(--lh-large-title);
+  font-weight: 700;
+  letter-spacing: -0.024em;
+}
+@utility text-h2 {
+  font-size: var(--fs-title2);
+  line-height: var(--lh-title2);
+  font-weight: 650;
+  letter-spacing: -0.016em;
+}
+@utility text-h3 {
+  font-size: var(--fs-title3);
+  line-height: var(--lh-title3);
+  font-weight: 600;
+  letter-spacing: -0.012em;
+}
+@utility text-h4 {
+  font-size: var(--fs-headline);
+  line-height: var(--lh-headline);
+  font-weight: 600;
+}
+@utility text-overline {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+@utility text-metric {
+  font-size: var(--fs-title2);
+  line-height: var(--lh-title2);
+  font-weight: 600;
+  letter-spacing: -0.016em;
+  font-variant-numeric: tabular-nums;
+}
+@utility text-meta {
+  font-size: var(--fs-footnote);
+  line-height: var(--lh-footnote);
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
 }
