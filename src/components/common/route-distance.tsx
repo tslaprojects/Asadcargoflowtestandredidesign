@@ -1,4 +1,3 @@
-import { Route } from "lucide-react";
 import { formatDistanceKm, formatDuration } from "@/lib/format";
 import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -29,10 +28,9 @@ export function RouteDistance({ route, compact, className }: { route: RouteSumma
       data-testid="route-distance"
       data-route-source={route.routeSource ?? "NONE"}
       title={estimate ? t("route.estimateHint") : t("route.providerHint")}
-      className={cn("inline-flex items-center gap-1.5 whitespace-nowrap", className)}
+      className={cn("num inline-flex items-baseline gap-1 whitespace-nowrap", className)}
     >
-      <Route className="text-muted-foreground size-3.5 shrink-0" aria-hidden />
-      <span className="num">{text}</span>
+      <span>{text}</span>
       {!compact && route.routeDurationMin != null && (
         <span className="text-muted-foreground">· {t("route.duration", { duration: formatDuration(route.routeDurationMin) })}</span>
       )}

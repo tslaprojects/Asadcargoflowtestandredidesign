@@ -1,10 +1,12 @@
 "use client";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
+import { SearchField } from "@/components/common/search-field";
 import { Button } from "@/components/ui/button";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export type FilterField =
@@ -15,13 +17,13 @@ export type FilterField =
   | { type: "date"; name: string; label: string }
   | { type: "checkbox"; name: string; label: string };
 
-/** Сколько фильтров (кроме поиска) видно в строке на desktop; остальные — в панели «Фильтры». */
+/** Сколько фильтров (кроме поиска) видно в строке на широком экране; остальные — по кнопке «Фильтры». */
 const INLINE_FIELDS = 3;
 
 /**
- * Панель фильтров, синхронизированная с URL (серверная фильтрация и пагинация).
- * Прогрессивное раскрытие: поиск + основные фильтры в строке, остальные — по кнопке «Фильтры» (со счётчиком активных).
- * На мобильном в строке только поиск и кнопка — список начинается на первом экране.
+ * Строка поиска и фильтров над списком, синхронизированная с URL (серверная фильтрация и пагинация).
+ * Поиск + основные фильтры в строке, остальные — по кнопке «Фильтры» (со счётчиком активных).
+ * На телефоне в строке только поиск и кнопка — список начинается на первом экране.
  */
 export function FilterBar({
   fields,
@@ -31,9 +33,9 @@ export function FilterBar({
 }: {
   fields: FilterField[];
   className?: string;
-  /** Сколько фильтров видно сразу (в узкой панели — меньше). */
+  /** Сколько фильтров видно сразу (в узкой колонке — меньше). */
   inlineFields?: number;
-  /** Без рамки — внутри панели рабочего пространства. */
+  /** Компактный вид — внутри колонки списка. */
   bare?: boolean;
 }) {
   const router = useRouter();
@@ -71,12 +73,13 @@ export function FilterBar({
 
   const hasActive = fields.some((f) => params.get(f.name));
 
-  /** Видимость поля: основные — всегда на desktop, на мобильном — в раскрытой панели; дополнительные — только в панели. */
+  /** Основные поля видны всегда на широком экране, на телефоне — в раскрытой панели; дополнительные — только в панели. */
   const visibility = (name: string) => (inline.has(name) ? (open ? "" : "max-md:hidden") : open ? "animate-rise-in" : "hidden");
+  const size = bare ? "sm" : "default";
 
   return (
     <form
-      className={cn(bare ? "px-3 pb-2" : "border-border bg-card mb-4 rounded-lg border p-3 shadow-xs", className)}
+      className={cn(bare ? "px-3 pb-2" : "mb-4", className)}
       onSubmit={(e) => {
         e.preventDefault();
         apply(values);
@@ -84,40 +87,33 @@ export function FilterBar({
       role="search"
       aria-busy={pending}
     >
-      <div id={panelId} className="flex flex-wrap items-end gap-3">
+      <div id={panelId} className="flex flex-wrap items-end gap-x-2 gap-y-2.5">
         {fields.map((f) => {
           const id = `f-${f.name}`;
           if (f.type === "search")
             return (
-              <div key={f.name} className="min-w-0 flex-1 basis-full md:basis-64">
+              <div key={f.name} className={cn("min-w-0 flex-1 basis-full", !bare && "md:max-w-80 md:basis-64")}>
                 <Label htmlFor={id} className="sr-only">
-                  {f.label ?? "Поиск"}
+                  {f.label ?? t("common.search")}
                 </Label>
-                <div className="relative">
-                  <Search
-                    className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-                    aria-hidden
-                  />
-                  <Input
-                    id={id}
-                    type="search"
-                    className="pl-9"
-                    placeholder={f.placeholder ?? "Поиск"}
-                    value={values[f.name]}
-                    onChange={(e) => set(f.name, e.target.value)}
-                  />
-                </div>
+                <SearchField
+                  id={id}
+                  placeholder={f.placeholder ?? t("common.search")}
+                  value={values[f.name]}
+                  onChange={(e) => set(f.name, e.target.value)}
+                />
               </div>
             );
-          const wrap = cn(bare ? "w-[calc(50%-0.375rem)] space-y-1" : "w-[calc(50%-0.375rem)] space-y-1 sm:w-44", visibility(f.name));
+          const wrap = cn("w-[calc(50%-0.25rem)] space-y-1", !bare && "sm:w-44", visibility(f.name));
+          const caption = "text-footnote text-muted-foreground px-0.5";
           if (f.type === "select")
             return (
               <div key={f.name} className={wrap}>
-                <Label htmlFor={id} className="text-muted-foreground text-xs">
+                <Label htmlFor={id} className={caption}>
                   {f.label}
                 </Label>
                 <NativeSelect id={id} value={values[f.name]} onChange={(e) => set(f.name, e.target.value, true)}>
-                  <option value="">{f.allLabel ?? "Все"}</option>
+                  <option value="">{f.allLabel ?? t("common.all")}</option>
                   {f.options.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
@@ -128,10 +124,10 @@ export function FilterBar({
             );
           if (f.type === "checkbox")
             return (
-              <label key={f.name} className={cn("flex min-h-10 items-center gap-2 text-sm sm:min-h-9", visibility(f.name))}>
+              <label key={f.name} className={cn("text-body flex min-h-11 items-center gap-2 lg:min-h-[1.875rem]", visibility(f.name))}>
                 <input
                   type="checkbox"
-                  className="size-4 accent-[var(--primary)]"
+                  className="size-4 accent-[var(--primary)] lg:size-3.5"
                   checked={values[f.name] === "1"}
                   onChange={(e) => set(f.name, e.target.checked ? "1" : "", true)}
                 />
@@ -140,7 +136,7 @@ export function FilterBar({
             );
           return (
             <div key={f.name} className={wrap}>
-              <Label htmlFor={id} className="text-muted-foreground text-xs">
+              <Label htmlFor={id} className={caption}>
                 {f.label}
               </Label>
               <Input
@@ -155,20 +151,20 @@ export function FilterBar({
             </div>
           );
         })}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {(hasAdvanced || nonSearch.length > 0) && (
             <Button
               type="button"
-              variant="outline"
-              size={bare ? "sm" : "default"}
+              variant="secondary"
+              size={size}
               className={cn(!hasAdvanced && "md:hidden")}
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
               aria-controls={panelId}
             >
-              <SlidersHorizontal /> Фильтры
+              <SlidersHorizontal /> {t("common.filters")}
               {activeCount > 0 && (
-                <span className="bg-primary num grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[0.6875rem] font-semibold text-white">
+                <span className="bg-primary text-primary-foreground num text-caption grid h-4 min-w-4 place-items-center rounded-full px-1 font-semibold">
                   {activeCount}
                 </span>
               )}
@@ -176,25 +172,26 @@ export function FilterBar({
           )}
           <Button
             type="submit"
-            size={bare ? "sm" : "default"}
+            size={size}
             loading={pending}
             loadingText="Ищем..."
             className={cn(bare && nonSearch.length === 0 && "sr-only")}
           >
-            Применить
+            {t("common.apply")}
           </Button>
           {hasActive && (
             <Button
               type="button"
               variant="ghost"
-              size={bare ? "sm" : "default"}
+              size={size}
+              className="text-link"
               onClick={() => {
                 const cleared = Object.fromEntries(fields.map((f) => [f.name, ""]));
                 setValues(cleared);
                 apply(cleared);
               }}
             >
-              <X /> Сбросить
+              <X /> {t("common.reset")}
             </Button>
           )}
         </div>
