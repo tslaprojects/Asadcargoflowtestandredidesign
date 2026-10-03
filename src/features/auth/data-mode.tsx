@@ -65,8 +65,8 @@ export function DataModeBadge({ mode, className }: { mode: DataModeValue; classN
   return (
     <span
       className={cn(
-        "inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-xs font-semibold whitespace-nowrap",
-        mode === "demo" ? "border-warning-border bg-warning-bg text-warning" : "border-info-border bg-info-bg text-info",
+        "text-footnote inline-flex h-6 items-center gap-1 rounded-full px-2 font-semibold whitespace-nowrap",
+        mode === "demo" ? "bg-warning-bg text-warning" : "bg-fill-tertiary text-muted-foreground",
         className,
       )}
       data-testid="data-mode-badge"
@@ -74,8 +74,10 @@ export function DataModeBadge({ mode, className }: { mode: DataModeValue; classN
       title={`Режим данных: ${meta.label}`}
     >
       <Icon className="size-3.5" aria-hidden />
-      <span className="sm:hidden">{mode === "demo" ? "ДЕМО" : "REAL"}</span>
-      <span className="hidden sm:inline">{meta.label}</span>
+      <span className={cn(mode === "real" && "max-sm:sr-only")}>
+        <span className="sm:hidden">{meta.short}</span>
+        <span className="hidden sm:inline">{meta.label}</span>
+      </span>
     </span>
   );
 }

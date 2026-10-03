@@ -75,37 +75,31 @@ export function NotificationBell() {
   );
   const seen = data?.items.filter((n) => n.readAt) ?? [];
 
-  const renderItem = (n: N, i: number) => (
-    <li key={n.id} className="animate-rise-in" style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}>
-      <button
-        type="button"
-        onClick={() => openItem(n)}
-        className={cn(
-          "border-border hover:bg-surface-secondary flex w-full gap-3 border-b px-4 py-3 text-left transition-colors duration-150",
-          !n.readAt && "bg-accent/50",
-        )}
-      >
-        <span
-          className={cn(
-            "mt-1.5 size-2 shrink-0 rounded-full",
-            n.readAt ? "bg-transparent" : PRIORITY_DOT[eventPriority(n.type, n.title, n.body)],
-          )}
-          aria-hidden
-        />
-        <span className="min-w-0 flex-1">
-          <span className="text-muted-foreground flex items-center justify-between gap-2 text-xs">
-            <span className="truncate">
-              {eventPriority(n.type, n.title, n.body) === "critical" && <span className="text-danger font-medium">Критично · </span>}
-              {label("NotificationType", n.type)}
+  const renderItem = (n: N, i: number) => {
+    const priority = eventPriority(n.type, n.title, n.body);
+    return (
+      <li key={n.id} className="animate-rise-in" style={{ animationDelay: `${Math.min(i, 8) * 25}ms` }}>
+        <button
+          type="button"
+          onClick={() => openItem(n)}
+          className="bg-card hover:bg-surface-secondary active:bg-muted flex w-full gap-2.5 rounded-xl px-3.5 py-3 text-left transition-colors duration-(--duration-micro)"
+        >
+          <span className={cn("mt-1.5 size-2 shrink-0 rounded-full", n.readAt ? "bg-transparent" : PRIORITY_DOT[priority])} aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="text-footnote text-muted-foreground flex items-baseline justify-between gap-2">
+              <span className="truncate">
+                {priority === "critical" && <span className="text-danger font-semibold">Критично · </span>}
+                {label("NotificationType", n.type)}
+              </span>
+              <span className="shrink-0">{formatRelative(n.createdAt)}</span>
             </span>
-            <span className="shrink-0">{formatRelative(n.createdAt)}</span>
+            <span className={cn("mt-0.5 block", !n.readAt && "font-semibold")}>{n.title}</span>
+            {n.body && <span className="text-subheadline text-muted-foreground mt-0.5 block">{n.body}</span>}
           </span>
-          <span className={cn("mt-0.5 block text-sm leading-5", !n.readAt && "font-medium")}>{n.title}</span>
-          {n.body && <span className="text-muted-foreground mt-0.5 block text-[0.8125rem] leading-5">{n.body}</span>}
-        </span>
-      </button>
-    </li>
-  );
+        </button>
+      </li>
+    );
+  };
   return (
     <>
       <button
@@ -114,15 +108,15 @@ export function NotificationBell() {
           setOpen(true);
           void load();
         }}
-        className="hover:bg-muted relative grid size-10 place-items-center rounded-full transition-colors duration-150"
+        className="text-foreground hover:bg-fill-quaternary relative grid size-10 place-items-center rounded-full transition-colors duration-(--duration-micro) lg:size-8"
         aria-label={unread ? `Уведомления, непрочитанных: ${unread}` : "Уведомления"}
         data-testid="notification-bell"
       >
-        <Bell className="size-5" aria-hidden />
+        <Bell className="size-5 lg:size-[1.125rem]" aria-hidden />
         {unread > 0 && (
           <span
             key={unread}
-            className="bg-destructive ring-card num animate-check-pop absolute top-0.5 right-0.5 min-w-4 rounded-full px-1 text-center text-[0.625rem] leading-4 font-semibold text-white ring-2"
+            className="bg-destructive num animate-check-pop absolute top-0.5 right-0 min-w-4 rounded-full px-1 text-center text-[0.625rem] leading-4 font-semibold text-white lg:-top-0.5 lg:-right-1"
           >
             {unread > 99 ? "99+" : unread}
           </span>
@@ -132,58 +126,55 @@ export function NotificationBell() {
         {announce}
       </span>
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent side="right">
-          <SheetHeader>
+        <SheetContent side="right" className="bg-background sm:max-w-sm">
+          <SheetHeader className="pb-2">
             <SheetTitle>События</SheetTitle>
             <SheetDescription>{unread ? `Непрочитанных: ${unread}` : "Все уведомления прочитаны"}</SheetDescription>
           </SheetHeader>
-          <div className="border-border flex items-center justify-between border-b px-4 py-2">
-            <Button variant="ghost" size="sm" onClick={readAll} disabled={!unread}>
+          <div className="flex items-center justify-between gap-2 px-4 py-1.5">
+            <Button variant="ghost" size="sm" className="text-link -ml-2.5" onClick={readAll} disabled={!unread}>
               <CheckCheck /> Отметить все прочитанными
             </Button>
-            <Link href="/notifications" onClick={() => setOpen(false)} className="text-primary text-sm hover:underline">
+            <Link href="/notifications" onClick={() => setOpen(false)} className="text-link text-subheadline hover:underline">
               Центр событий
             </Link>
           </div>
-          <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-3 pt-1 pb-4">
             {error && (
-              <div role="alert" className="text-danger flex items-center justify-between gap-3 p-4 text-sm">
+              <div role="alert" className="text-subheadline text-danger flex items-center justify-between gap-3 px-1">
                 Не удалось загрузить уведомления — проверьте соединение.
-                <Button size="sm" variant="outline" onClick={() => void load()}>
+                <Button size="sm" variant="secondary" onClick={() => void load()}>
                   Повторить
                 </Button>
               </div>
             )}
             {!data && !error && (
-              <div className="space-y-4 p-4" role="status" aria-label="Загрузка уведомлений">
+              <div className="space-y-2" role="status" aria-label="Загрузка уведомлений">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex gap-3">
-                    <Skeleton className="mt-1 size-2 rounded-full" />
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-3 w-1/3" />
-                      <Skeleton className="h-4 w-4/5" />
-                    </div>
+                  <div key={i} className="bg-card space-y-2 rounded-xl px-3.5 py-3">
+                    <Skeleton className="h-2.5 w-1/3" />
+                    <Skeleton className="h-3 w-4/5" />
                   </div>
                 ))}
               </div>
             )}
             {data && data.items.length === 0 && (
-              <div className="text-muted-foreground flex flex-col items-center gap-2 p-10 text-center text-sm">
-                <BellOff className="size-6" aria-hidden />
+              <div className="text-subheadline text-muted-foreground flex flex-col items-center gap-2 px-6 py-12 text-center">
+                <BellOff className="text-tertiary-foreground size-9 [stroke-width:1.5]" aria-hidden />
                 Уведомлений пока нет. Здесь появятся ставки, изменения статусов и сообщения по перевозкам.
               </div>
             )}
             {fresh.length > 0 && (
-              <>
-                <p className="text-overline bg-surface-secondary border-border border-b px-4 py-1.5">Новые</p>
-                <ul>{fresh.map(renderItem)}</ul>
-              </>
+              <section>
+                <p className="text-section px-1 pb-1.5">Новые</p>
+                <ul className="space-y-2">{fresh.map(renderItem)}</ul>
+              </section>
             )}
             {seen.length > 0 && (
-              <>
-                {fresh.length > 0 && <p className="text-overline bg-surface-secondary border-border border-b px-4 py-1.5">Прочитанные</p>}
-                <ul>{seen.map((n, i) => renderItem(n, i + fresh.length))}</ul>
-              </>
+              <section>
+                {fresh.length > 0 && <p className="text-section px-1 pb-1.5">Прочитанные</p>}
+                <ul className="space-y-2">{seen.map((n, i) => renderItem(n, i + fresh.length))}</ul>
+              </section>
             )}
           </div>
         </SheetContent>
