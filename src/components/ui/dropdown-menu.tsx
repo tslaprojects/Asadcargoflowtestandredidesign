@@ -7,13 +7,14 @@ const DropdownMenu = DM.Root;
 const DropdownMenuTrigger = DM.Trigger;
 const DropdownMenuGroup = DM.Group;
 
-function DropdownMenuContent({ className, sideOffset = 6, ...props }: React.ComponentProps<typeof DM.Content>) {
+/** Меню macOS: полупрозрачный материал, выделенный пункт — заливка акцентом и белый текст. */
+function DropdownMenuContent({ className, sideOffset = 4, ...props }: React.ComponentProps<typeof DM.Content>) {
   return (
     <DM.Portal>
       <DM.Content
         sideOffset={sideOffset}
         className={cn(
-          "border-border bg-card data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out z-50 min-w-48 origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-lg border p-1 text-sm shadow-md",
+          "material-menu shadow-menu text-body data-[state=open]:animate-pop-in data-[state=closed]:animate-pop-out z-50 min-w-44 origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden rounded-md p-[5px]",
           className,
         )}
         {...props}
@@ -25,7 +26,7 @@ function DropdownMenuItem({ className, ...props }: React.ComponentProps<typeof D
   return (
     <DM.Item
       className={cn(
-        "data-[highlighted]:bg-muted [&_svg]:text-muted-foreground relative flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors duration-100 outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-4",
+        "data-[highlighted]:bg-selection data-[highlighted]:text-selection-foreground [&_svg]:text-muted-foreground data-[highlighted]:[&_svg]:text-selection-foreground relative flex min-h-11 items-center gap-2 rounded-xs px-2 outline-none select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-40 lg:min-h-6 [&_svg]:size-4",
         className,
       )}
       {...props}
@@ -33,10 +34,10 @@ function DropdownMenuItem({ className, ...props }: React.ComponentProps<typeof D
   );
 }
 function DropdownMenuLabel({ className, ...props }: React.ComponentProps<typeof DM.Label>) {
-  return <DM.Label className={cn("text-muted-foreground px-2 py-1.5 text-xs font-medium", className)} {...props} />;
+  return <DM.Label className={cn("text-section px-2 pt-1.5 pb-1", className)} {...props} />;
 }
 function DropdownMenuSeparator({ className, ...props }: React.ComponentProps<typeof DM.Separator>) {
-  return <DM.Separator className={cn("bg-border -mx-1 my-1 h-px", className)} {...props} />;
+  return <DM.Separator className={cn("bg-border mx-2 my-[5px] h-px", className)} {...props} />;
 }
 
 export {

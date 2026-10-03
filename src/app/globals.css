@@ -52,12 +52,15 @@
   --selection: var(--primary);
   --selection-foreground: #ffffff;
   --selection-muted: rgb(0 0 0 / 0.07);
+  --segment-thumb: #ffffff;
 
   /* ── Состояния объектов (текст ≥ 4.5:1 на карточке и на своём фоне) ──
      success — доставлено/завершено · info — движется/в процессе · warning — ждёт действия
      delayed — опаздывает · danger — ошибка/спор/отмена · neutral — не начато */
   --success: #1f7a35;
   --success-hover: #1a682d;
+  --success-solid: #1f7a35; /* заливка кнопки в обеих темах, белый текст 5.3:1 */
+  --success-solid-hover: #1a682d;
   --warning: #946200;
   --info: #00718f;
   --delayed: #c43c00;
@@ -80,9 +83,9 @@
   --overlay: rgb(0 0 0 / 0.22);
 
   /* ── Тени: контур 0.5 px + мягкая тень, только у плавающих поверхностей ── */
-  --shadow-menu: 0 0 0 0.5px rgb(0 0 0 / 0.12), 0 10px 32px -6px rgb(0 0 0 / 0.2);
-  --shadow-dialog: 0 0 0 0.5px rgb(0 0 0 / 0.1), 0 24px 64px -12px rgb(0 0 0 / 0.32);
-  --shadow-control: 0 0.5px 1px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.06);
+  --elev-menu: 0 0 0 0.5px rgb(0 0 0 / 0.12), 0 10px 32px -6px rgb(0 0 0 / 0.2);
+  --elev-dialog: 0 0 0 0.5px rgb(0 0 0 / 0.1), 0 24px 64px -12px rgb(0 0 0 / 0.32);
+  --elev-control: 0 0.5px 1px rgb(0 0 0 / 0.12), 0 0 0 0.5px rgb(0 0 0 / 0.06);
 
   /* ── Карта: цвета объектов (маркеры, линии), читаются и из JS ── */
   --map-moving: #007aff;
@@ -185,6 +188,7 @@
     --destructive: #e5202a;
     --destructive-hover: #f03a3f;
     --selection-muted: rgb(255 255 255 / 0.1);
+    --segment-thumb: #5b5b5f;
 
     --success: #30d158;
     --success-hover: #4ad66d;
@@ -207,9 +211,9 @@
     --menu-solid: #2c2c2e;
     --overlay: rgb(0 0 0 / 0.48);
 
-    --shadow-menu: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.5), 0 12px 36px -6px rgb(0 0 0 / 0.6);
-    --shadow-dialog: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.5), 0 28px 72px -12px rgb(0 0 0 / 0.7);
-    --shadow-control: 0 0 0 0.5px rgb(255 255 255 / 0.08), 0 1px 1px rgb(0 0 0 / 0.3);
+    --elev-menu: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.5), 0 12px 36px -6px rgb(0 0 0 / 0.6);
+    --elev-dialog: 0 0 0 0.5px rgb(255 255 255 / 0.1), 0 0 0 1px rgb(0 0 0 / 0.5), 0 28px 72px -12px rgb(0 0 0 / 0.7);
+    --elev-control: 0 0 0 0.5px rgb(255 255 255 / 0.08), 0 1px 1px rgb(0 0 0 / 0.3);
 
     --map-moving: #0a84ff;
     --map-arriving: #40c8e0;
@@ -274,6 +278,9 @@
   --color-selection: var(--selection);
   --color-selection-foreground: var(--selection-foreground);
   --color-selection-muted: var(--selection-muted);
+  --color-segment-thumb: var(--segment-thumb);
+  --color-success-solid: var(--success-solid);
+  --color-success-solid-hover: var(--success-solid-hover);
 
   --color-success: var(--success);
   --color-success-hover: var(--success-hover);
@@ -316,13 +323,13 @@
 
   /* Тени: у карточек и кнопок их нет */
   --shadow-xs: 0 0 #0000;
-  --shadow-sm: var(--shadow-control);
-  --shadow-md: var(--shadow-menu);
-  --shadow-lg: var(--shadow-dialog);
-  --shadow-xl: var(--shadow-dialog);
-  --shadow-control: var(--shadow-control);
-  --shadow-menu: var(--shadow-menu);
-  --shadow-dialog: var(--shadow-dialog);
+  --shadow-sm: var(--elev-control);
+  --shadow-md: var(--elev-menu);
+  --shadow-lg: var(--elev-dialog);
+  --shadow-xl: var(--elev-dialog);
+  --shadow-control: var(--elev-control);
+  --shadow-menu: var(--elev-menu);
+  --shadow-dialog: var(--elev-dialog);
 
   --container-page: 87.5rem;
   --container-form: 46rem;
@@ -693,7 +700,7 @@
 }
 .maplibregl-ctrl-group {
   border-radius: var(--radius-md) !important;
-  box-shadow: var(--shadow-menu) !important;
+  box-shadow: var(--elev-menu) !important;
 }
 
 /* ── Временные псевдонимы старых классов: удаляются на финальной зачистке ── */
