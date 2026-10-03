@@ -108,6 +108,8 @@ export function AppShell({
   const searchable = kind !== "driver" && kind !== "none";
   const demo = actor.dataMode === "demo";
   const moreActive = !primary.some((i) => isActive(pathname, i.href));
+  // «Ещё» нужен, только если в нём есть что-то кроме разделов таб-бара
+  const hasMore = items.length > primary.length || adminLink || actor.memberships.length > 1;
 
   React.useEffect(() => {
     if (!searchable) return;
@@ -260,7 +262,7 @@ export function AppShell({
       <nav
         aria-label={t("nav.tabBar")}
         className="material-bar hairline-t fixed inset-x-0 bottom-0 z-20 grid pb-[env(safe-area-inset-bottom)] lg:hidden"
-        style={{ gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0,1fr))` }}
+        style={{ gridTemplateColumns: `repeat(${primary.length + (hasMore ? 1 : 0)}, minmax(0,1fr))` }}
       >
         {primary.map((item) => {
           const Icon = item.icon;
@@ -289,18 +291,20 @@ export function AppShell({
             </Link>
           );
         })}
-        <button
-          type="button"
-          onClick={() => setMoreOpen(true)}
-          className={cn(
-            "flex h-[3.125rem] flex-col items-center justify-center gap-0.5 text-[0.625rem] leading-3 font-medium",
-            moreActive ? "text-primary" : "text-muted-foreground",
-          )}
-          aria-haspopup="dialog"
-        >
-          <Ellipsis className="size-6" aria-hidden />
-          {t("nav.more")}
-        </button>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            className={cn(
+              "flex h-[3.125rem] flex-col items-center justify-center gap-0.5 text-[0.625rem] leading-3 font-medium",
+              moreActive ? "text-primary" : "text-muted-foreground",
+            )}
+            aria-haspopup="dialog"
+          >
+            <Ellipsis className="size-6" aria-hidden />
+            {t("nav.more")}
+          </button>
+        )}
       </nav>
 
       <DataModeSwitchDialog current={actor.dataMode} open={modeDialog} onOpenChange={setModeDialog} />

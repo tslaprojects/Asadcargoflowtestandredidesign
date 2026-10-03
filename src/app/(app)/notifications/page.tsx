@@ -34,7 +34,7 @@ function EventRow({ n, now }: { n: Item & { priority: EventPriority }; now: Date
             <Icon className="size-4" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="text-meta flex flex-wrap items-center gap-x-2">
+            <span className="text-footnote text-muted-foreground tabular flex flex-wrap items-center gap-x-2">
               <span className="sr-only">{p.label}.</span>
               {obj && <span className="text-foreground font-medium">{obj.kind}</span>}
               <span>{label("NotificationType", n.type)}</span>
@@ -98,7 +98,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         <div className="space-y-5">
           {attention.length > 0 && (
             <section aria-labelledby="attention-h" data-testid="events-attention">
-              <h2 id="attention-h" className="text-overline mb-2">
+              <h2 id="attention-h" className="text-section mb-2">
                 Требует внимания · {attention.length}
               </h2>
               <ul className="bg-card divide-y-(length:--hairline) overflow-hidden rounded-lg">
@@ -110,7 +110,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           )}
           {feed.length > 0 && (
             <section aria-labelledby="feed-h">
-              <h2 id="feed-h" className="text-overline mb-2">
+              <h2 id="feed-h" className="text-section mb-2">
                 Лента событий
               </h2>
               <ul className="bg-card divide-y-(length:--hairline) overflow-hidden rounded-lg">

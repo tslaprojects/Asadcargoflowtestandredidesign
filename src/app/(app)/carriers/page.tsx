@@ -48,7 +48,7 @@ export default async function CarriersPage({ searchParams }: { searchParams: Sea
         <EmptyState title="Перевозчики не найдены" description="Измените запрос или снимите фильтр «Только проверенные»." />
       ) : (
         <section className="bg-card overflow-hidden rounded-lg" aria-label="Перевозчики" data-testid="carrier-network">
-          <div className="text-overline bg-surface-secondary hairline-b hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,0.9fr)_1rem] gap-4 px-4 py-2 lg:grid">
+          <div className="text-section bg-surface-secondary hairline-b hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,0.9fr)_1rem] gap-4 px-4 py-2 lg:grid">
             <span>Перевозчик</span>
             <span>Доступность</span>
             <span>Ваши перевозки</span>
@@ -66,7 +66,7 @@ export default async function CarriersPage({ searchParams }: { searchParams: Sea
                   >
                     <div className="min-w-0">
                       <p className="group-hover:text-link text-body truncate font-semibold transition-colors">{c.legalName}</p>
-                      <p className="text-meta flex flex-wrap items-center gap-2">
+                      <p className="text-footnote text-muted-foreground tabular flex flex-wrap items-center gap-2">
                         <span>{c.city}</span>
                         <StatusBadge kind="VerificationStatus" value={c.verificationStatus} />
                       </p>
@@ -81,7 +81,7 @@ export default async function CarriersPage({ searchParams }: { searchParams: Sea
                           {s.available > 0 ? `${s.available} свободно` : "нет свободных"}
                         </span>
                       </p>
-                      <p className="text-meta flex items-center gap-2">
+                      <p className="text-footnote text-muted-foreground tabular flex items-center gap-2">
                         <span className="inline-flex items-center gap-1">
                           <Truck className="size-3" aria-hidden /> {s.vehicles} · в рейсе {s.onTrip}
                         </span>
@@ -102,13 +102,15 @@ export default async function CarriersPage({ searchParams }: { searchParams: Sea
                               <StatusBadge kind="OrderStatus" value={o.status} hideIcon className="hidden xl:inline-flex" />
                             </li>
                           ))}
-                          {s.withMe.length > 2 && <li className="text-meta">и ещё {s.withMe.length - 2}</li>}
+                          {s.withMe.length > 2 && (
+                            <li className="text-footnote text-muted-foreground tabular">и ещё {s.withMe.length - 2}</li>
+                          )}
                         </ul>
                       )}
                     </div>
                     <div className="text-body">
                       <RatingInline value={c.rating?.average ?? null} count={c.rating?.count ?? 0} />
-                      <p className="text-meta">завершено рейсов: {c._count.carrierOrders}</p>
+                      <p className="text-footnote text-muted-foreground tabular">завершено рейсов: {c._count.carrierOrders}</p>
                     </div>
                     <ChevronRight className="text-muted-foreground hidden size-4 lg:block" aria-hidden />
                   </Link>

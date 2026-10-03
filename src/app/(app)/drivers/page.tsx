@@ -56,7 +56,7 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
         />
       ) : (
         <section className="bg-card overflow-hidden rounded-lg" aria-label="Ростер водителей" data-testid="driver-roster">
-          <div className="text-overline bg-surface-secondary hairline-b hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1fr)_auto] gap-4 px-4 py-2 lg:grid">
+          <div className="text-section bg-surface-secondary hairline-b hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1fr)_auto] gap-4 px-4 py-2 lg:grid">
             <span>Водитель</span>
             <span>Текущий рейс</span>
             <span>Последнее событие</span>
@@ -94,7 +94,7 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
                     </span>
                     <div className="min-w-0">
                       <p className="text-body truncate font-semibold">{d.fullName}</p>
-                      <p className="text-meta flex flex-wrap items-center gap-x-2">
+                      <p className="text-footnote text-muted-foreground tabular flex flex-wrap items-center gap-x-2">
                         <a href={`tel:${d.phone.replace(/\s/g, "")}`} className="text-link inline-flex items-center gap-1 hover:underline">
                           <Phone className="size-3" aria-hidden /> {d.phone}
                         </a>
@@ -136,7 +136,7 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
                         <span className="group-hover:text-link block truncate font-medium transition-colors">
                           {trip.origin} → {trip.destination}
                         </span>
-                        <span className="text-meta block truncate">
+                        <span className="text-footnote text-muted-foreground tabular block truncate">
                           {trip.statusLabel}
                           {trip.vehicle && <> · {trip.vehicle.plateNumber}</>} · до {formatDate(trip.deliveryDate)}
                         </span>
@@ -146,7 +146,7 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
                     )}
                   </div>
 
-                  <div className="text-meta min-w-0">
+                  <div className="text-footnote text-muted-foreground tabular min-w-0">
                     {trip ? (
                       <>
                         <span className="text-foreground block">{trip.statusLabel}</span>

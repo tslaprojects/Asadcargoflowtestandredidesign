@@ -7,6 +7,7 @@ import { SplitView } from "@/components/common/split-view";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
 import { formatDate, formatRelative, formatVolume, formatWeight } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { HealthBadge, HealthDot } from "@/features/operations/health";
 import { JourneyTimeline } from "@/features/operations/journey-timeline";
@@ -191,7 +192,7 @@ export function FleetWorkspace({
           </button>
         </header>
         <div className="grid gap-6 px-4 pb-6 lg:px-6 xl:grid-cols-2">
-          <InsetGroup header="Характеристики">
+          <InsetGroup header={t("ui.specs")}>
             <InsetList>
               <ListRow title="Кузов" value={selected.bodyLabel} />
               <ListRow title="Грузоподъёмность" value={<span className="num">{formatWeight(selected.capacityKg)}</span>} />
@@ -207,7 +208,7 @@ export function FleetWorkspace({
               />
             </InsetList>
           </InsetGroup>
-          <InsetGroup header="Текущий рейс">
+          <InsetGroup header={t("ui.currentTrip")}>
             <div className="px-4 py-3.5">
               {selected.trip ? (
                 <div className="space-y-3">

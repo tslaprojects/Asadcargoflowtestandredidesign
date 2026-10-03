@@ -47,22 +47,22 @@ export default async function FinancePage({ searchParams }: { searchParams: Sear
         <div className="bg-card mb-4 grid divide-y-(length:--hairline) overflow-hidden rounded-lg md:grid-cols-2 md:divide-x-(length:--hairline) md:divide-y-0 xl:grid-cols-4">
           {totals.map(([cur, t]) => (
             <div key={cur} className="px-4 py-3">
-              <p className="text-overline mb-1.5">{cur}</p>
+              <p className="text-section mb-1.5">{cur}</p>
               <dl className="grid grid-cols-3 gap-2">
                 <div>
-                  <dt className="text-meta">По договорам</dt>
+                  <dt className="text-footnote text-muted-foreground tabular">По договорам</dt>
                   <dd className="text-body font-semibold">
                     <MoneyDisplay amount={t.contracted} currency={cur} />
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-meta">Оплачено</dt>
+                  <dt className="text-footnote text-muted-foreground tabular">Оплачено</dt>
                   <dd className="text-success text-body font-semibold">
                     <MoneyDisplay amount={t.paid} currency={cur} />
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-meta">Остаток</dt>
+                  <dt className="text-footnote text-muted-foreground tabular">Остаток</dt>
                   <dd className="text-warning text-body font-semibold">
                     <MoneyDisplay amount={t.outstanding} currency={cur} />
                   </dd>
@@ -108,12 +108,12 @@ export default async function FinancePage({ searchParams }: { searchParams: Sear
                   >
                     <span className="min-w-0">
                       <span className="block font-medium">{label("PaymentType", p.type)}</span>
-                      <span className="text-meta block truncate">
+                      <span className="text-footnote text-muted-foreground tabular block truncate">
                         {p.payer.legalName} → {p.payee.legalName}
                       </span>
                     </span>
                     <StatusBadge kind="PaymentStatus" value={p.status} />
-                    <span className="text-meta sm:text-right">
+                    <span className="text-footnote text-muted-foreground tabular sm:text-right">
                       {p.paidAt ? `оплачен ${formatDate(p.paidAt)}` : p.dueDate ? `срок ${formatDate(p.dueDate)}` : "—"}
                     </span>
                     <MoneyDisplay amount={p.amount} currency={p.currency} className="font-semibold sm:text-right" />

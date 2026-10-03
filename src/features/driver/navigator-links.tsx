@@ -20,7 +20,7 @@ export function NavigatorLinks({ target, className, testId }: { target: NavTarge
             href={navigatorWebLink(app, target)}
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-card hover:bg-muted active:bg-muted text-body inline-flex min-h-10 items-center rounded-lg px-3 font-medium"
+            className="bg-fill-tertiary text-link hover:bg-fill-secondary text-subheadline inline-flex min-h-9 items-center rounded-full px-3.5 font-medium transition-colors duration-(--duration-micro)"
             data-navigator={app}
           >
             {t(`route.navigators.${app}`)}

@@ -375,6 +375,18 @@ export const ru = {
       SYSTEM: "Системное",
     },
   },
+  ui: {
+    details: "Сведения",
+    specs: "Характеристики",
+    currentTrip: "Текущий рейс",
+    tripPass: "Рейс",
+    required: "Обязательно",
+    optional: "Необязательно",
+    messagePlaceholder: "Сообщение",
+    phoneAndPasswordHint: "Телефон — в международном формате, например +7 700 123 45 67. Пароль — не менее 8 символов, буквы и цифры.",
+    stepDone: "выполнено",
+    localEnv: "локальная среда",
+  },
   route: {
     label: "Маршрут",
     distance: "{km} км",

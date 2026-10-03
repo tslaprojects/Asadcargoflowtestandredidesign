@@ -27,6 +27,10 @@ type Props = {
 };
 
 /** Мобильный экран водителя: одна большая кнопка, соответствующая текущему статусу. */
+/** Быстрые действия водителя, как кнопки под карточкой в Картах: значок акцентом и подпись под ним. */
+const QUICK =
+  "bg-card text-link hover:bg-surface-secondary active:bg-muted text-footnote h-[4.5rem] flex-col gap-1.5 rounded-xl font-medium lg:h-[4.5rem] [&_svg]:size-5";
+
 export function DriverTripActions({ orderId, status, lastLocationAt, documents, carrierPhone }: Props) {
   const router = useRouter();
   const step: DriverStep = driverNextStep(status);
@@ -83,9 +87,9 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
 
   return (
     <div className="space-y-3">
-      <div className="bg-card rounded-2xl p-4">
-        <p className="text-muted-foreground text-body">Следующее действие</p>
-        <p className="text-body mt-1 mb-3">{step.hint}</p>
+      <div className="bg-card rounded-xl p-4">
+        <p className="text-section">Следующее действие</p>
+        <p className="mt-1 mb-3.5">{step.hint}</p>
         <div className="space-y-2">
           {step.primary?.kind === "transition" &&
             (step.primary.to === "DELIVERED" ? (
@@ -122,20 +126,21 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
                 return r !== undefined;
               }}
               trigger={
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 w-full text-base"
-                  disabled={pending}
-                  data-testid={`driver-action-${s.to}`}
-                >
+                <Button size="lg" variant="secondary" className="h-12 w-full" disabled={pending} data-testid={`driver-action-${s.to}`}>
                   <MapPin /> {s.label}
                 </Button>
               }
             />
           ))}
           {step.primary?.kind === "transition" && status !== "WAITING_FOR_LOADING" && (
-            <Button size="lg" variant="ghost" className="w-full" onClick={sendLocation} loading={locating} loadingText="Определяем...">
+            <Button
+              size="lg"
+              variant="ghost"
+              className="text-link w-full"
+              onClick={sendLocation}
+              loading={locating}
+              loadingText="Определяем..."
+            >
               <LocateFixed /> Обновить местоположение
             </Button>
           )}
@@ -146,29 +151,29 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Button variant="outline" className="text-footnote h-16 flex-col gap-1" onClick={() => setUploadOpen(true)}>
+        <Button variant="ghost" className={QUICK} onClick={() => setUploadOpen(true)}>
           <Upload /> Фото / документ
         </Button>
-        <Button variant="outline" className="text-footnote h-16 flex-col gap-1" onClick={() => setChatOpen(true)}>
+        <Button variant="ghost" className={QUICK} onClick={() => setChatOpen(true)}>
           <MessageSquare /> Сообщение
         </Button>
         {carrierPhone ? (
-          <Button asChild variant="outline" className="text-footnote h-16 flex-col gap-1">
+          <Button asChild variant="ghost" className={QUICK}>
             <a href={`tel:${carrierPhone}`}>
               <Phone /> Диспетчер
             </a>
           </Button>
         ) : (
-          <Button variant="outline" className="text-footnote h-16 flex-col gap-1" disabled>
+          <Button variant="ghost" className={QUICK} disabled>
             <Phone /> Нет телефона
           </Button>
         )}
       </div>
 
       {documents.length > 0 && (
-        <div className="bg-card rounded-2xl p-4">
-          <p className="text-body mb-2 font-medium">Загруженные документы</p>
-          <ul className="text-body space-y-1">
+        <div className="bg-card rounded-xl px-4 py-3">
+          <p className="text-section mb-2">Загруженные документы</p>
+          <ul className="space-y-1.5">
             {documents.map((d) => (
               <li key={d.id} className="flex items-center gap-2">
                 <CheckCircle2 className="text-success size-4" aria-hidden />

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { api, errorMessage, newIdempotencyKey } from "@/lib/client/api";
 import { formatDateTime } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Msg = {
@@ -228,7 +229,7 @@ export function ChatPanel({ orderId, canSend, className }: { orderId: string; ca
                     void send();
                   }
                 }}
-                placeholder="Сообщение"
+                placeholder={t("ui.messagePlaceholder")}
                 className="border-border-strong min-h-9 resize-none rounded-[1.125rem] py-2 pr-11 pl-3.5 lg:min-h-9 lg:py-2"
                 aria-label="Текст сообщения"
                 maxLength={4000}

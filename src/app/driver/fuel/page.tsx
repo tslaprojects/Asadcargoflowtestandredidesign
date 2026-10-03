@@ -20,13 +20,13 @@ export default async function DriverFuelPage() {
   const actor = await pageActor();
   const v = toPlain(await guard(driverFuelView(actor)));
   return (
-    <div className="space-y-3 pt-1" data-testid="driver-fuel">
-      <h1 className="text-title1 font-semibold">Топливо</h1>
-      <div className="bg-card rounded-2xl p-4">
-        <p className="text-muted-foreground text-body">Моя машина</p>
+    <div className="space-y-4 pt-2" data-testid="driver-fuel">
+      <h1 className="text-large-title">Топливо</h1>
+      <div className="bg-card rounded-xl p-4">
+        <p className="text-section">Моя машина</p>
         {v.vehicle ? (
           <p className="text-title2 font-semibold">
-            {v.vehicle.make} {v.vehicle.model} · <span className="font-mono">{v.vehicle.plateNumber}</span>
+            {v.vehicle.make} {v.vehicle.model} · <span className="id-code">{v.vehicle.plateNumber}</span>
           </p>
         ) : (
           <p className="text-muted-foreground">Автомобиль не назначен</p>
@@ -43,14 +43,14 @@ export default async function DriverFuelPage() {
         )}
       </div>
 
-      <div className="bg-card rounded-2xl p-4" data-testid="driver-card">
-        <p className="text-muted-foreground text-body flex items-center gap-2">
+      <div className="bg-card rounded-xl p-4" data-testid="driver-card">
+        <p className="text-section flex items-center gap-2">
           <CreditCard className="size-4" aria-hidden /> Моя топливная карта {v.card?.isDemo && <DemoBadge />}
         </p>
         {v.card ? (
           <>
             <p className="text-title3 mt-1 flex items-center gap-2 font-semibold">
-              {v.card.label} {v.card.last4 && <span className="text-muted-foreground text-body font-mono">•••• {v.card.last4}</span>}
+              {v.card.label} {v.card.last4 && <span className="text-muted-foreground text-body id-code">•••• {v.card.last4}</span>}
               <StatusBadge kind="FuelCardStatus" value={v.card.status} />
             </p>
             <p
@@ -83,7 +83,7 @@ export default async function DriverFuelPage() {
       </div>
 
       {v.card?.isDemo && v.card.status === "ACTIVE" && (
-        <div className="bg-card rounded-2xl p-4">
+        <div className="bg-card rounded-xl p-4">
           <p className="mb-2 flex items-center gap-2 font-semibold">
             Заправка <DemoBadge />
           </p>
@@ -94,8 +94,8 @@ export default async function DriverFuelPage() {
         </div>
       )}
 
-      <div className="bg-card rounded-2xl p-4">
-        <p className="mb-2 font-semibold">Мои заправки</p>
+      <div className="bg-card rounded-xl p-4">
+        <p className="text-section mb-1">Мои заправки</p>
         {v.transactions.length === 0 ? (
           <EmptyState icon={Fuel} title="Заправок пока нет" className="py-6" />
         ) : (

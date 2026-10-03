@@ -37,32 +37,44 @@ export function DriverNextStep({
     );
   const quick = QUICK.filter((c) => c.city !== deliveryCity && c.city !== returnCity);
   return (
-    <div className="bg-card space-y-3 rounded-2xl p-4" data-testid="driver-next-step">
+    <div className="bg-card space-y-3 rounded-xl p-4" data-testid="driver-next-step">
       <p className="flex items-center gap-2 font-semibold">
         <Navigation className="text-link size-5" aria-hidden /> Что планируете дальше?
       </p>
-      <p className="text-muted-foreground text-body">
+      <p className="text-subheadline text-muted-foreground">
         После разгрузки в {deliveryCity} диспетчер подберёт груз по пути — чтобы не ехать порожняком.
       </p>
       {plan && (
-        <p className="bg-primary/5 text-link text-body rounded-lg p-2">
+        <p className="bg-accent text-link text-subheadline rounded-md px-3 py-2">
           Ваш план: {plan.destinations.length ? plan.destinations.join(", ") : "свободен, грузы рядом"} · подходящих грузов: {plan.matches}
         </p>
       )}
       <div className="grid gap-2">
         {returnCity && (
-          <Button size="lg" variant="outline" disabled={pending} onClick={() => send({ intent: "RETURN", destinations: [] })}>
+          <Button size="lg" variant="secondary" disabled={pending} onClick={() => send({ intent: "RETURN", destinations: [] })}>
             <RotateCcw /> Вернуться в {returnCity}
           </Button>
         )}
         <div className="grid grid-cols-2 gap-2">
           {quick.map((c) => (
-            <Button key={c.city} size="lg" variant="outline" disabled={pending} onClick={() => send({ intent: "CITY", destinations: [c] })}>
+            <Button
+              key={c.city}
+              size="lg"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => send({ intent: "CITY", destinations: [c] })}
+            >
               В {c.city}
             </Button>
           ))}
         </div>
-        <Button size="lg" variant="ghost" disabled={pending} onClick={() => send({ intent: "UNDECIDED", destinations: [] })}>
+        <Button
+          size="lg"
+          variant="ghost"
+          className="text-link"
+          disabled={pending}
+          onClick={() => send({ intent: "UNDECIDED", destinations: [] })}
+        >
           <CircleHelp /> Пока не знаю
         </Button>
       </div>

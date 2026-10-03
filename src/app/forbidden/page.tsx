@@ -22,9 +22,9 @@ export default async function ForbiddenPage({ searchParams }: { searchParams: Pr
   return (
     <div className="grid min-h-dvh place-items-center px-4">
       <div className="max-w-md text-center">
-        <ShieldX className="text-danger mx-auto size-12" aria-hidden />
-        <h1 className="text-title2 mt-3 font-semibold">Нет доступа</h1>
-        <p className="text-muted-foreground text-body mt-2">{safeReason(reason)}</p>
+        <ShieldX className="text-tertiary-foreground mx-auto size-12 [stroke-width:1.5]" aria-hidden />
+        <h1 className="text-title2 mt-3">Нет доступа</h1>
+        <p className="text-subheadline text-muted-foreground mt-1.5">{safeReason(reason)}</p>
         <Button asChild className="mt-6">
           <Link href="/">На главную</Link>
         </Button>

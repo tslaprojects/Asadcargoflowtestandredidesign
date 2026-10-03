@@ -9,7 +9,7 @@ import { FormError } from "@/components/common/field";
 import { FormGroup, FormRow, rowInput, rowSelect } from "@/components/common/form-group";
 import { Button } from "@/components/ui/button";
 import { api, ApiError, errorMessage } from "@/lib/client/api";
-import { label } from "@/lib/i18n";
+import { label, t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { registerSchema } from "@/lib/validation/auth";
 
@@ -102,7 +102,7 @@ export function RegisterWizard({
             />
             <span className="sr-only">
               {s}
-              {i < step ? " — выполнено" : ""}
+              {i < step ? ` — ${t("ui.stepDone")}` : ""}
             </span>
           </li>
         ))}
@@ -118,7 +118,7 @@ export function RegisterWizard({
 
         {step === 0 && (
           <>
-            <FormGroup footer="Телефон — в международном формате, например +7 700 123 45 67. Пароль — не менее 8 символов, буквы и цифры.">
+            <FormGroup footer={t("ui.phoneAndPasswordHint")}>
               <FormRow id="firstName" label="Имя" error={err("firstName")} required>
                 <input autoComplete="given-name" className={rowInput} {...form.register("firstName")} />
               </FormRow>
@@ -223,7 +223,7 @@ export function RegisterWizard({
                   <input className={rowInput} {...form.register("company.registrationNumber")} />
                 </FormRow>
                 <FormRow id="company.taxId" label="ИНН / налоговый номер" error={err("company.taxId")}>
-                  <input className={rowInput} placeholder="Необязательно" {...form.register("company.taxId")} />
+                  <input className={rowInput} placeholder={t("ui.optional")} {...form.register("company.taxId")} />
                 </FormRow>
                 <FormRow id="company.country" label="Страна" error={err("company.country")} required>
                   <select className={rowSelect} {...form.register("company.country")}>

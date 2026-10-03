@@ -5,6 +5,7 @@ import { InsetGroup, InsetList, ListRow } from "@/components/common/inset-group"
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { formatDate, formatRelative, formatWeight } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { LiveObject } from "@/server/services/operations.service";
 import { HealthBadge } from "./health";
@@ -64,7 +65,7 @@ export function ShipmentDetailPanel({
           )}
 
           <div className="grid gap-6 xl:grid-cols-2">
-            <InsetGroup header="Сведения">
+            <InsetGroup header={t("ui.details")}>
               <InsetList>
                 <ListRow
                   title="Доставка до"

@@ -9,6 +9,7 @@ import { FormGroup, FormRow, rowInput } from "@/components/common/form-group";
 import { Button } from "@/components/ui/button";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { api, errorMessage } from "@/lib/client/api";
+import { t } from "@/lib/i18n";
 import { loginSchema } from "@/lib/validation/auth";
 import { DataModeSelector, useRememberedDataMode } from "./data-mode";
 import type { z } from "zod";
@@ -73,7 +74,7 @@ export function LoginForm() {
             <input
               type="password"
               autoComplete="current-password"
-              placeholder="Обязательно"
+              placeholder={t("ui.required")}
               className={rowInput}
               {...form.register("password")}
             />
@@ -96,7 +97,7 @@ export function LoginForm() {
       </p>
       {showDemo && (
         <section className="mt-8">
-          <p className="text-section px-4">Демо-доступ {isProduction ? "· демо-стенд, данные публичны" : "· локальная среда"}</p>
+          <p className="text-section px-4">Демо-доступ · {isProduction ? "демо-стенд, данные публичны" : t("ui.localEnv")}</p>
           <div className="bg-card mt-1.5 rounded-lg p-3">
             <div className="flex flex-wrap gap-1.5">
               {demoAccounts.map((d) => (
