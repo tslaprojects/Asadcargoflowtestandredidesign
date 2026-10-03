@@ -76,8 +76,8 @@ export function OrderStatusTimeline({
                 <span
                   aria-hidden
                   className={cn(
-                    "absolute top-8 bottom-0 left-[1.3125rem] w-0.5 -translate-x-1/2 rounded-full transition-colors duration-(--duration-complex)",
-                    s.state === "done" && next.state !== "todo" ? "bg-success" : "bg-border",
+                    "absolute top-8 bottom-0 left-[1.125rem] w-0.5 -translate-x-1/2 rounded-full transition-colors duration-(--duration-complex)",
+                    s.state === "done" && next.state !== "todo" ? "bg-primary" : "bg-border-strong",
                   )}
                 />
               )}
@@ -86,45 +86,37 @@ export function OrderStatusTimeline({
                 onClick={() => s.entries.length && setSelected(s)}
                 disabled={!s.entries.length}
                 className={cn(
-                  "group relative flex w-full items-start gap-3 rounded-lg px-2 py-1.5 text-left transition-colors duration-150",
-                  s.entries.length > 0 && "hover:bg-surface-secondary",
-                  s.state === "current" && "bg-accent/60",
+                  "group relative flex w-full items-start gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-(--duration-micro)",
+                  s.entries.length > 0 && "hover:bg-fill-quaternary",
                 )}
                 aria-current={s.state === "current" ? "step" : undefined}
                 aria-label={`${s.label}: ${s.state === "done" ? "выполнено" : s.state === "current" ? "текущий этап" : "не начато"}`}
               >
                 <span
                   className={cn(
-                    "relative z-10 mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 text-[0.6875rem] font-semibold transition-colors duration-(--duration-complex)",
-                    s.state === "done" && "border-success bg-success text-white",
-                    s.state === "current" && "border-primary bg-card text-primary",
-                    s.state === "todo" && "border-border bg-card text-muted-foreground",
+                    "num relative z-10 mt-px grid size-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-semibold transition-colors duration-(--duration-complex)",
+                    s.state === "done" && "bg-primary text-primary-foreground",
+                    s.state === "current" && "border-primary bg-card border-2",
+                    s.state === "todo" && "border-border-strong bg-card text-muted-foreground border",
                   )}
                   aria-hidden
                 >
                   {s.state === "done" ? (
-                    <Check className="size-3.5" strokeWidth={3} />
+                    <Check className="size-3 [stroke-width:3]" />
                   ) : s.state === "current" ? (
-                    <span className="bg-primary animate-live-pulse text-primary size-2.5 rounded-full" />
+                    <span className="bg-primary animate-live-pulse text-primary size-2 rounded-full" />
                   ) : (
                     i + 1
                   )}
                 </span>
-                <span className="min-w-0 flex-1 py-0.5">
-                  <span
-                    className={cn(
-                      "block text-sm",
-                      s.state === "todo" && "text-muted-foreground",
-                      s.state === "done" && "font-medium",
-                      s.state === "current" && "text-primary font-semibold",
-                    )}
-                  >
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block", s.state === "todo" && "text-muted-foreground", s.state === "current" && "font-semibold")}>
                     {s.label}
                     {s.state === "current" && note && <span className="text-muted-foreground font-normal"> · {note}</span>}
                   </span>
                 </span>
                 {s.entries.length > 0 && (
-                  <span className="text-muted-foreground group-hover:text-foreground num shrink-0 py-0.5 text-xs">
+                  <span className="text-footnote text-muted-foreground group-hover:text-foreground num shrink-0 pt-px">
                     {formatDateTime(s.entries[s.entries.length - 1].createdAt)}
                   </span>
                 )}
@@ -134,7 +126,7 @@ export function OrderStatusTimeline({
         })}
       </ol>
       {(current === "DISPUTED" || current === "ON_HOLD" || current === "CANCELLED") && (
-        <p className="bg-danger-bg text-danger border-danger-border mt-3 rounded-lg border px-3 py-2 text-sm">
+        <p className="bg-danger-bg text-danger text-subheadline mt-3 rounded-md px-3 py-2">
           Текущий статус: {ORDER_STATUS_LABELS[current as keyof typeof ORDER_STATUS_LABELS]}
         </p>
       )}
@@ -146,12 +138,12 @@ export function OrderStatusTimeline({
           </DialogHeader>
           <ul className="space-y-3">
             {selected?.entries.map((e) => (
-              <li key={e.id} className="border-border rounded-lg border p-3 text-sm">
+              <li key={e.id} className="bg-fill-quaternary rounded-md p-3">
                 <p className="font-medium">
                   {e.fromStatus ? `${ORDER_STATUS_LABELS[e.fromStatus as keyof typeof ORDER_STATUS_LABELS]} → ` : ""}
                   {ORDER_STATUS_LABELS[e.toStatus as keyof typeof ORDER_STATUS_LABELS]}
                 </p>
-                <dl className="text-muted-foreground mt-2 grid grid-cols-[110px_minmax(0,1fr)] gap-y-1">
+                <dl className="text-subheadline text-muted-foreground mt-2 grid grid-cols-[110px_minmax(0,1fr)] gap-y-1">
                   <dt>Дата и время</dt>
                   <dd className="text-foreground">{formatDateTime(e.createdAt)}</dd>
                   <dt>Пользователь</dt>
@@ -174,7 +166,7 @@ export function OrderStatusTimeline({
                             href={`/api/documents/${d}/download?inline=1`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-primary flex items-center gap-1 hover:underline"
+                            className="text-link flex items-center gap-1 hover:underline"
                           >
                             <Paperclip className="size-3.5" aria-hidden /> {documents?.[d] ?? "Документ"}
                           </a>

@@ -16,26 +16,32 @@ const TONE_DOT: Record<string, string> = {
 
 /** Поток событий: смены статусов перевозок по времени, каждое — ссылка на объект. */
 export function EventStream({ events, now, className }: { events: OperationalEvent[]; now: string; className?: string }) {
-  if (events.length === 0) return <p className="text-muted-foreground px-4 py-3 text-sm">Событий пока нет.</p>;
+  if (events.length === 0) return <p className="text-subheadline text-muted-foreground px-4 py-6 text-center">Событий пока нет.</p>;
   const ref = new Date(now);
   return (
-    <ol className={cn("px-2", className)} data-testid="event-stream">
+    <ol className={cn("[&>li+li_[data-row-content]]:hairline-t px-2", className)} data-testid="event-stream">
       {events.map((e) => (
         <li key={e.id}>
           <Link
             href={`/orders/${e.orderId}`}
-            className="hover:bg-surface-secondary flex gap-2.5 rounded-md px-2 py-1.5 transition-colors duration-150"
+            className="hover:bg-fill-quaternary flex gap-2.5 rounded-md px-2.5 transition-colors duration-(--duration-micro)"
           >
-            <span aria-hidden className={cn("mt-1.5 size-1.5 shrink-0 rounded-full", TONE_DOT[statusTone("OrderStatus", e.status)])} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm leading-5">
-                <span className="id-code font-medium">{e.publicNumber}</span> <span className="text-muted-foreground">·</span> {e.title}
+            <span
+              aria-hidden
+              className={cn("mt-[0.8125rem] size-2 shrink-0 rounded-full", TONE_DOT[statusTone("OrderStatus", e.status)])}
+            />
+            <span data-row-content className="flex min-w-0 flex-1 gap-2 py-2">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{e.title}</span>
+                <span className="text-footnote text-muted-foreground block truncate">
+                  <span className="id-code">{e.publicNumber}</span>
+                  {e.comment && <> · {e.comment}</>}
+                </span>
               </span>
-              {e.comment && <span className="text-muted-foreground block truncate text-xs">{e.comment}</span>}
+              <time dateTime={e.at} className="text-footnote text-muted-foreground num shrink-0 pt-px">
+                {formatRelative(e.at, ref)}
+              </time>
             </span>
-            <time dateTime={e.at} className="text-meta shrink-0 pt-0.5">
-              {formatRelative(e.at, ref)}
-            </time>
           </Link>
         </li>
       ))}

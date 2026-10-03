@@ -32,11 +32,11 @@ export default async function AdminVerification() {
                       {r.company.legalName}
                     </Link>
                   </CardTitle>
-                  <p className="text-muted-foreground text-sm">
+                  <p className="text-muted-foreground text-body">
                     {label("CompanyType", r.company.type)} · {countryName(r.company.country)}, {r.company.city} · рег. №{" "}
                     {r.company.registrationNumber} · подана {formatDateTime(r.createdAt)}
                   </p>
-                  {r.comment && <p className="mt-1 text-sm">«{r.comment}»</p>}
+                  {r.comment && <p className="text-body mt-1">«{r.comment}»</p>}
                 </div>
                 <CompanyDecisionButtons companyId={r.company.id} status={r.company.verificationStatus} />
               </CardHeader>

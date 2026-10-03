@@ -4,7 +4,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_TZ } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { EventStream } from "@/features/operations/event-stream";
 import { LiveWorkspace, type WorkspaceTab } from "@/features/operations/live-workspace";
 import { OperationsEmpty } from "@/features/operations/operations-empty";
@@ -56,29 +55,32 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
       label: "След. рейс",
       count: previews.length,
       content: (
-        <div className="space-y-1.5 p-3" data-testid="next-load-previews">
+        <div className="space-y-3 px-2 pb-3" data-testid="next-load-previews">
           {previews.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-subheadline text-muted-foreground px-2 py-2">
               Когда машина будет подъезжать к точке разгрузки, здесь появятся грузы для следующего рейса — без порожнего пробега.
             </p>
           ) : (
-            previews.map((p) => (
-              <Link
-                key={p.vehicleId}
-                href={p.movementId ? `/next-load?vehicle=${p.vehicleId}&movement=${p.movementId}` : `/next-load?vehicle=${p.vehicleId}`}
-                className={cn(
-                  "border-border hover:border-border-strong hover:bg-surface-secondary block rounded-md border p-2.5 text-sm transition-colors",
-                )}
-              >
-                <span className="text-meta block">
-                  <span className="id-code text-foreground font-medium">{p.plateNumber}</span> · рейс{" "}
-                  <span className="id-code">{p.orderNumber}</span>
-                </span>
-                <span className="mt-0.5 block leading-5">{p.message}</span>
-              </Link>
-            ))
+            <ul className="[&>li+li_[data-row-content]]:hairline-t">
+              {previews.map((p) => (
+                <li key={p.vehicleId}>
+                  <Link
+                    href={p.movementId ? `/next-load?vehicle=${p.vehicleId}&movement=${p.movementId}` : `/next-load?vehicle=${p.vehicleId}`}
+                    className="hover:bg-fill-quaternary block rounded-md px-2.5 transition-colors duration-(--duration-micro)"
+                  >
+                    <span data-row-content className="block py-2.5">
+                      <span className="text-footnote text-muted-foreground block">
+                        <span className="id-code text-foreground font-medium">{p.plateNumber}</span> · рейс{" "}
+                        <span className="id-code">{p.orderNumber}</span>
+                      </span>
+                      <span className="mt-0.5 block">{p.message}</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           )}
-          <Button asChild variant="outline" size="sm" className="w-full">
+          <Button asChild variant="secondary" className="text-link w-full">
             <Link href="/next-load">
               <Navigation /> Спланировать следующий рейс
             </Link>
@@ -90,7 +92,7 @@ export default async function OperationsPage({ searchParams }: { searchParams: P
 
   const actionsNode =
     kind === "carrier" ? (
-      <Button asChild size="sm" variant="outline">
+      <Button asChild size="sm" variant="secondary">
         <Link href="/marketplace">
           <Search /> Биржа
         </Link>

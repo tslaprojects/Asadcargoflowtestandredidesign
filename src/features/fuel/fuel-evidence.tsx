@@ -26,7 +26,7 @@ const na = <span className="text-muted-foreground">нет данных — пр�
 
 /** Какие проверки выполнены и на каких данных (NOT_AVAILABLE показывается честно). */
 export function AnalysisChecks({ checks, liters }: { checks: Checks | null; liters: number }) {
-  if (!checks) return <p className="text-muted-foreground text-sm">Анализ ещё не выполнен.</p>;
+  if (!checks) return <p className="text-muted-foreground text-body">Анализ ещё не выполнен.</p>;
   const rows: [string, React.ReactNode][] = [
     [
       "GPS автомобиля",
@@ -78,7 +78,7 @@ export function AnalysisChecks({ checks, liters }: { checks: Checks | null; lite
     ],
   ];
   return (
-    <dl className="grid gap-2 text-sm sm:grid-cols-[180px_1fr]" data-testid="analysis-checks">
+    <dl className="text-body grid gap-2 sm:grid-cols-[180px_1fr]" data-testid="analysis-checks">
       {rows.map(([k, v]) => (
         <div key={k} className="contents">
           <dt className="text-muted-foreground">{k}</dt>
@@ -90,7 +90,7 @@ export function AnalysisChecks({ checks, liters }: { checks: Checks | null; lite
 }
 
 export function TelemetryTable({ points }: { points: Point[] }) {
-  if (!points.length) return <p className="text-muted-foreground text-sm">Показаний телематики за этот период нет.</p>;
+  if (!points.length) return <p className="text-muted-foreground text-body">Показаний телематики за этот период нет.</p>;
   return (
     <div className="max-h-80 overflow-auto">
       <Table>

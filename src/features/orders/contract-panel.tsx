@@ -92,7 +92,7 @@ export function ContractPanel({
               <CardTitle className="flex items-center gap-2">
                 <FileText className="size-4" aria-hidden /> {contract.title}
               </CardTitle>
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p className="text-muted-foreground text-body mt-1">
                 № {contract.documentNumber} от {formatDate(contract.createdAt)}
               </p>
             </div>
@@ -108,13 +108,15 @@ export function ContractPanel({
               ]}
             />
             <div className="bg-muted/60 rounded-lg p-3">
-              <p className="text-muted-foreground text-xs">Hash документа (SHA-256)</p>
-              <p className="font-mono text-xs break-all" data-testid="contract-hash">
+              <p className="text-muted-foreground text-footnote">Hash документа (SHA-256)</p>
+              <p className="text-footnote font-mono break-all" data-testid="contract-hash">
                 {contract.contentHash}
               </p>
               <p
                 className={
-                  integrityOk ? "text-success mt-1 flex items-center gap-1 text-xs" : "text-danger mt-1 flex items-center gap-1 text-xs"
+                  integrityOk
+                    ? "text-success text-footnote mt-1 flex items-center gap-1"
+                    : "text-danger text-footnote mt-1 flex items-center gap-1"
                 }
               >
                 {integrityOk ? <ShieldCheck className="size-3.5" aria-hidden /> : <ShieldAlert className="size-3.5" aria-hidden />}
@@ -133,9 +135,9 @@ export function ContractPanel({
                 </a>
               </Button>
             </div>
-            <details className="border-border rounded-lg border">
-              <summary className="cursor-pointer px-3 py-2 text-sm font-medium">Текст договора</summary>
-              <pre className="border-border max-h-[420px] overflow-y-auto border-t p-3 font-sans text-sm leading-relaxed whitespace-pre-wrap">
+            <details className="bg-fill-quaternary rounded-lg">
+              <summary className="text-body cursor-pointer px-3 py-2 font-medium">Текст договора</summary>
+              <pre className="hairline-t text-body max-h-[420px] overflow-y-auto p-3 font-sans leading-relaxed whitespace-pre-wrap">
                 {contract.contentSnapshot}
               </pre>
             </details>
@@ -147,11 +149,11 @@ export function ContractPanel({
           </CardHeader>
           <CardContent>
             {contract.signatures.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Договор ещё никто не подписал.</p>
+              <p className="text-muted-foreground text-body">Договор ещё никто не подписал.</p>
             ) : (
               <ul className="space-y-3">
                 {contract.signatures.map((s) => (
-                  <li key={s.id} className="flex gap-3 text-sm">
+                  <li key={s.id} className="text-body flex gap-3">
                     <CheckCircle2 className="text-success mt-0.5 size-4 shrink-0" aria-hidden />
                     <div className="min-w-0">
                       <p>
@@ -163,7 +165,7 @@ export function ContractPanel({
                       <p className="text-muted-foreground">
                         {formatDateTime(s.signedAt)} · внутреннее электронное подтверждение{s.ipAddress ? ` · IP ${s.ipAddress}` : ""}
                       </p>
-                      <p className="text-muted-foreground font-mono text-xs break-all">hash: {s.documentHash}</p>
+                      <p className="text-muted-foreground text-footnote font-mono break-all">hash: {s.documentHash}</p>
                     </div>
                   </li>
                 ))}
@@ -176,19 +178,19 @@ export function ContractPanel({
       <Card className="order-first h-fit 2xl:order-none">
         <CardHeader>
           <CardTitle>Электронное подписание документа</CardTitle>
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-footnote">
             Внутреннее электронное подтверждение CargoFlow. Не является квалифицированной электронной подписью.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
           {signedByMe ? (
-            <p className="bg-success-bg text-success flex items-center gap-2 rounded-lg p-3 text-sm">
+            <p className="bg-success-bg text-success text-body flex items-center gap-2 rounded-lg p-3">
               <CheckCircle2 className="size-4" aria-hidden /> Ваша компания подписала этот документ.
             </p>
           ) : !pending_ ? (
-            <p className="text-muted-foreground text-sm">Документ недоступен для подписания.</p>
+            <p className="text-muted-foreground text-body">Документ недоступен для подписания.</p>
           ) : !canSign ? (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-body">
               Подписать договор может уполномоченный представитель стороны сделки (руководитель компании).
             </p>
           ) : (

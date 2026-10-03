@@ -1,10 +1,11 @@
 "use client";
-import { ArrowRight, Building2, CornerDownLeft, Loader2, Package, Search, Truck, type LucideIcon } from "lucide-react";
+import { Building2, CornerDownLeft, Loader2, Package, Search, Truck, type LucideIcon } from "lucide-react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { StatusBadge } from "@/components/common/status-badge";
 import { api } from "@/lib/client/api";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { navItems, type NavKind } from "./nav-config";
 
@@ -44,7 +45,7 @@ export function useShortcutLabel() {
   );
 }
 
-/** Кнопка вызова командной строки в шапке — выглядит как поле поиска. */
+/** Поле поиска в тулбаре, как в macOS: серая заливка, лупа, подсказка сочетания клавиш. */
 export function CommandTrigger({ onOpen, className }: { onOpen: () => void; className?: string }) {
   const shortcut = useShortcutLabel();
   return (
@@ -53,15 +54,13 @@ export function CommandTrigger({ onOpen, className }: { onOpen: () => void; clas
       onClick={onOpen}
       aria-keyshortcuts="Meta+K Control+K"
       className={cn(
-        "border-border bg-surface-secondary text-muted-foreground hover:border-border-strong hover:bg-card flex h-9 w-full items-center gap-2 rounded-md border px-2.5 text-sm transition-colors duration-150",
+        "bg-fill-tertiary text-muted-foreground hover:bg-fill-secondary text-body flex h-7 items-center gap-1.5 rounded-md px-2 transition-colors duration-(--duration-micro)",
         className,
       )}
     >
-      <Search className="size-4 shrink-0" aria-hidden />
-      <span className="flex-1 truncate text-left">Поиск: перевозка, груз, госномер, компания…</span>
-      <kbd className="border-border bg-card text-muted-foreground hidden rounded-sm border px-1.5 font-sans text-[0.6875rem] font-medium sm:inline">
-        {shortcut}
-      </kbd>
+      <Search className="size-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1 truncate text-left">{t("nav.searchShort")}</span>
+      <kbd className="text-footnote text-tertiary-foreground font-sans">{shortcut}</kbd>
     </button>
   );
 }
@@ -93,7 +92,7 @@ export function CommandBar({ kind, open, onOpenChange }: { kind: NavKind; open: 
     const term = q.trim();
     if (term.length < 2) return;
     const ctrl = new AbortController();
-    const t = setTimeout(async () => {
+    const timer = setTimeout(async () => {
       setLoading(true);
       try {
         setRes(await api<SearchResult>(`/api/search?q=${encodeURIComponent(term)}`, { signal: ctrl.signal }));
@@ -104,7 +103,7 @@ export function CommandBar({ kind, open, onOpenChange }: { kind: NavKind; open: 
       }
     }, 200);
     return () => {
-      clearTimeout(t);
+      clearTimeout(timer);
       ctrl.abort();
     };
   }, [q]);
@@ -199,17 +198,17 @@ export function CommandBar({ kind, open, onOpenChange }: { kind: NavKind; open: 
       }}
     >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="bg-overlay data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out fixed inset-0 z-50" />
+        <DialogPrimitive.Overlay className="data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out fixed inset-0 z-50 bg-black/5 dark:bg-black/25" />
         <DialogPrimitive.Content
-          className="border-border bg-card data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out fixed top-[12vh] left-1/2 z-50 flex max-h-[72dvh] w-[calc(100%-1.5rem)] max-w-xl -translate-x-1/2 flex-col overflow-hidden rounded-xl border shadow-xl"
+          className="material-menu shadow-dialog data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out fixed top-[14vh] left-1/2 z-50 flex max-h-[68dvh] w-[calc(100%-1.5rem)] max-w-[38rem] -translate-x-1/2 flex-col overflow-hidden rounded-xl outline-none"
           aria-describedby={undefined}
         >
           <DialogPrimitive.Title className="sr-only">Командная строка</DialogPrimitive.Title>
-          <div className="border-border flex items-center gap-2 border-b px-4">
+          <div className="flex items-center gap-2.5 px-4">
             {loading ? (
-              <Loader2 className="text-muted-foreground size-4 shrink-0 animate-spin" aria-hidden />
+              <Loader2 className="text-muted-foreground size-5 shrink-0 animate-spin" aria-hidden />
             ) : (
-              <Search className="text-muted-foreground size-4 shrink-0" aria-hidden />
+              <Search className="text-muted-foreground size-5 shrink-0" aria-hidden />
             )}
             <input
               autoFocus
@@ -219,8 +218,8 @@ export function CommandBar({ kind, open, onOpenChange }: { kind: NavKind; open: 
                 setActive(0);
               }}
               onKeyDown={onKeyDown}
-              placeholder="Номер перевозки или груза, город, госномер, компания или раздел"
-              className="placeholder:text-muted-foreground h-12 flex-1 bg-transparent text-base outline-none sm:text-sm"
+              placeholder={t("nav.searchHint")}
+              className="text-title3 placeholder:text-tertiary-foreground h-14 flex-1 bg-transparent font-normal outline-none"
               role="combobox"
               aria-expanded="true"
               aria-controls={listId}
@@ -229,9 +228,15 @@ export function CommandBar({ kind, open, onOpenChange }: { kind: NavKind; open: 
               data-testid="command-input"
             />
           </div>
-          <div ref={listRef} id={listId} role="listbox" aria-label="Результаты" className="flex-1 overflow-y-auto p-2">
+          <div
+            ref={listRef}
+            id={listId}
+            role="listbox"
+            aria-label="Результаты"
+            className="hairline-t flex-1 overflow-y-auto overscroll-contain p-1.5"
+          >
             {commands.length === 0 && (
-              <p className="text-muted-foreground px-3 py-8 text-center text-sm">
+              <p className="text-subheadline text-muted-foreground px-3 py-8 text-center">
                 {loading ? "Ищем…" : "Ничего не найдено. Попробуйте номер перевозки (CF-O-…), город или госномер."}
               </p>
             )}
@@ -239,45 +244,56 @@ export function CommandBar({ kind, open, onOpenChange }: { kind: NavKind; open: 
               const header = c.group !== lastGroup ? c.group : null;
               lastGroup = c.group;
               const Icon = c.icon;
+              const selected = i === activeIndex;
               return (
                 <React.Fragment key={c.id}>
-                  {header && <p className="text-overline px-2 pt-2 pb-1">{header}</p>}
+                  {header && <p className="text-section px-2.5 pt-2.5 pb-1">{header}</p>}
                   <div
                     id={`${listId}-${i}`}
                     data-index={i}
                     role="option"
-                    aria-selected={i === activeIndex}
+                    aria-selected={selected}
                     onMouseMove={() => setActive(i)}
                     onClick={c.run}
                     className={cn(
-                      "flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 text-sm transition-colors duration-100",
-                      i === activeIndex ? "bg-accent text-foreground" : "text-foreground",
+                      "flex min-h-11 cursor-default items-center gap-2.5 rounded-md px-2.5 py-1 lg:min-h-9",
+                      selected ? "bg-selection text-selection-foreground" : "text-foreground",
                     )}
                   >
-                    <span className="bg-muted text-muted-foreground grid size-7 shrink-0 place-items-center rounded-md">
-                      <Icon className="size-4" aria-hidden />
-                    </span>
+                    <Icon className={cn("size-4 shrink-0", selected ? "text-selection-foreground" : "text-muted-foreground")} aria-hidden />
                     <span className="min-w-0 flex-1">
-                      <span className={cn("block truncate font-medium", c.code && "id-code")}>{c.label}</span>
-                      {c.hint && <span className="text-muted-foreground block truncate text-xs">{c.hint}</span>}
+                      <span className={cn("block truncate", c.code && "id-code")}>{c.label}</span>
+                      {c.hint && (
+                        <span
+                          className={cn(
+                            "text-footnote block truncate",
+                            selected ? "text-selection-foreground/80" : "text-muted-foreground",
+                          )}
+                        >
+                          {c.hint}
+                        </span>
+                      )}
                     </span>
-                    {c.status && <StatusBadge kind="OrderStatus" value={c.status} />}
-                    {i === activeIndex && <CornerDownLeft className="text-muted-foreground size-3.5 shrink-0" aria-hidden />}
-                    {i !== activeIndex && <ArrowRight className="size-3.5 shrink-0 opacity-0" aria-hidden />}
+                    {c.status && (
+                      <span className={cn(selected && "[&_*]:!text-selection-foreground")}>
+                        <StatusBadge kind="OrderStatus" value={c.status} />
+                      </span>
+                    )}
+                    {selected && <CornerDownLeft className="size-3.5 shrink-0 opacity-80" aria-hidden />}
                   </div>
                 </React.Fragment>
               );
             })}
           </div>
-          <div className="border-border text-muted-foreground bg-surface-secondary flex items-center gap-4 border-t px-4 py-2 text-xs">
+          <div className="hairline-t text-caption text-muted-foreground flex items-center gap-4 px-4 py-1.5">
             <span>
               <kbd className="font-sans">↑↓</kbd> выбор
             </span>
             <span>
-              <kbd className="font-sans">Enter</kbd> открыть
+              <kbd className="font-sans">↩</kbd> открыть
             </span>
             <span>
-              <kbd className="font-sans">Esc</kbd> закрыть
+              <kbd className="font-sans">esc</kbd> закрыть
             </span>
           </div>
         </DialogPrimitive.Content>

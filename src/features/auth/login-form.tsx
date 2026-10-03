@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
-import { Field, FormError } from "@/components/common/field";
+import { FormError } from "@/components/common/field";
+import { FormGroup, FormRow, rowInput } from "@/components/common/form-group";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { api, errorMessage } from "@/lib/client/api";
+import { t } from "@/lib/i18n";
 import { loginSchema } from "@/lib/validation/auth";
 import { DataModeSelector, useRememberedDataMode } from "./data-mode";
 import type { z } from "zod";
@@ -51,53 +52,72 @@ export function LoginForm() {
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Вход в CargoFlow</h1>
-      <p className="text-muted-foreground mt-1 text-sm">Цифровая платформа международных грузоперевозок</p>
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+      <div className="text-center">
+        <h1 className="text-large-title">Вход в CargoFlow</h1>
+        <p className="text-subheadline text-muted-foreground mt-1">Цифровая платформа международных грузоперевозок</p>
+      </div>
+      <form onSubmit={onSubmit} className="mt-7 space-y-5" noValidate>
         <FormError message={error} />
         <DataModeSelector value={dataMode} onChange={setDataMode} />
-        <Field id="email" label="Email" error={errors.email?.message} required>
-          <Input type="email" autoComplete="email" inputMode="email" {...form.register("email")} />
-        </Field>
-        <Field id="password" label="Пароль" error={errors.password?.message} required>
-          <Input type="password" autoComplete="current-password" {...form.register("password")} />
-        </Field>
-        <div className="flex justify-end">
-          <Link href="/forgot-password" className="text-primary text-sm hover:underline">
-            Забыли пароль?
-          </Link>
-        </div>
+        <FormGroup>
+          <FormRow id="email" label="Email" error={errors.email?.message} required>
+            <input
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              placeholder="name@company.com"
+              className={rowInput}
+              {...form.register("email")}
+            />
+          </FormRow>
+          <FormRow id="password" label="Пароль" error={errors.password?.message} required>
+            <input
+              type="password"
+              autoComplete="current-password"
+              placeholder={t("ui.required")}
+              className={rowInput}
+              {...form.register("password")}
+            />
+          </FormRow>
+        </FormGroup>
         <Button type="submit" className="w-full" size="lg" loading={isSubmitting} loadingText="Входим...">
           Войти
         </Button>
+        <p className="text-center">
+          <Link href="/forgot-password" className="text-link text-subheadline hover:underline">
+            Забыли пароль?
+          </Link>
+        </p>
       </form>
-      <p className="text-muted-foreground mt-6 text-center text-sm">
+      <p className="text-subheadline text-muted-foreground mt-8 text-center">
         Нет аккаунта?{" "}
-        <Link href="/register" className="text-primary font-medium hover:underline">
+        <Link href="/register" className="text-link font-medium hover:underline">
           Зарегистрироваться
         </Link>
       </p>
       {showDemo && (
-        <div className="border-border bg-card mt-8 rounded-lg border border-dashed p-4">
-          <p className="text-sm font-medium">Демо-доступ {isProduction ? "(демо-стенд: данные публичны)" : "(локальная среда)"}</p>
-          <p className="text-muted-foreground mb-3 text-xs">Пароль для всех: Demo1234!</p>
-          <div className="flex flex-wrap gap-2">
-            {demoAccounts.map((d) => (
-              <Button
-                key={d.email}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  form.setValue("email", d.email);
-                  form.setValue("password", "Demo1234!");
-                }}
-              >
-                {d.label}
-              </Button>
-            ))}
+        <section className="mt-8">
+          <p className="text-section px-4">Демо-доступ · {isProduction ? "демо-стенд, данные публичны" : t("ui.localEnv")}</p>
+          <div className="bg-card mt-1.5 rounded-lg p-3">
+            <div className="flex flex-wrap gap-1.5">
+              {demoAccounts.map((d) => (
+                <Button
+                  key={d.email}
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    form.setValue("email", d.email);
+                    form.setValue("password", "Demo1234!");
+                  }}
+                >
+                  {d.label}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
+          <p className="text-footnote text-muted-foreground mt-1.5 px-4">Пароль для всех: Demo1234!</p>
+        </section>
       )}
     </div>
   );

@@ -53,7 +53,7 @@ export default async function AnomalyPage({ params }: { params: Promise<{ id: st
               <p className="text-base" data-testid="anomaly-explanation">
                 {a.explanation}
               </p>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-body">
                 Балл по правилу: <b>{a.score}</b>
                 {analysis?.score != null && (
                   <>
@@ -65,19 +65,19 @@ export default async function AnomalyPage({ params }: { params: Promise<{ id: st
               </p>
               <AnomalyActions anomalyId={a.id} status={a.status} canInvestigate={actor.permissions.has("FUEL_INVESTIGATE")} />
               {a.investigation && (
-                <p className="text-sm">
+                <p className="text-body">
                   Расследование:{" "}
-                  <Link href={`/fuel/investigations/${a.investigation.id}`} className="text-primary hover:underline">
+                  <Link href={`/fuel/investigations/${a.investigation.id}`} className="text-link hover:underline">
                     {a.investigation.title}
                   </Link>{" "}
                   <StatusBadge kind="FuelInvestigationStatus" value={a.investigation.status} />
                 </p>
               )}
               {a.reviewComment && (
-                <div className="bg-muted rounded-lg p-3 text-sm">
+                <div className="bg-muted text-body rounded-lg p-3">
                   <p className="font-medium">Результат проверки{reviewer ? ` · ${reviewer.firstName} ${reviewer.lastName}` : ""}</p>
                   <p>{a.reviewComment}</p>
-                  {a.reviewedAt && <p className="text-muted-foreground text-xs">{formatDateTime(a.reviewedAt)}</p>}
+                  {a.reviewedAt && <p className="text-muted-foreground text-footnote">{formatDateTime(a.reviewedAt)}</p>}
                 </div>
               )}
             </CardContent>
@@ -121,7 +121,7 @@ export default async function AnomalyPage({ params }: { params: Promise<{ id: st
                     {
                       label: "Рейс",
                       value: t.order ? (
-                        <Link className="text-primary hover:underline" href={`/orders/${t.order.id}?tab=fuel`}>
+                        <Link className="text-link hover:underline" href={`/orders/${t.order.id}?tab=fuel`}>
                           {t.order.publicNumber}
                         </Link>
                       ) : (
@@ -145,8 +145,8 @@ export default async function AnomalyPage({ params }: { params: Promise<{ id: st
             </Card>
           )}
           {!actor.isAdmin && (
-            <p className="text-sm">
-              <Link href={`/fuel/vehicles/${a.vehicle.id}`} className="text-primary hover:underline">
+            <p className="text-body">
+              <Link href={`/fuel/vehicles/${a.vehicle.id}`} className="text-link hover:underline">
                 Все данные автомобиля →
               </Link>
             </p>

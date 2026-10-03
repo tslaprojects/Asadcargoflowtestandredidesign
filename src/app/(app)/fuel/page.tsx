@@ -92,7 +92,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
               <Link
                 key={v.id}
                 href={`/fuel/vehicles/${v.id}`}
-                className="border-border bg-card hover:border-primary/40 flex flex-col gap-3 rounded-lg border p-4 shadow-xs transition-colors"
+                className="bg-card hover:bg-surface-secondary flex flex-col gap-3 rounded-lg p-4 transition-colors"
                 data-testid="fleet-card"
               >
                 <div className="flex items-start justify-between gap-2">
@@ -100,24 +100,24 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                     <p className="font-semibold">
                       {v.make} {v.model}
                     </p>
-                    <p className="text-muted-foreground font-mono text-sm">{v.plateNumber}</p>
+                    <p className="text-muted-foreground text-body font-mono">{v.plateNumber}</p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     <FuelHealthBadge health={v.health} />
                     {v.demo && <DemoBadge />}
                   </div>
                 </div>
-                <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                <dl className="text-body grid grid-cols-2 gap-x-3 gap-y-2">
                   <div>
-                    <dt className="text-muted-foreground text-xs">Водитель</dt>
+                    <dt className="text-muted-foreground text-footnote">Водитель</dt>
                     <dd>{v.driver?.fullName ?? <span className="text-muted-foreground">не назначен</span>}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground text-xs">Рейс</dt>
+                    <dt className="text-muted-foreground text-footnote">Рейс</dt>
                     <dd>{v.trip ? `${v.trip.route}` : <span className="text-muted-foreground">нет активного</span>}</dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground text-xs">GPS</dt>
+                    <dt className="text-muted-foreground text-footnote">GPS</dt>
                     <dd>
                       {v.location ? (
                         <span title={formatDateTime(v.location.at)}>
@@ -129,18 +129,18 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground text-xs">Средний расход (30 дн.)</dt>
+                    <dt className="text-muted-foreground text-footnote">Средний расход (30 дн.)</dt>
                     <dd>
                       <Metric value={v.consumption.per100Km} unit="л/100 км" />{" "}
                       {v.fuelNormPer100Km && v.deviationPct != null && (
-                        <span className="text-xs">
+                        <span className="text-footnote">
                           (норма {v.fuelNormPer100Km}, <DeviationText pct={v.deviationPct} />)
                         </span>
                       )}
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground text-xs">Последняя заправка</dt>
+                    <dt className="text-muted-foreground text-footnote">Последняя заправка</dt>
                     <dd>
                       {v.lastRefuel ? (
                         `${v.lastRefuel.liters} л · ${formatRelative(v.lastRefuel.transactionDate)}`
@@ -150,14 +150,14 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground text-xs">Топливо</dt>
+                    <dt className="text-muted-foreground text-footnote">Топливо</dt>
                     <dd>
                       <TankGauge liters={v.fuelLevel?.liters ?? null} capacity={v.tankCapacityLiters} />
                     </dd>
                   </div>
                 </dl>
                 {v.openAnomalies > 0 && (
-                  <p className="text-danger flex items-center gap-1.5 text-sm">
+                  <p className="text-danger text-body flex items-center gap-1.5">
                     <AlertTriangle className="size-4" aria-hidden /> Требуют проверки: {v.openAnomalies}
                   </p>
                 )}
@@ -175,21 +175,21 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
           </CardHeader>
           <CardContent>
             <MapView points={points} lines={[]} className="h-[320px] w-full overflow-hidden rounded-lg" />
-            <ul className="text-muted-foreground mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Обозначения">
+            <ul className="text-muted-foreground text-footnote mt-2 flex flex-wrap gap-x-4 gap-y-1" aria-label="Обозначения">
               <li>
-                <span className="mr-1 inline-block size-2.5 rounded-full bg-[#dc2626]" aria-hidden />
+                <span className="mr-1 inline-block size-2.5 rounded-full bg-[var(--map-attention)]" aria-hidden />
                 автомобиль
               </li>
               <li>
-                <span className="mr-1 inline-block size-2.5 rounded-full bg-[#15803d]" aria-hidden />
+                <span className="mr-1 inline-block size-2.5 rounded-full bg-[var(--map-done)]" aria-hidden />
                 заправка совпадает
               </li>
               <li>
-                <span className="mr-1 inline-block size-2.5 rounded-full bg-[#c2410c]" aria-hidden />
+                <span className="mr-1 inline-block size-2.5 rounded-full bg-[var(--map-delayed)]" aria-hidden />
                 требует проверки
               </li>
               <li>
-                <span className="mr-1 inline-block size-2.5 rounded-full bg-[#64748b]" aria-hidden />
+                <span className="mr-1 inline-block size-2.5 rounded-full bg-[var(--map-cancelled)]" aria-hidden />
                 нет данных для проверки
               </li>
             </ul>
@@ -198,26 +198,26 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
         <Card data-testid="attention">
           <CardHeader className="flex-row items-center justify-between">
             <CardTitle>Требует внимания</CardTitle>
-            <Link href="/fuel?tab=checks" className="text-primary text-sm hover:underline">
+            <Link href="/fuel?tab=checks" className="text-link text-body hover:underline">
               Все проверки →
             </Link>
           </CardHeader>
           <CardContent>
             {openAnomalies.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Несоответствий нет.</p>
+              <p className="text-muted-foreground text-body">Несоответствий нет.</p>
             ) : (
               <ul className="space-y-2">
                 {openAnomalies.slice(0, 6).map((a) => (
                   <li key={a.id}>
                     <Link
                       href={`/fuel/anomalies/${a.id}`}
-                      className="border-border hover:border-primary/40 block rounded-lg border p-2.5 text-sm transition-colors"
+                      className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-2.5 transition-colors"
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="font-medium">{label("FuelAnomalyType", a.type)}</span>
                         <StatusBadge kind="FuelAnomalySeverity" value={a.severity} />
                       </span>
-                      <span className="text-muted-foreground block text-xs">
+                      <span className="text-muted-foreground text-footnote block">
                         {a.vehicle.plateNumber} · {formatDateTime(a.detectedAt)} · {label("FuelAnomalyStatus", a.status)}
                       </span>
                     </Link>
@@ -232,10 +232,10 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
             <CardHeader>
               <CardTitle>Расход выше нормы</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-1.5 text-sm">
+            <CardContent className="text-body space-y-1.5">
               {dash.overNorm.map((v) => (
                 <p key={v.id} className="flex justify-between gap-2">
-                  <Link href={`/fuel/vehicles/${v.id}`} className="text-primary hover:underline">
+                  <Link href={`/fuel/vehicles/${v.id}`} className="text-link hover:underline">
                     {v.plateNumber}
                   </Link>
                   <span>
@@ -323,20 +323,20 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                   <TableRow key={c.id} data-testid={`card-row-${c.label}`}>
                     <TableCell>
                       <p className="font-medium">{c.label}</p>
-                      <p className="text-muted-foreground text-xs">
+                      <p className="text-muted-foreground text-footnote">
                         {c.last4 ? `•••• ${c.last4}` : "—"} · {c.account.currency}
                         {c.isDemo && " · DEMO"}
                       </p>
                     </TableCell>
                     <TableCell>
                       <StatusBadge kind="FuelCardStatus" value={c.status} />
-                      {c.blockedReason && <p className="text-muted-foreground mt-1 max-w-48 text-xs">{c.blockedReason}</p>}
+                      {c.blockedReason && <p className="text-muted-foreground text-footnote mt-1 max-w-48">{c.blockedReason}</p>}
                     </TableCell>
-                    <TableCell className="text-sm">
+                    <TableCell className="text-body">
                       <p>{c.vehicle ? `${c.vehicle.plateNumber} · ${c.vehicle.make} ${c.vehicle.model}` : "—"}</p>
                       <p className="text-muted-foreground">{c.driver?.fullName ?? "водитель не назначен"}</p>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">
+                    <TableCell className="text-muted-foreground text-footnote">
                       {[
                         c.limits.perTransactionLiters && `${c.limits.perTransactionLiters} л/заправка`,
                         c.limits.dailyLiters && `${c.limits.dailyLiters} л/день`,
@@ -379,7 +379,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
   const accountTab = accounts && (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-muted-foreground max-w-2xl text-sm">
+        <p className="text-muted-foreground text-body max-w-2xl">
           Баланс корпоративного топливного счёта видят только владелец и руководство. Водители видят лишь «Оплата разрешена».
         </p>
         <TopUpDialog demo={demo} />
@@ -407,7 +407,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
         </CardHeader>
         <CardContent>
           {accounts.entries.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Операций нет.</p>
+            <p className="text-muted-foreground text-body">Операций нет.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -430,7 +430,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                     <TableCell>
                       <MoneyDisplay amount={e.balanceAfter} currency={e.currency} />
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-w-64 truncate text-sm">
+                    <TableCell className="text-muted-foreground text-body max-w-64 truncate">
                       {e.externalReference ?? e.note ?? "—"}
                     </TableCell>
                   </TableRow>
@@ -451,14 +451,14 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
         </CardHeader>
         <CardContent>
           {anomalies.items.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Несоответствий не обнаружено.</p>
+            <p className="text-muted-foreground text-body">Несоответствий не обнаружено.</p>
           ) : (
             <ul className="space-y-2" data-testid="anomaly-list">
               {anomalies.items.map((a) => (
                 <li key={a.id}>
                   <Link
                     href={`/fuel/anomalies/${a.id}`}
-                    className="border-border hover:border-primary/40 block rounded-lg border p-3 text-sm transition-colors"
+                    className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-3 transition-colors"
                   >
                     <span className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium">{label("FuelAnomalyType", a.type)}</span>
@@ -468,7 +468,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
                       </span>
                     </span>
                     <span className="text-muted-foreground mt-1 block">{a.explanation}</span>
-                    <span className="text-muted-foreground mt-1 block text-xs">
+                    <span className="text-muted-foreground text-footnote mt-1 block">
                       {a.vehicle.plateNumber} · {formatDateTime(a.detectedAt)} · балл {a.score}
                       {a.isDemo && " · DEMO"}
                     </span>
@@ -485,20 +485,20 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
         </CardHeader>
         <CardContent>
           {investigations.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Расследований нет. Открыть расследование можно со страницы несоответствия.</p>
+            <p className="text-muted-foreground text-body">Расследований нет. Открыть расследование можно со страницы несоответствия.</p>
           ) : (
             <ul className="space-y-2">
               {investigations.map((i) => (
                 <li key={i.id}>
                   <Link
                     href={`/fuel/investigations/${i.id}`}
-                    className="border-border hover:border-primary/40 block rounded-lg border p-3 text-sm transition-colors"
+                    className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-3 transition-colors"
                   >
                     <span className="flex items-center justify-between gap-2">
                       <span className="font-medium">{i.title}</span>
                       <StatusBadge kind="FuelInvestigationStatus" value={i.status} />
                     </span>
-                    <span className="text-muted-foreground text-xs">
+                    <span className="text-muted-foreground text-footnote">
                       {i.vehicle.plateNumber} · несоответствий: {i._count.anomalies} · комментариев: {i._count.comments} ·{" "}
                       {formatDateTime(i.createdAt)}
                     </span>
@@ -580,7 +580,7 @@ export default async function FuelPage({ searchParams }: { searchParams: SearchP
           { value: "checks", label: openAnomalies.length ? `Проверки (${openAnomalies.length})` : "Проверки", content: checks },
         ]}
       />
-      <p className="text-muted-foreground mt-6 flex items-center gap-1.5 text-xs">
+      <p className="text-muted-foreground text-footnote mt-6 flex items-center gap-1.5">
         <Truck className="size-3.5" aria-hidden /> Несоответствие — это сигнал для проверки, а не вывод о нарушении. Решение принимает
         владелец.
       </p>

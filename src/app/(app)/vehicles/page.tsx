@@ -75,7 +75,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Sea
   const canManage = actor.permissions.has("VEHICLE_MANAGE");
 
   const counts = (
-    <nav aria-label="Фильтр по статусу" className="grid grid-cols-5 gap-0.5" data-testid="fleet-counts">
+    <nav aria-label="Фильтр по статусу" className="bg-fill-tertiary grid grid-cols-5 gap-0.5 rounded-md p-0.5" data-testid="fleet-counts">
       {[undefined, ...STATUSES].map((s) => {
         const active = (validStatus ?? undefined) === s;
         return (
@@ -84,12 +84,12 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Sea
             href={href(s)}
             aria-current={active ? "true" : undefined}
             className={cn(
-              "flex min-w-0 flex-col rounded-md px-1.5 py-1 transition-colors duration-150",
-              active ? "bg-accent ring-primary/30 ring-1" : "hover:bg-muted",
+              "flex min-w-0 flex-col items-center rounded-[0.4375rem] px-1 py-1 text-center transition-[background-color,box-shadow] duration-(--duration-standard)",
+              active ? "bg-segment-thumb shadow-control" : "hover:bg-fill-quaternary",
             )}
           >
-            <span className="text-metric">{count(s)}</span>
-            <span className="text-muted-foreground truncate text-[0.6875rem] leading-4 font-medium">{s ? STATUS_SHORT[s] : "Все"}</span>
+            <span className="text-headline num leading-5">{count(s)}</span>
+            <span className="text-caption text-muted-foreground w-full truncate">{s ? STATUS_SHORT[s] : "Все"}</span>
           </Link>
         );
       })}

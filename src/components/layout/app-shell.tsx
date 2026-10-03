@@ -1,11 +1,13 @@
 "use client";
-import { Menu, PanelLeftClose, PanelLeftOpen, ShieldCheck, Truck } from "lucide-react";
+import { Ellipsis, PanelLeft, Search, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { InsetGroup, InsetList, ListRow } from "@/components/common/inset-group";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip } from "@/components/ui/tooltip";
 import type { ClientActor } from "@/lib/auth/actor";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { DataModeBadge, DataModeSwitchDialog } from "@/features/auth/data-mode";
 import { CommandBar, CommandTrigger } from "./command-bar";
@@ -20,16 +22,23 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/** Рабочие пространства на всю площадь окна: карта + список + контекстная панель. */
+/** Экраны в три колонки (сайдбар | список | детали) занимают всю площадь окна. */
 const WORKSPACE_ROUTES = new Set(["/dashboard", "/orders", "/vehicles"]);
 
+const ADMIN_ITEM: NavItem = { href: "/admin", label: t("nav.admin"), icon: ShieldCheck };
+
+/** Знак CargoFlow: маршрут из точки А в точку Б на акцентной плитке со скруглением иконки приложения. */
 export function Logo({ className, dark, compact }: { className?: string; dark?: boolean; compact?: boolean }) {
   return (
-    <span className={cn("inline-flex items-center gap-2 font-semibold tracking-tight", className)}>
-      <span className="bg-primary grid size-8 shrink-0 place-items-center rounded-md text-white">
-        <Truck className="size-4.5" aria-hidden />
+    <span className={cn("inline-flex items-center gap-2", className)}>
+      <span className="bg-primary grid size-7 shrink-0 place-items-center rounded-[28%]" aria-hidden>
+        <svg viewBox="0 0 24 24" className="size-[1.125rem]" fill="none">
+          <path d="M6.5 17.5c0-4 3.5-4 5.5-5.5s5.5-1.5 5.5-5.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="6.5" cy="17.5" r="2.25" className="fill-primary" stroke="white" strokeWidth="1.75" />
+          <circle cx="17.5" cy="6.5" r="2.5" fill="white" />
+        </svg>
       </span>
-      {!compact && <span className={cn("text-base", dark ? "text-white" : "text-foreground")}>CargoFlow</span>}
+      {!compact && <span className={cn("text-headline tracking-[-0.01em]", dark ? "text-white" : "text-foreground")}>CargoFlow</span>}
     </span>
   );
 }
@@ -44,135 +53,63 @@ function groupBySection(items: NavItem[]) {
   return groups;
 }
 
-function UnreadBadge({ count, className }: { count: number; className?: string }) {
-  if (count <= 0) return null;
-  return (
-    <span
-      className={cn(
-        "bg-primary num animate-pop-in grid h-4.5 min-w-4.5 place-items-center rounded-full px-1 text-[0.625rem] font-semibold text-white",
-        className,
-      )}
-    >
-      {count > 99 ? "99+" : count}
-    </span>
-  );
-}
-
-function NavLink({
-  item,
-  active,
-  collapsed,
-  count,
-  onNavigate,
-}: {
-  item: NavItem;
-  active: boolean;
-  collapsed?: boolean;
-  count: number;
-  onNavigate?: () => void;
-}) {
+/** Строка сайдбара macOS: акцентный значок, обычный текст, выделение — серая плашка, счётчик — серым числом, как в Mail. */
+function SidebarRow({ item, active, count }: { item: NavItem; active: boolean; count: number }) {
   const Icon = item.icon;
-  const link = (
+  return (
     <Link
       href={item.href}
-      onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      aria-label={collapsed ? (count ? `${item.label}, непрочитанных: ${count}` : item.label) : undefined}
       className={cn(
-        "group relative flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors duration-150",
-        collapsed && "mx-auto size-10 justify-center px-0",
-        active ? "bg-sidebar-active text-white" : "text-sidebar-foreground hover:bg-sidebar-active/70 hover:text-white",
+        "text-body text-sidebar-foreground flex h-7 items-center gap-2 rounded-md px-2 transition-colors duration-(--duration-micro)",
+        active ? "bg-sidebar-active" : "hover:bg-fill-quaternary",
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "bg-sidebar-accent absolute top-2 bottom-2 -left-2 w-[3px] rounded-r-full transition-opacity duration-150",
-          collapsed && "-left-3",
-          active ? "opacity-100" : "opacity-0",
-        )}
-      />
-      <Icon className={cn("size-[1.125rem] shrink-0", !active && "opacity-85 group-hover:opacity-100")} aria-hidden />
-      {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-      {count > 0 &&
-        (collapsed ? (
-          <span className="bg-sidebar-accent ring-sidebar absolute top-1.5 right-1.5 size-2 rounded-full ring-2" aria-hidden />
-        ) : (
-          <UnreadBadge count={count} />
-        ))}
-      {!collapsed && count > 0 && <span className="sr-only">непрочитанных: {count}</span>}
+      <Icon className="text-sidebar-accent size-4 shrink-0" aria-hidden />
+      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+      {count > 0 && (
+        <span className="text-footnote text-sidebar-muted num">
+          {count > 99 ? "99+" : count}
+          <span className="sr-only"> непрочитанных</span>
+        </span>
+      )}
     </Link>
-  );
-  return collapsed ? (
-    <Tooltip content={count ? `${item.label} · ${count}` : item.label} side="right">
-      {link}
-    </Tooltip>
-  ) : (
-    link
-  );
-}
-
-function NavList({ kind, onNavigate, unread, collapsed }: { kind: NavKind; onNavigate?: () => void; unread: number; collapsed?: boolean }) {
-  const pathname = usePathname();
-  return (
-    <nav aria-label="Основная навигация" className="flex flex-col gap-3">
-      {groupBySection(navItems(kind)).map((group, gi) => (
-        <div key={group.section ?? gi} className="flex flex-col gap-1">
-          {group.section &&
-            (collapsed ? (
-              <span className="bg-sidebar-border mx-3 mb-1 h-px" aria-hidden />
-            ) : (
-              <span className="text-sidebar-muted px-3 pb-0.5 text-[0.6875rem] font-semibold tracking-[0.06em] uppercase">
-                {group.section}
-              </span>
-            ))}
-          {group.items.map((item) => (
-            <NavLink
-              key={item.href}
-              item={item}
-              active={isActive(pathname, item.href)}
-              collapsed={collapsed}
-              count={item.badge === "messages" ? unread : 0}
-              onNavigate={onNavigate}
-            />
-          ))}
-        </div>
-      ))}
-    </nav>
   );
 }
 
 /**
- * Оболочка Transportation OS: компактная графитовая полоса навигации (иконки + подсказки; можно развернуть),
- * тонкая шапка с командной строкой (⌘K / Ctrl+K), режимом данных, уведомлениями и профилем;
- * на мобильном — нижняя навигация. Операционные экраны занимают всю рабочую область.
+ * Окно CargoFlow в духе macOS: полупрозрачный сайдбар со списком разделов, единый тулбар с поиском справа;
+ * на телефоне — таб-бар iOS снизу и «Ещё» со всеми разделами. Экраны в три колонки занимают всю площадь.
  */
 export function AppShell({
   actor,
   kind,
   unreadMessages,
-  sidebarCollapsed = true,
+  sidebarCollapsed = false,
   children,
 }: {
   actor: ClientActor;
   kind: NavKind;
   unreadMessages: number;
-  /** Начальное состояние из cookie — без сдвига раскладки при загрузке. */
+  /** Скрыт ли сайдбар (cookie) — без сдвига раскладки при загрузке. */
   sidebarCollapsed?: boolean;
   children: React.ReactNode;
 }) {
-  const [menuOpen, setMenuOpen] = React.useState(false);
-  const [collapsed, setCollapsed] = React.useState(sidebarCollapsed);
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  const [hidden, setHidden] = React.useState(sidebarCollapsed);
   const [modeDialog, setModeDialog] = React.useState(false);
   const [commandOpen, setCommandOpen] = React.useState(false);
   const pathname = usePathname();
-  const primary = navItems(kind)
-    .filter((i) => i.primary)
-    .slice(0, 4);
+  const items = navItems(kind);
+  const primary = items.filter((i) => i.primary).slice(0, 4);
   const adminLink = actor.isAdmin && kind !== "admin";
   const home = kind === "driver" ? "/driver" : kind === "admin" ? "/admin" : "/dashboard";
   const workspace = WORKSPACE_ROUTES.has(pathname);
   const searchable = kind !== "driver" && kind !== "none";
+  const demo = actor.dataMode === "demo";
+  const moreActive = !primary.some((i) => isActive(pathname, i.href));
+  // «Ещё» нужен, только если в нём есть что-то кроме разделов таб-бара
+  const hasMore = items.length > primary.length || adminLink || actor.memberships.length > 1;
 
   React.useEffect(() => {
     if (!searchable) return;
@@ -186,119 +123,125 @@ export function AppShell({
     return () => window.removeEventListener("keydown", onKey);
   }, [searchable]);
 
-  const toggleCollapsed = () => {
-    const next = !collapsed;
-    setCollapsed(next);
+  const toggleSidebar = () => {
+    const next = !hidden;
+    setHidden(next);
     document.cookie = `${SIDEBAR_COOKIE}=${next ? "1" : "0"}; path=/; max-age=31536000; samesite=lax`;
   };
+
+  const sidebarToggle = (
+    <Tooltip content={hidden ? t("nav.showSidebar") : t("nav.hideSidebar")} side="bottom">
+      <button
+        type="button"
+        onClick={toggleSidebar}
+        aria-label={hidden ? t("nav.showSidebar") : t("nav.hideSidebar")}
+        aria-expanded={!hidden}
+        className="text-muted-foreground hover:bg-fill-quaternary hover:text-foreground grid size-7 place-items-center rounded-sm transition-colors duration-(--duration-micro)"
+      >
+        <PanelLeft className="size-[1.125rem]" aria-hidden />
+      </button>
+    </Tooltip>
+  );
 
   return (
     <div
       className={cn(
-        "min-h-dvh transition-[padding] duration-(--duration-standard) ease-out motion-reduce:transition-none",
-        collapsed ? "lg:pl-16" : "lg:pl-56",
+        "min-h-dvh transition-[padding] duration-(--duration-complex) ease-out motion-reduce:transition-none",
+        !hidden && "lg:pl-60",
       )}
       data-workspace={workspace || undefined}
     >
       <a
         href="#main"
-        className="focus:bg-card sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:px-3 focus:py-2 focus:shadow-md"
+        className="focus:bg-elevated focus:shadow-menu sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:px-3 focus:py-2"
       >
-        Перейти к содержимому
+        {t("nav.skipToContent")}
       </a>
 
-      {/* Навигационная полоса (desktop) */}
+      {/* Сайдбар (широкий экран) */}
       <aside
         className={cn(
-          "bg-sidebar fixed inset-y-0 left-0 z-30 hidden flex-col py-3 transition-[width] duration-(--duration-standard) ease-out motion-reduce:transition-none lg:flex",
-          collapsed ? "w-16 px-3" : "w-56 px-3",
+          "material-sidebar hairline-r border-sidebar-border fixed inset-y-0 left-0 z-30 hidden w-60 flex-col transition-transform duration-(--duration-complex) ease-out motion-reduce:transition-none lg:flex",
+          hidden && "-translate-x-full",
         )}
-        data-collapsed={collapsed || undefined}
         aria-label="Навигация CargoFlow"
+        inert={hidden || undefined}
       >
-        <Link
-          href={home}
-          className={cn("mb-4 flex min-h-10 items-center rounded-md", collapsed ? "justify-center" : "px-1.5")}
-          aria-label="CargoFlow — операции"
-        >
-          <Logo dark compact={collapsed} />
-        </Link>
-        <div className="-mx-1 flex-1 [scrollbar-width:none] overflow-y-auto px-1">
-          <NavList kind={kind} unread={unreadMessages} collapsed={collapsed} />
+        <div className="flex h-[3.25rem] shrink-0 items-center justify-between pr-2.5 pl-4">
+          <Link href={home} className="rounded-sm" aria-label="CargoFlow — на главную">
+            <Logo />
+          </Link>
+          {sidebarToggle}
+        </div>
+        <nav aria-label={t("nav.mainNavigation")} className="flex-1 scrollbar-none overflow-y-auto px-2.5 pb-3">
+          {groupBySection(items).map((group, gi) => (
+            <div key={group.section ?? gi} className="flex flex-col gap-px">
+              {group.section && <span className="text-section px-2 pt-4 pb-1">{group.section}</span>}
+              {group.items.map((item) => (
+                <SidebarRow
+                  key={item.href}
+                  item={item}
+                  active={isActive(pathname, item.href)}
+                  count={item.badge === "messages" ? unreadMessages : 0}
+                />
+              ))}
+            </div>
+          ))}
           {adminLink && (
-            <div className="border-sidebar-border mt-3 border-t pt-3">
-              <NavLink
-                item={{ href: "/admin", label: "Администрирование", icon: ShieldCheck }}
-                active={false}
-                collapsed={collapsed}
-                count={0}
-              />
+            <div className="flex flex-col pt-4">
+              <SidebarRow item={ADMIN_ITEM} active={false} count={0} />
             </div>
           )}
-        </div>
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          aria-label={collapsed ? "Развернуть навигацию" : "Свернуть навигацию"}
-          aria-expanded={!collapsed}
-          title={collapsed ? "Развернуть навигацию" : undefined}
-          className={cn(
-            "text-sidebar-muted hover:bg-sidebar-active/70 mt-2 flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors duration-150 hover:text-white",
-            collapsed && "mx-auto size-10 justify-center px-0",
-          )}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="size-[1.125rem]" aria-hidden />
-          ) : (
-            <PanelLeftClose className="size-[1.125rem]" aria-hidden />
-          )}
-          {!collapsed && "Свернуть"}
-        </button>
+        </nav>
+        {actor.memberships.length > 0 && (
+          <div className="hairline-t border-sidebar-border shrink-0 p-2.5">
+            <CompanySwitcher actor={actor} />
+          </div>
+        )}
       </aside>
 
-      {/* Шапка; в демо-режиме — предупреждающая полоса сверху, режим заметен на любом экране */}
+      {/* Тулбар; в демо-режиме — тонкая предупреждающая линия сверху */}
       <header
         className={cn(
-          "border-border bg-card/95 supports-[backdrop-filter]:bg-card/85 sticky top-0 z-20 flex h-12 items-center gap-2 border-b px-3 backdrop-blur sm:px-4",
-          actor.dataMode === "demo" && "border-t-warning border-t-2",
+          "material-bar hairline-b sticky top-0 z-20 pt-[env(safe-area-inset-top)]",
+          demo && "shadow-[inset_0_2px_0_var(--warning)]",
         )}
       >
-        <button
-          type="button"
-          className="hover:bg-muted grid size-10 place-items-center rounded-md transition-colors duration-150 lg:hidden"
-          onClick={() => setMenuOpen(true)}
-          aria-label="Открыть меню"
-        >
-          <Menu className="size-5" />
-        </button>
-        <Link href={home} className="rounded-md lg:hidden" aria-label="CargoFlow — на главную">
-          <Logo compact />
-        </Link>
-        {searchable && (
-          <>
-            <CommandTrigger onOpen={() => setCommandOpen(true)} className="ml-1 hidden w-auto max-w-md min-w-0 flex-1 md:flex" />
+        <div className="flex h-11 items-center gap-1.5 px-3 sm:px-4 lg:h-[3.25rem]">
+          <div className={cn("hidden items-center gap-2", hidden && "lg:flex")}>
+            {sidebarToggle}
+            <Link href={home} className="rounded-sm" aria-label="CargoFlow — на главную">
+              <Logo />
+            </Link>
+          </div>
+          <Link href={home} className="rounded-sm lg:hidden" aria-label="CargoFlow — на главную">
+            <Logo compact />
+          </Link>
+          <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
             <button
               type="button"
-              onClick={() => setCommandOpen(true)}
-              className="hover:bg-muted ml-auto grid size-10 place-items-center rounded-md md:hidden"
-              aria-label="Поиск и команды"
+              onClick={() => setModeDialog(true)}
+              className="rounded-full transition-opacity duration-(--duration-micro) hover:opacity-75"
+              aria-label={`Режим данных: ${demo ? "демо-база" : "реальная база"}. Сменить режим`}
             >
-              <SearchIcon />
+              <DataModeBadge mode={actor.dataMode} />
             </button>
-          </>
-        )}
-        <div className={cn("flex items-center gap-1 sm:gap-1.5", searchable ? "md:ml-auto" : "ml-auto")}>
-          <button
-            type="button"
-            onClick={() => setModeDialog(true)}
-            className="rounded-sm transition-opacity duration-150 hover:opacity-80"
-            aria-label={`Режим данных: ${actor.dataMode === "demo" ? "демо-база" : "реальная база"}. Сменить режим`}
-          >
-            <DataModeBadge mode={actor.dataMode} />
-          </button>
-          {actor.memberships.length > 0 && <CompanySwitcher actor={actor} />}
-          <NotificationBell />
-          <UserMenu actor={actor} kind={kind} />
+            <NotificationBell />
+            {searchable && (
+              <>
+                <CommandTrigger onOpen={() => setCommandOpen(true)} className="hidden w-56 md:flex" />
+                <button
+                  type="button"
+                  onClick={() => setCommandOpen(true)}
+                  className="hover:bg-fill-quaternary grid size-10 place-items-center rounded-full md:hidden"
+                  aria-label="Поиск и команды"
+                >
+                  <Search className="size-5" aria-hidden />
+                </button>
+              </>
+            )}
+            <UserMenu actor={actor} kind={kind} />
+          </div>
         </div>
       </header>
 
@@ -308,18 +251,18 @@ export function AppShell({
         className={cn(
           "outline-none",
           workspace
-            ? "relative h-[calc(100dvh-3rem-3.5rem-env(safe-area-inset-bottom))] overflow-hidden lg:h-[calc(100dvh-3rem)]"
-            : "max-w-page mx-auto w-full px-3 pt-4 pb-28 sm:px-6 sm:pt-5 lg:pb-10",
+            ? "relative h-[calc(100dvh-2.75rem-3.125rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] overflow-hidden lg:h-[calc(100dvh-3.25rem)]"
+            : "max-w-page mx-auto w-full px-4 pt-4 pb-[calc(4.75rem+env(safe-area-inset-bottom))] sm:px-6 lg:px-8 lg:pt-6 lg:pb-14",
         )}
       >
         {children}
       </main>
 
-      {/* Нижняя навигация (mobile): ≤ 4 раздела + «Меню», подписи всегда видны */}
+      {/* Таб-бар iOS (узкий экран): ≤ 4 раздела + «Ещё» */}
       <nav
-        aria-label="Быстрая навигация"
-        className="border-border bg-card/95 supports-[backdrop-filter]:bg-card/90 fixed inset-x-0 bottom-0 z-20 grid border-t pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
-        style={{ gridTemplateColumns: `repeat(${primary.length + 1}, minmax(0,1fr))` }}
+        aria-label={t("nav.tabBar")}
+        className="material-bar hairline-t fixed inset-x-0 bottom-0 z-20 grid pb-[env(safe-area-inset-bottom)] lg:hidden"
+        style={{ gridTemplateColumns: `repeat(${primary.length + (hasMore ? 1 : 0)}, minmax(0,1fr))` }}
       >
         {primary.map((item) => {
           const Icon = item.icon;
@@ -331,21 +274,14 @@ export function AppShell({
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium transition-colors duration-150",
-                active ? "text-primary" : "text-muted-foreground active:text-foreground",
+                "flex h-[3.125rem] flex-col items-center justify-center gap-0.5 text-[0.625rem] leading-3 font-medium transition-colors duration-(--duration-micro)",
+                active ? "text-primary" : "text-muted-foreground",
               )}
             >
-              <span
-                aria-hidden
-                className={cn(
-                  "bg-primary absolute top-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-b-full transition-opacity duration-150",
-                  active ? "opacity-100" : "opacity-0",
-                )}
-              />
               <span className="relative">
-                <Icon className="size-5" aria-hidden />
+                <Icon className="size-6" aria-hidden />
                 {count > 0 && (
-                  <span className="bg-primary ring-card num absolute -top-1.5 -right-2.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.625rem] font-semibold text-white ring-2">
+                  <span className="bg-destructive num absolute -top-1 -right-2.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[0.625rem] font-semibold text-white">
                     {count > 9 ? "9+" : count}
                   </span>
                 )}
@@ -355,51 +291,72 @@ export function AppShell({
             </Link>
           );
         })}
-        <button
-          type="button"
-          onClick={() => setMenuOpen(true)}
-          className="text-muted-foreground active:text-foreground flex min-h-14 flex-col items-center justify-center gap-0.5 text-[0.6875rem] font-medium"
-          aria-haspopup="dialog"
-        >
-          <Menu className="size-5" aria-hidden />
-          Меню
-        </button>
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            className={cn(
+              "flex h-[3.125rem] flex-col items-center justify-center gap-0.5 text-[0.625rem] leading-3 font-medium",
+              moreActive ? "text-primary" : "text-muted-foreground",
+            )}
+            aria-haspopup="dialog"
+          >
+            <Ellipsis className="size-6" aria-hidden />
+            {t("nav.more")}
+          </button>
+        )}
       </nav>
 
       <DataModeSwitchDialog current={actor.dataMode} open={modeDialog} onOpenChange={setModeDialog} />
       {searchable && <CommandBar kind={kind} open={commandOpen} onOpenChange={setCommandOpen} />}
 
-      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-        <SheetContent side="left" className="bg-sidebar border-sidebar-border p-3 text-white">
-          <SheetHeader className="border-sidebar-border px-2">
-            <SheetTitle>
-              <Logo dark />
-            </SheetTitle>
-          </SheetHeader>
-          <div className="mt-3 overflow-y-auto">
-            <NavList kind={kind} onNavigate={() => setMenuOpen(false)} unread={unreadMessages} />
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent side="bottom" className="bg-background">
+          <div className="px-4 pt-2 pb-1">
+            <SheetTitle className="text-title2">{t("nav.more")}</SheetTitle>
+          </div>
+          <div
+            className="space-y-5 overflow-y-auto overscroll-contain px-4 pt-2 pb-6"
+            onClickCapture={(e) => {
+              if ((e.target as HTMLElement).closest("a")) setMoreOpen(false);
+            }}
+          >
+            {groupBySection(items).map((group, gi) => (
+              <InsetGroup key={group.section ?? gi} header={group.section}>
+                <InsetList>
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const count = item.badge === "messages" ? unreadMessages : 0;
+                    return (
+                      <ListRow
+                        key={item.href}
+                        href={item.href}
+                        leading={<Icon className="text-primary size-5" aria-hidden />}
+                        title={<span className={cn(isActive(pathname, item.href) && "font-semibold")}>{item.label}</span>}
+                        value={count > 0 ? <span className="num">{count}</span> : undefined}
+                      />
+                    );
+                  })}
+                </InsetList>
+              </InsetGroup>
+            ))}
             {adminLink && (
-              <div className="border-sidebar-border mt-3 border-t pt-3">
-                <NavLink
-                  item={{ href: "/admin", label: "Администрирование", icon: ShieldCheck }}
-                  active={false}
-                  count={0}
-                  onNavigate={() => setMenuOpen(false)}
-                />
-              </div>
+              <InsetGroup>
+                <InsetList>
+                  <ListRow href="/admin" leading={<ShieldCheck className="text-primary size-5" aria-hidden />} title={t("nav.admin")} />
+                </InsetList>
+              </InsetGroup>
+            )}
+            {actor.memberships.length > 0 && (
+              <InsetGroup header={t("nav.company")}>
+                <div className="p-1.5">
+                  <CompanySwitcher actor={actor} />
+                </div>
+              </InsetGroup>
             )}
           </div>
         </SheetContent>
       </Sheet>
     </div>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg className="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-      <circle cx="11" cy="11" r="7" />
-      <path d="M20 20l-4-4" />
-    </svg>
   );
 }

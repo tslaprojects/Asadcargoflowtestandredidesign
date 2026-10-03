@@ -39,7 +39,7 @@ export default async function InvestigationPage({ params }: { params: Promise<{ 
                 <p className="font-medium">Итог</p>
                 <p>{inv.resolution}</p>
                 {inv.closedAt && (
-                  <p className="text-muted-foreground text-xs">
+                  <p className="text-muted-foreground text-footnote">
                     {userNames[inv.closedByUserId ?? ""] ?? ""} · {formatDateTime(inv.closedAt)}
                   </p>
                 )}
@@ -65,7 +65,7 @@ export default async function InvestigationPage({ params }: { params: Promise<{ 
                 <Link
                   key={a.id}
                   href={`/fuel/anomalies/${a.id}`}
-                  className="border-border hover:border-primary/40 block rounded-lg border p-3 text-sm"
+                  className="text-body bg-fill-quaternary hover:bg-fill-tertiary block rounded-lg p-3"
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-medium">{label("FuelAnomalyType", a.type)}</span>
@@ -103,7 +103,7 @@ export default async function InvestigationPage({ params }: { params: Promise<{ 
                       </TableCell>
                       <TableCell>
                         {t.order ? (
-                          <Link className="text-primary hover:underline" href={`/orders/${t.order.id}?tab=fuel`}>
+                          <Link className="text-link hover:underline" href={`/orders/${t.order.id}?tab=fuel`}>
                             {t.order.publicNumber}
                           </Link>
                         ) : (
@@ -135,12 +135,12 @@ export default async function InvestigationPage({ params }: { params: Promise<{ 
             </CardHeader>
             <CardContent>
               {inv.comments.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Комментариев нет.</p>
+                <p className="text-muted-foreground text-body">Комментариев нет.</p>
               ) : (
                 <ul className="space-y-2" data-testid="investigation-comments">
                   {inv.comments.map((c) => (
-                    <li key={c.id} className="border-border rounded-lg border p-2 text-sm">
-                      <p className="text-muted-foreground text-xs">
+                    <li key={c.id} className="bg-fill-quaternary text-body rounded-lg p-2">
+                      <p className="text-muted-foreground text-footnote">
                         {userNames[c.authorUserId] ?? "—"} · {formatDateTime(c.createdAt)}
                       </p>
                       <p className="whitespace-pre-wrap">{c.message}</p>
@@ -156,18 +156,18 @@ export default async function InvestigationPage({ params }: { params: Promise<{ 
             </CardHeader>
             <CardContent>
               {inv.attachments.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Файлов нет.</p>
+                <p className="text-muted-foreground text-body">Файлов нет.</p>
               ) : (
-                <ul className="space-y-1.5 text-sm">
+                <ul className="text-body space-y-1.5">
                   {inv.attachments.map((f) => (
                     <li key={f.id}>
                       <a
                         href={`/api/fuel/investigation-attachments/${f.id}`}
-                        className="text-primary inline-flex items-center gap-1.5 hover:underline"
+                        className="text-link inline-flex items-center gap-1.5 hover:underline"
                       >
                         <Paperclip className="size-3.5" aria-hidden /> {f.filename}
                       </a>
-                      <span className="text-muted-foreground block text-xs">
+                      <span className="text-muted-foreground text-footnote block">
                         {userNames[f.uploadedByUserId] ?? ""} · {formatDateTime(f.createdAt)}
                       </span>
                     </li>
@@ -185,7 +185,7 @@ export default async function InvestigationPage({ params }: { params: Promise<{ 
                     value: actor.isAdmin ? (
                       inv.vehicle.plateNumber
                     ) : (
-                      <Link className="text-primary hover:underline" href={`/fuel/vehicles/${inv.vehicle.id}`}>
+                      <Link className="text-link hover:underline" href={`/fuel/vehicles/${inv.vehicle.id}`}>
                         {inv.vehicle.plateNumber}
                       </Link>
                     ),

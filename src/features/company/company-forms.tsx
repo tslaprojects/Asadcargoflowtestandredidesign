@@ -131,7 +131,7 @@ export function CompanyCreateForm() {
         <NativeSelect {...f.register("country")}>
           {COUNTRIES.map((c) => (
             <option key={c.code} value={c.code}>
-              {c.flag} {c.name}
+              {c.name}
             </option>
           ))}
         </NativeSelect>

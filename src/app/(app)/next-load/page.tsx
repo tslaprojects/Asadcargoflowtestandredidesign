@@ -5,7 +5,6 @@ import { EmptyState, MoneyDisplay, PageHeader } from "@/components/common/misc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { countryFlag } from "@/lib/geo/countries";
 import { formatDate, formatDateRange, formatWeight } from "@/lib/format";
 import { label } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -66,7 +65,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
           [movement.originLng, movement.originLat],
           [d.longitude, d.latitude],
         ],
-        color: "#7c3aed",
+        color: "#ff9500",
         dashed: true,
         width: 4,
         opacity: 0.5,
@@ -84,7 +83,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
           [a.longitude!, a.latitude],
           [b.longitude!, b.latitude],
         ],
-        color: "#0891b2",
+        color: "#30b0c7",
         width: 2.5,
       });
     }
@@ -124,13 +123,15 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
                       key={v.id}
                       href={vehicleHref(v.id)}
                       className={cn(
-                        "border-border hover:border-primary/40 block rounded-lg border p-3 text-sm transition-colors",
-                        selected?.id === v.id && "border-primary bg-primary/5",
+                        "block rounded-md p-3 transition-colors duration-(--duration-micro)",
+                        selected?.id === v.id
+                          ? "bg-selection text-selection-foreground [&_*]:!text-selection-foreground"
+                          : "hover:bg-fill-quaternary",
                       )}
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="font-mono font-semibold">{v.plateNumber}</span>
-                        <span className="text-muted-foreground text-xs">
+                        <span className="text-muted-foreground text-footnote">
                           {label("BodyType", v.bodyType)} · {formatWeight(v.capacityKg)}
                         </span>
                       </span>
@@ -138,7 +139,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
                         <MapPin className="size-3.5 shrink-0" aria-hidden /> {where}
                       </span>
                       {v.movement && (
-                        <span className="text-primary mt-1 flex items-center gap-1.5 text-xs">
+                        <span className="text-link text-footnote mt-1 flex items-center gap-1.5">
                           <Navigation className="size-3.5" aria-hidden /> План:{" "}
                           {v.movement.destinations.length
                             ? v.movement.destinations.map((d: { label: string }) => d.label).join(", ")
@@ -178,10 +179,10 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
             ) : (
               <>
                 <Card>
-                  <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-5 text-sm" data-testid="nl-plan">
+                  <CardContent className="text-body flex flex-wrap items-center justify-between gap-3 pt-5" data-testid="nl-plan">
                     <div className="space-y-1">
                       <p className="flex flex-wrap items-center gap-2 text-base font-semibold">
-                        <MapPin className="text-destructive size-4" aria-hidden /> {movement.originLabel}
+                        <MapPin className="text-danger size-4" aria-hidden /> {movement.originLabel}
                         <ArrowRight className="size-4" aria-hidden />
                         {movement.destinations.length
                           ? movement.destinations.map((d: { label: string }) => d.label).join(" / ")
@@ -207,7 +208,7 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
                 <Card>
                   <CardContent className="pt-5">
                     <MapView points={points} lines={lines} className="h-[380px] w-full overflow-hidden rounded-lg" />
-                    <p className="text-muted-foreground mt-2 text-xs">
+                    <p className="text-muted-foreground text-footnote mt-2">
                       Фиолетовый пунктир — направление движения, голубые линии — маршруты подходящих грузов. Расстояния — оценка по прямой с
                       коэффициентом дороги 1,2, а не навигационный маршрут.
                     </p>
@@ -244,16 +245,16 @@ export default async function NextLoadPage({ searchParams }: { searchParams: Sea
                 )}
 
                 {result.rejectedCount > 0 && (
-                  <details className="border-border bg-card rounded-lg border p-4 text-sm">
+                  <details className="bg-card text-body rounded-lg p-4">
                     <summary className="cursor-pointer font-medium">Почему не показаны другие грузы ({result.rejectedCount})</summary>
                     <ul className="mt-3 space-y-2">
                       {result.rejected.map((r) => (
                         <li key={r.loadId}>
-                          <Link href={`/loads/${r.loadId}`} className="text-primary hover:underline">
+                          <Link href={`/loads/${r.loadId}`} className="text-link hover:underline">
                             {r.publicNumber}
                           </Link>{" "}
                           {r.title}
-                          <span className="text-muted-foreground block text-xs">{r.reasons.join(" · ")}</span>
+                          <span className="text-muted-foreground text-footnote block">{r.reasons.join(" · ")}</span>
                         </li>
                       ))}
                     </ul>
@@ -286,30 +287,30 @@ function MatchCard({ m }: { m: Match }) {
     { icon: Gauge, label: "Общий пробег", value: `≈ ${m.estimatedTotalDistanceKm} км` },
   ];
   return (
-    <article className="border-border bg-card flex flex-col gap-3 rounded-lg border p-4 shadow-xs" data-testid="nl-match">
+    <article className="bg-card flex flex-col gap-3 rounded-lg p-4" data-testid="nl-match">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-muted-foreground text-xs font-medium">{m.load.publicNumber}</p>
+          <p className="text-muted-foreground text-footnote font-medium">{m.load.publicNumber}</p>
           <p className="truncate font-semibold">{m.load.title}</p>
-          <p className="mt-1 text-sm font-medium">
-            {countryFlag(a.country)} {a.city} → {countryFlag(b.country)} {b.city}
+          <p className="text-body mt-1 font-medium">
+            {a.city} → {b.city}
           </p>
         </div>
         <Badge tone={m.directionMatch === "ON_ROUTE" ? "success" : "info"} className="shrink-0">
           {m.directionMatch === "ON_ROUTE" ? `По пути: ${m.destinationLabel}` : "Рядом"}
         </Badge>
       </div>
-      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+      <div className="text-body grid grid-cols-2 gap-2 sm:grid-cols-4">
         {metrics.map((x) => (
           <div key={x.label} className="bg-muted/50 rounded-lg p-2">
-            <p className="text-muted-foreground flex items-center gap-1 text-xs">
+            <p className="text-muted-foreground text-footnote flex items-center gap-1">
               <x.icon className="size-3" aria-hidden /> {x.label}
             </p>
             <p className="font-semibold">{x.value}</p>
           </div>
         ))}
       </div>
-      <div className="text-muted-foreground grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+      <div className="text-muted-foreground text-body grid grid-cols-2 gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-1.5">
           <Calendar className="size-4" aria-hidden /> {formatDateRange(m.load.loadingDateFrom, m.load.loadingDateTo)}
         </span>
@@ -318,7 +319,7 @@ function MatchCard({ m }: { m: Match }) {
           {m.load.bodyType ? label("BodyType", m.load.bodyType) : "любой кузов"}
         </span>
       </div>
-      <ul className="text-muted-foreground list-disc space-y-0.5 pl-5 text-xs">
+      <ul className="text-muted-foreground text-footnote list-disc space-y-0.5 pl-5">
         {m.matchReason.map((r) => (
           <li key={r}>{r}</li>
         ))}
@@ -328,13 +329,13 @@ function MatchCard({ m }: { m: Match }) {
           </li>
         ))}
       </ul>
-      <div className="border-border mt-auto flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+      <div className="hairline-t mt-auto flex flex-wrap items-center justify-between gap-2 pt-3">
         <div>
           {m.estimatedPrice != null ? (
             <>
-              <MoneyDisplay amount={m.estimatedPrice} currency={m.currency} className="text-lg font-semibold" />
+              <MoneyDisplay amount={m.estimatedPrice} currency={m.currency} className="text-title3 font-semibold" />
               {m.ratePerKm != null && (
-                <span className="text-muted-foreground ml-2 text-xs">
+                <span className="text-muted-foreground text-footnote ml-2">
                   ≈ {m.ratePerKm} {m.currency}/км
                 </span>
               )}

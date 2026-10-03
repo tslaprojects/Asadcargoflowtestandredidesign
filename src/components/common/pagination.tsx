@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 /** Серверная пагинация через query-параметр page (сохраняет остальные фильтры). */
@@ -31,32 +32,33 @@ export function Pagination({
   };
   const from = (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
-  const cls = "inline-flex h-8 items-center gap-1 rounded-md border border-border bg-card px-2.5 text-sm";
+  const seg =
+    "text-body inline-flex h-11 items-center gap-1 px-3 lg:h-7 lg:px-2.5 transition-colors duration-(--duration-micro) [&_svg]:size-4 lg:[&_svg]:size-3.5";
   return (
-    <nav aria-label="Пагинация" className="mt-4 flex flex-col items-center justify-between gap-2 text-sm sm:flex-row">
-      <p className="text-muted-foreground">
-        {from}–{to} из {total}
+    <nav aria-label="Пагинация" className="mt-4 flex items-center justify-between gap-3">
+      <p className="text-footnote text-muted-foreground num">
+        {from}–{to} {t("common.of")} {total}
       </p>
-      <div className="flex items-center gap-2">
+      <div className="bg-fill-tertiary flex items-center rounded-md p-0.5">
         {page > 1 ? (
-          <Link className={cn(cls, "hover:bg-muted")} href={href(page - 1)} aria-label="Предыдущая страница">
-            <ChevronLeft className="size-4" /> Назад
+          <Link className={cn(seg, "hover:bg-fill-tertiary rounded-[0.4375rem]")} href={href(page - 1)} aria-label="Предыдущая страница">
+            <ChevronLeft aria-hidden /> <span className="max-sm:sr-only">{t("common.prev")}</span>
           </Link>
         ) : (
-          <span className={cn(cls, "opacity-50")} aria-disabled>
-            <ChevronLeft className="size-4" /> Назад
+          <span className={cn(seg, "opacity-35")} aria-disabled>
+            <ChevronLeft aria-hidden /> <span className="max-sm:sr-only">{t("common.prev")}</span>
           </span>
         )}
-        <span className="tabular text-muted-foreground px-1">
+        <span className="text-footnote text-muted-foreground num px-2">
           {page} / {pages}
         </span>
         {page < pages ? (
-          <Link className={cn(cls, "hover:bg-muted")} href={href(page + 1)} aria-label="Следующая страница">
-            Вперёд <ChevronRight className="size-4" />
+          <Link className={cn(seg, "hover:bg-fill-tertiary rounded-[0.4375rem]")} href={href(page + 1)} aria-label="Следующая страница">
+            <span className="max-sm:sr-only">{t("common.next")}</span> <ChevronRight aria-hidden />
           </Link>
         ) : (
-          <span className={cn(cls, "opacity-50")} aria-disabled>
-            Вперёд <ChevronRight className="size-4" />
+          <span className={cn(seg, "opacity-35")} aria-disabled>
+            <span className="max-sm:sr-only">{t("common.next")}</span> <ChevronRight aria-hidden />
           </span>
         )}
       </div>

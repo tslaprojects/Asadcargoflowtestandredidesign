@@ -18,7 +18,7 @@ const fmtTime = (d: Date) =>
 export function FuelLevelChart({ points, refuels, capacity }: { points: Point[]; refuels: Refuel[]; capacity: number | null }) {
   const [hover, setHover] = React.useState<number | null>(null);
   const data = points.map((p) => ({ t: new Date(p.at).getTime(), v: p.liters }));
-  if (data.length < 2) return <p className="text-muted-foreground text-sm">Недостаточно показаний уровня топлива для графика.</p>;
+  if (data.length < 2) return <p className="text-muted-foreground text-body">Недостаточно показаний уровня топлива для графика.</p>;
   const t0 = data[0].t;
   const t1 = data[data.length - 1].t;
   const yMax = Math.max(capacity ?? 0, ...data.map((d) => d.v)) * 1.05 || 1;
@@ -74,7 +74,7 @@ export function FuelLevelChart({ points, refuels, capacity }: { points: Point[];
                 cx={x(t)}
                 cy={y(near.v)}
                 r={5}
-                fill={r.alert ? "#c2410c" : "#15803d"}
+                className={r.alert ? "fill-delayed" : "fill-success"}
                 stroke="var(--color-card)"
                 strokeWidth={2}
               >
@@ -99,7 +99,7 @@ export function FuelLevelChart({ points, refuels, capacity }: { points: Point[];
       </svg>
       {h && (
         <div
-          className="bg-card text-card-foreground border-border pointer-events-none absolute top-1 rounded-md border px-2 py-1 text-xs shadow"
+          className="bg-card text-card-foreground text-footnote pointer-events-none absolute top-1 rounded-md px-2 py-1 shadow"
           style={{ left: `${Math.min(80, (x(h.t) / W) * 100)}%` }}
         >
           <p className="font-semibold">{Math.round(h.v)} л</p>

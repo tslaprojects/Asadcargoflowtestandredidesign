@@ -33,7 +33,7 @@ export default async function PublicCompanyPage({ params }: { params: Promise<{ 
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              <span className="text-3xl font-semibold">{rating?.average?.toFixed(1) ?? "—"}</span>
+              <span className="text-large-title font-semibold">{rating?.average?.toFixed(1) ?? "—"}</span>
               <RatingInline value={rating?.average ?? null} count={rating?.count ?? 0} />
             </div>
             <DefinitionList
@@ -48,7 +48,7 @@ export default async function PublicCompanyPage({ params }: { params: Promise<{ 
                 ...(company.website ? [{ label: "Сайт", value: company.website }] : []),
               ]}
             />
-            {company.description && <p className="text-muted-foreground text-sm">{company.description}</p>}
+            {company.description && <p className="text-muted-foreground text-body">{company.description}</p>}
           </CardContent>
         </Card>
         <Card>
@@ -57,11 +57,11 @@ export default async function PublicCompanyPage({ params }: { params: Promise<{ 
           </CardHeader>
           <CardContent>
             {reviews.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Отзывов пока нет.</p>
+              <p className="text-muted-foreground text-body">Отзывов пока нет.</p>
             ) : (
-              <ul className="divide-border divide-y">
+              <ul className="divide-y-(length:--hairline)">
                 {reviews.map((r) => (
-                  <li key={r.id} className="py-3 text-sm">
+                  <li key={r.id} className="text-body py-3">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex" aria-label={`Оценка ${r.rating} из 5`}>
                         {[1, 2, 3, 4, 5].map((n) => (

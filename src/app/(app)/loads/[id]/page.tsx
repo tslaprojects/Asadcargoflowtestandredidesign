@@ -74,7 +74,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
         <CardHeader>
           <CardTitle>Заказчик</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="text-body space-y-2">
           <CompanyBadge
             id={load.company.id}
             name={load.company.legalName}
@@ -137,11 +137,11 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
         </CardHeader>
         <CardContent>
           {load.questions.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Вопросов пока нет.</p>
+            <p className="text-muted-foreground text-body">Вопросов пока нет.</p>
           ) : (
             <ul className="space-y-3">
               {load.questions.map((q) => (
-                <li key={q.id} className="border-border rounded-lg border p-3 text-sm">
+                <li key={q.id} className="bg-fill-quaternary text-body rounded-lg p-3">
                   <p>
                     <span className="font-medium">{q.company.legalName}:</span> {q.question}
                   </p>
@@ -150,7 +150,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
                   ) : isOwner ? (
                     <AnswerQuestionForm questionId={q.id} />
                   ) : (
-                    <p className="text-muted-foreground mt-1 text-xs">Ожидает ответа</p>
+                    <p className="text-muted-foreground text-footnote mt-1">Ожидает ответа</p>
                   )}
                 </li>
               ))}
@@ -164,8 +164,8 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
   const bidsTab = (
     <div className="space-y-3">
       {canBid && !myActiveBid && (
-        <div className="border-info-border bg-info-bg flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
-          <p className="text-info text-sm">Предложите свою цену — заказчик получит уведомление.</p>
+        <div className="bg-info-bg flex flex-wrap items-center justify-between gap-3 rounded-lg p-4">
+          <p className="text-info text-body">Предложите свою цену — заказчик получит уведомление.</p>
           <BidDialog loadId={load.id} currency={load.currency} targetPrice={load.targetPrice} />
         </div>
       )}
@@ -240,7 +240,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
         }
       />
       {load.status === "CANCELLED" && (
-        <p className="border-danger-border bg-danger-bg text-danger mb-4 rounded-lg border px-3 py-2 text-sm">
+        <p className="bg-danger-bg text-danger text-body mb-4 rounded-lg px-3 py-2">
           Груз отменён{load.cancelReason ? `: ${load.cancelReason}` : ""}.
         </p>
       )}
@@ -255,7 +255,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
               <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
                 <Card>
                   <CardContent className="space-y-4 pt-5">
-                    {load.routeDistanceKm != null && <RouteDistance route={load} className="text-sm font-medium" />}
+                    {load.routeDistanceKm != null && <RouteDistance route={load} className="text-body font-medium" />}
                     <RouteTimeline stops={load.stops} showContacts={isOwner || !!load.order} />
                   </CardContent>
                 </Card>

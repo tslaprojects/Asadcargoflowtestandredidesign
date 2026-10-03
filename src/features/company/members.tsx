@@ -69,7 +69,7 @@ export function MembersPanel({
           <UserPlus /> Пригласить сотрудника
         </Button>
       )}
-      <div className="border-border bg-card overflow-hidden rounded-lg border">
+      <div className="bg-card overflow-hidden rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
@@ -87,7 +87,7 @@ export function MembersPanel({
                   <p className="font-medium">
                     {m.user.firstName} {m.user.lastName}
                   </p>
-                  <p className="text-muted-foreground text-xs">{m.user.email}</p>
+                  <p className="text-muted-foreground text-footnote">{m.user.email}</p>
                 </TableCell>
                 <TableCell>
                   {canManage && m.user.id !== currentUserId && roles.length > 1 ? (
@@ -151,10 +151,10 @@ export function MembersPanel({
       </div>
       {invites.length > 0 && (
         <div>
-          <h3 className="mb-2 text-sm font-semibold">Ожидающие приглашения</h3>
-          <ul className="space-y-1 text-sm">
+          <h3 className="text-body mb-2 font-semibold">Ожидающие приглашения</h3>
+          <ul className="text-body space-y-1">
             {invites.map((i) => (
-              <li key={i.id} className="border-border bg-card flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2">
+              <li key={i.id} className="bg-card flex flex-wrap items-center gap-2 rounded-lg px-3 py-2">
                 <span className="font-medium">{i.email}</span>
                 <span className="text-muted-foreground">
                   {label("MemberRole", i.role)} · до {formatDate(i.expiresAt)}
@@ -163,7 +163,7 @@ export function MembersPanel({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-destructive ml-auto"
+                    className="text-danger ml-auto"
                     onClick={() => run(() => api(`/api/invites/${i.id}`, { method: "DELETE" }), { success: "Приглашение отозвано" })}
                   >
                     Отозвать

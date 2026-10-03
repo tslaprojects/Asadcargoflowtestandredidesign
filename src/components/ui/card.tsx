@@ -1,27 +1,27 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
+/** Сгруппированный блок на сером фоне, как в iOS Settings: без рамки и тени. */
 function Card({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("border-border bg-card text-card-foreground rounded-lg border shadow-xs", className)} {...props} />;
+  return <div className={cn("bg-card text-card-foreground rounded-lg", className)} {...props} />;
 }
-/** Интерактивная карточка (ссылка/кнопка): рамка и тень усиливаются при наведении, без «прыжков» раскладки. */
-const cardInteractive =
-  "transition-[border-color,box-shadow] duration-200 ease-out hover:border-border-strong hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
+/** Интерактивный блок (ссылка/кнопка): подсветка фона при наведении и нажатии. */
+const cardInteractive = "transition-colors duration-(--duration-micro) hover:bg-surface-secondary active:bg-muted";
 function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex flex-col gap-1 px-4 pt-4 pb-3 sm:px-5", className)} {...props} />;
+  return <div className={cn("flex flex-col gap-0.5 px-4 pt-3.5 pb-2", className)} {...props} />;
 }
-/** Заголовок панели — h2 (не пропускает уровень после h1 страницы), визуально — роль text-h3. */
+/** Заголовок блока — h2 (не пропускает уровень после h1 страницы). */
 function CardTitle({ className, ...props }: React.ComponentProps<"h2">) {
-  return <h2 className={cn("text-h3", className)} {...props} />;
+  return <h2 className={cn("text-headline", className)} {...props} />;
 }
 function CardDescription({ className, ...props }: React.ComponentProps<"p">) {
-  return <p className={cn("text-muted-foreground text-sm", className)} {...props} />;
+  return <p className={cn("text-muted-foreground text-subheadline", className)} {...props} />;
 }
 function CardContent({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("px-4 pb-4 sm:px-5", className)} {...props} />;
+  return <div className={cn("px-4 pb-4", className)} {...props} />;
 }
 function CardFooter({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("border-border flex items-center gap-2 border-t px-4 py-3 sm:px-5", className)} {...props} />;
+  return <div className={cn("hairline-t flex items-center gap-2 px-4 py-2.5", className)} {...props} />;
 }
 
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, cardInteractive, CardTitle };

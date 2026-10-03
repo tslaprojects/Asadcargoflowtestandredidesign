@@ -1,11 +1,13 @@
 "use client";
-import { ArrowRight, Fuel, Satellite, X } from "lucide-react";
+import { Fuel, Satellite, X } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
+import { InsetGroup, InsetList, ListRow } from "@/components/common/inset-group";
+import { SplitView } from "@/components/common/split-view";
 import { StatusBadge } from "@/components/common/status-badge";
 import { Button } from "@/components/ui/button";
-import { countryFlag } from "@/lib/geo/countries";
 import { formatDate, formatRelative, formatVolume, formatWeight } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { HealthBadge, HealthDot } from "@/features/operations/health";
 import { JourneyTimeline } from "@/features/operations/journey-timeline";
@@ -19,31 +21,9 @@ export type FleetVehicle = VehicleRow & {
   trip: LiveObject | null;
 };
 
-const desktopQuery = "(min-width: 1024px)";
-function useDesktop() {
-  return React.useSyncExternalStore(
-    (cb) => {
-      const m = window.matchMedia(desktopQuery);
-      m.addEventListener("change", cb);
-      return () => m.removeEventListener("change", cb);
-    },
-    () => window.matchMedia(desktopQuery).matches,
-    () => true,
-  );
-}
-
-function Spec({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-overline">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm leading-5">{children}</dd>
-    </div>
-  );
-}
-
 /**
- * Автопарк как операционный экран: карта машин в рейсе, список с текущим маршрутом, водителем и сроком,
- * панель машины с характеристиками, рейсом и действиями (редактирование, назначение, снятие, удаление).
+ * Автопарк в три колонки: список машин с текущим рейсом, справа — карта машин в рейсе и карточка
+ * выбранной машины с характеристиками, рейсом и действиями (редактирование, назначение, снятие, удаление).
  */
 export function FleetWorkspace({
   vehicles,
@@ -70,7 +50,6 @@ export function FleetWorkspace({
   initialSelected?: string | null;
   total: number;
 }) {
-  const desktop = useDesktop();
   const [selectedId, setSelectedId] = React.useState<string | null>(
     initialSelected && vehicles.some((v) => v.id === initialSelected) ? initialSelected : null,
   );
@@ -107,173 +86,150 @@ export function FleetWorkspace({
     return () => window.removeEventListener("keydown", onKey);
   }, [selected, select]);
 
-  return (
-    <div className="relative h-full overflow-hidden" data-testid="fleet-workspace">
-      <MapWorkspace
-        objects={mapObjects}
-        selectedId={selectedId}
-        onSelect={select}
-        className="absolute inset-x-0 top-0 h-[34%] lg:h-full"
-        padding={desktop ? { left: 392, right: selected ? 408 : 56, top: 56, bottom: 56 } : { left: 24, right: 24, top: 24, bottom: 24 }}
-        emptyLabel="Нет машин в рейсе с координатами"
-      />
-
-      <aside
-        className="bg-card border-border absolute inset-x-0 top-[34%] bottom-0 z-[3] flex flex-col border-t lg:top-3 lg:right-auto lg:bottom-3 lg:left-3 lg:w-[23rem] lg:rounded-lg lg:border lg:shadow-md"
-        aria-label="Автопарк"
-      >
-        <div className="px-4 pt-3 pb-1">
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-h1 leading-7">Автопарк</h1>
-              <p className="text-muted-foreground text-xs">Машин: {total}</p>
-            </div>
-            {headerActions}
+  const list = (
+    <>
+      <div className="space-y-3 px-4 pt-4 pb-3">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-title1">Автопарк</h1>
+            <p className="text-footnote text-muted-foreground mt-0.5">Машин: {total}</p>
           </div>
-          <div className="-mx-1 mt-2">{counts}</div>
+          {headerActions && <div className="shrink-0 pt-0.5">{headerActions}</div>}
         </div>
-        {controls}
-        <div className="border-border min-h-0 flex-1 overflow-y-auto overscroll-contain border-t">
-          {vehicles.length === 0 ? (
-            <p className="text-muted-foreground px-4 py-8 text-center text-sm">
-              Машин не найдено. {canManage ? "Добавьте машину, чтобы назначать её на перевозки." : ""}
-            </p>
-          ) : (
-            <ul className="divide-border divide-y" data-testid="fleet-list">
-              {vehicles.map((v) => {
-                const isSel = v.id === selectedId;
-                return (
-                  <li key={v.id}>
-                    <button
-                      type="button"
-                      onClick={() => select(isSel ? null : v.id)}
-                      aria-pressed={isSel}
-                      className={cn(
-                        "relative block w-full px-4 py-2.5 text-left transition-colors duration-150",
-                        isSel ? "bg-accent" : "hover:bg-surface-secondary",
-                      )}
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "bg-primary absolute top-2 bottom-2 left-0 w-[3px] rounded-r-full",
-                          isSel ? "opacity-100" : "opacity-0",
-                        )}
-                      />
+        {counts}
+      </div>
+      {controls}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        {vehicles.length === 0 ? (
+          <p className="text-subheadline text-muted-foreground px-4 py-10 text-center">
+            Машин не найдено. {canManage ? "Добавьте машину, чтобы назначать её на перевозки." : ""}
+          </p>
+        ) : (
+          <ul className="px-2 pb-2" data-testid="fleet-list">
+            {vehicles.map((v, i) => {
+              const isSel = v.id === selectedId;
+              const prevSel = i > 0 && vehicles[i - 1].id === selectedId;
+              const muted = isSel ? "opacity-85" : "text-muted-foreground";
+              return (
+                <li key={v.id}>
+                  <button
+                    type="button"
+                    onClick={() => select(isSel ? null : v.id)}
+                    aria-pressed={isSel}
+                    className={cn(
+                      "block w-full rounded-md px-2.5 text-left transition-colors duration-(--duration-micro)",
+                      isSel ? "bg-selection text-selection-foreground" : "hover:bg-fill-quaternary",
+                    )}
+                  >
+                    <span className={cn("block py-2.5", i > 0 && !isSel && !prevSel && "hairline-t")}>
                       <span className="flex items-center gap-2">
                         {v.trip ? (
-                          <HealthDot health={v.trip.health} live={isSel} />
+                          <HealthDot health={v.trip.health} live={isSel} className={cn(isSel && "ring-selection-foreground/80 ring-2")} />
                         ) : (
-                          <span className="bg-border-strong size-2 rounded-full" aria-hidden />
+                          <span className={cn("size-2 rounded-full", isSel ? "bg-white/60" : "bg-border-strong")} aria-hidden />
                         )}
-                        <span className="id-code text-sm font-semibold">
-                          {countryFlag(v.country)} {v.plateNumber}
+                        <span className="id-code font-semibold">{v.plateNumber}</span>
+                        <span className={cn("text-caption font-medium tracking-wide", isSel ? "opacity-75" : "text-tertiary-foreground")}>
+                          {v.country}
                         </span>
-                        <span className="ml-auto">
+                        <span className={cn("ml-auto", isSel && "[&_*]:!text-selection-foreground")}>
                           <StatusBadge kind="VehicleStatus" value={v.status} hideIcon />
                         </span>
                       </span>
-                      <span className="text-muted-foreground mt-0.5 block truncate text-xs">
+                      <span className={cn("text-footnote mt-0.5 block truncate pl-4", muted)}>
                         {v.make} {v.model} · {v.bodyLabel} · {formatWeight(v.capacityKg)}
                       </span>
                       {v.trip ? (
-                        <span className="mt-1 block truncate text-sm leading-5">
+                        <span className="mt-0.5 block truncate pl-4">
                           {v.trip.origin} → {v.trip.destination}
-                          <span className="text-muted-foreground">
+                          <span className={muted}>
                             {" "}
                             · {v.trip.statusLabel}
                             {v.trip.driver && <> · {v.trip.driver.fullName}</>}
                           </span>
                         </span>
                       ) : (
-                        <span className="text-muted-foreground mt-1 block text-sm leading-5">
+                        <span className={cn("mt-0.5 block pl-4", muted)}>
                           {v.status === "AVAILABLE" ? "Свободна — можно назначить на рейс" : "Без рейса"}
                         </span>
                       )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {footer}
-        </div>
-      </aside>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        {footer}
+      </div>
+    </>
+  );
 
-      {selected && (
-        <aside
-          key={selected.id}
-          className={cn(
-            "bg-card border-border absolute z-[4] flex flex-col overflow-hidden border shadow-lg",
-            desktop
-              ? "animate-panel-in top-3 right-3 bottom-3 w-[24rem] rounded-lg"
-              : "animate-sheet-in-bottom inset-x-0 bottom-0 max-h-[82%] rounded-t-2xl",
-          )}
-          aria-labelledby={`veh-${selected.id}`}
-          data-testid="vehicle-panel"
-        >
-          <header className="border-border flex items-start gap-2 border-b px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge kind="VehicleStatus" value={selected.status} />
-                {selected.trip && <HealthBadge health={selected.trip.health} />}
-              </div>
-              <h2 id={`veh-${selected.id}`} className="text-h2 id-code mt-1">
-                {countryFlag(selected.country)} {selected.plateNumber}
-              </h2>
-              <p className="text-muted-foreground text-xs">
-                {selected.make} {selected.model}
-                {selected.year ? `, ${selected.year}` : ""}
-              </p>
+  const detail = selected && (
+    <section key={selected.id} className="flex h-full min-h-0 flex-col" aria-labelledby={`veh-${selected.id}`} data-testid="vehicle-panel">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <header className="flex items-start gap-3 px-4 pt-4 pb-4 lg:px-6">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge kind="VehicleStatus" value={selected.status} />
+              {selected.trip && <HealthBadge health={selected.trip.health} />}
             </div>
-            <button
-              type="button"
-              onClick={() => select(null)}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground grid size-9 place-items-center rounded-md"
-              aria-label="Закрыть панель"
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-          </header>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3">
-              <Spec label="Кузов">{selected.bodyLabel}</Spec>
-              <Spec label="Грузоподъёмность">{formatWeight(selected.capacityKg)}</Spec>
-              <Spec label="Объём">{formatVolume(selected.volumeM3)}</Spec>
-              <Spec label="GPS">
-                <span className="inline-flex items-center gap-1">
-                  <Satellite className={cn("size-3.5", selected.gpsEnabled ? "text-success" : "text-muted-foreground")} aria-hidden />
-                  {selected.gpsEnabled ? "подключён" : "нет"}
-                </span>
-              </Spec>
-            </dl>
-            <div className="border-border border-t px-4 py-3">
-              <h3 className="text-overline mb-2">Текущий рейс</h3>
+            <h2 id={`veh-${selected.id}`} className="text-title2 id-code mt-1.5">
+              {selected.plateNumber} <span className="text-subheadline text-tertiary-foreground font-medium">{selected.country}</span>
+            </h2>
+            <p className="text-subheadline text-muted-foreground">
+              {selected.make} {selected.model}
+              {selected.year ? `, ${selected.year}` : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => select(null)}
+            className="bg-fill-tertiary text-muted-foreground hover:bg-fill-secondary hover:text-foreground hidden size-7 shrink-0 place-items-center rounded-full lg:grid"
+            aria-label="Закрыть панель"
+          >
+            <X className="size-3.5 [stroke-width:2.5]" aria-hidden />
+          </button>
+        </header>
+        <div className="grid gap-6 px-4 pb-6 lg:px-6 xl:grid-cols-2">
+          <InsetGroup header={t("ui.specs")}>
+            <InsetList>
+              <ListRow title="Кузов" value={selected.bodyLabel} />
+              <ListRow title="Грузоподъёмность" value={<span className="num">{formatWeight(selected.capacityKg)}</span>} />
+              <ListRow title="Объём" value={<span className="num">{formatVolume(selected.volumeM3)}</span>} />
+              <ListRow
+                title="GPS"
+                value={
+                  <span className="inline-flex items-center gap-1">
+                    <Satellite className={cn("size-3.5", selected.gpsEnabled && "text-success")} aria-hidden />
+                    {selected.gpsEnabled ? "подключён" : "нет"}
+                  </span>
+                }
+              />
+            </InsetList>
+          </InsetGroup>
+          <InsetGroup header={t("ui.currentTrip")}>
+            <div className="px-4 py-3.5">
               {selected.trip ? (
                 <div className="space-y-3">
                   <div>
-                    <p className="id-code text-muted-foreground text-xs">{selected.trip.publicNumber}</p>
-                    <p className="text-sm font-semibold">
+                    <p className="id-code text-footnote text-muted-foreground">{selected.trip.publicNumber}</p>
+                    <p className="font-semibold">
                       {selected.trip.origin} → {selected.trip.destination}
                     </p>
-                    <p className="text-meta">
+                    <p className="text-footnote text-muted-foreground">
                       {selected.trip.statusLabel}
                       {selected.trip.driver && <> · {selected.trip.driver.fullName}</>} · доставка до{" "}
-                      <span className={cn(selected.trip.health === "delayed" && "text-delayed font-medium")}>
+                      <span className={cn("num", selected.trip.health === "delayed" && "text-delayed font-medium")}>
                         {formatDate(selected.trip.deliveryDate)}
                       </span>
                       {selected.trip.position?.at && <> · отметка {formatRelative(selected.trip.position.at, ref)}</>}
                     </p>
                   </div>
                   <JourneyTimeline status={selected.trip.status} stops={selected.trip.stops} compact />
-                  <Button asChild size="sm" className="w-full">
-                    <Link href={`/orders/${selected.trip.id}`}>
-                      Открыть перевозку <ArrowRight />
-                    </Link>
-                  </Button>
                 </div>
               ) : (
-                <p className="text-muted-foreground text-sm">
+                <p className="text-subheadline text-muted-foreground">
                   {selected.status === "AVAILABLE"
                     ? "Машина свободна. Назначьте её на перевозку с подписанным договором или найдите груз на бирже."
                     : selected.status === "MAINTENANCE"
@@ -282,23 +238,49 @@ export function FleetWorkspace({
                 </p>
               )}
             </div>
+          </InsetGroup>
+        </div>
+      </div>
+      <footer className="material-bar hairline-t flex flex-wrap items-center gap-2 px-4 py-3 lg:px-6">
+        {selected.trip && (
+          <Button asChild>
+            <Link href={`/orders/${selected.trip.id}`}>Открыть перевозку</Link>
+          </Button>
+        )}
+        {canFuel && (
+          <Button asChild variant="secondary">
+            <Link href={`/fuel/vehicles/${selected.id}`}>
+              <Fuel /> Топливо
+            </Link>
+          </Button>
+        )}
+        {canManage && (
+          <div className="ml-auto">
+            <VehicleRowActions vehicle={selected} currentOrder={selected.currentOrder} assignableOrders={assignableOrders} />
           </div>
-          <footer className="border-border flex flex-wrap items-center gap-1.5 border-t p-3">
-            {canFuel && (
-              <Button asChild variant="outline" size="sm">
-                <Link href={`/fuel/vehicles/${selected.id}`}>
-                  <Fuel /> Топливо
-                </Link>
-              </Button>
-            )}
-            {canManage && (
-              <div className="ml-auto">
-                <VehicleRowActions vehicle={selected} currentOrder={selected.currentOrder} assignableOrders={assignableOrders} />
-              </div>
-            )}
-          </footer>
-        </aside>
-      )}
-    </div>
+        )}
+      </footer>
+    </section>
+  );
+
+  return (
+    <SplitView
+      testId="fleet-workspace"
+      listLabel="Автопарк"
+      backLabel="Автопарк"
+      hasDetail={Boolean(selected)}
+      onBack={() => select(null)}
+      list={list}
+      map={
+        <MapWorkspace
+          objects={mapObjects}
+          selectedId={selectedId}
+          onSelect={select}
+          className="absolute inset-0"
+          emptyLabel="Нет машин в рейсе с координатами"
+        />
+      }
+      detail={detail}
+    />
   );
 }

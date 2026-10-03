@@ -55,18 +55,14 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
           description="Добавьте водителей и пригласите их в приложение — тогда их можно назначать на рейсы, а они будут отмечать этапы и позицию."
         />
       ) : (
-        <section
-          className="border-border bg-card overflow-hidden rounded-lg border"
-          aria-label="Ростер водителей"
-          data-testid="driver-roster"
-        >
-          <div className="text-overline border-border bg-surface-secondary hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1fr)_auto] gap-4 border-b px-4 py-2 lg:grid">
+        <section className="bg-card overflow-hidden rounded-lg" aria-label="Ростер водителей" data-testid="driver-roster">
+          <div className="text-section bg-surface-secondary hairline-b hidden grid-cols-[minmax(0,1.3fr)_minmax(0,1.6fr)_minmax(0,1fr)_auto] gap-4 px-4 py-2 lg:grid">
             <span>Водитель</span>
             <span>Текущий рейс</span>
             <span>Последнее событие</span>
             <span className="text-right">Действия</span>
           </div>
-          <ul className="divide-border divide-y">
+          <ul className="divide-y-(length:--hairline)">
             {data.items.map((d) => {
               const trip = tripByDriver.get(d.id);
               const expiry = d.licenseExpiry ? new Date(d.licenseExpiry).getTime() : null;
@@ -85,7 +81,7 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       className={cn(
-                        "grid size-9 shrink-0 place-items-center rounded-md text-xs font-semibold",
+                        "text-footnote grid size-9 shrink-0 place-items-center rounded-md font-semibold",
                         trip
                           ? "bg-info-bg text-info"
                           : d.status === "ACTIVE"
@@ -97,12 +93,9 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
                       {initials}
                     </span>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{d.fullName}</p>
-                      <p className="text-meta flex flex-wrap items-center gap-x-2">
-                        <a
-                          href={`tel:${d.phone.replace(/\s/g, "")}`}
-                          className="text-primary inline-flex items-center gap-1 hover:underline"
-                        >
+                      <p className="text-body truncate font-semibold">{d.fullName}</p>
+                      <p className="text-footnote text-muted-foreground tabular flex flex-wrap items-center gap-x-2">
+                        <a href={`tel:${d.phone.replace(/\s/g, "")}`} className="text-link inline-flex items-center gap-1 hover:underline">
                           <Phone className="size-3" aria-hidden /> {d.phone}
                         </a>
                         <span>кат. {d.licenseCategory}</span>
@@ -133,17 +126,17 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
                     </div>
                   </div>
 
-                  <div className="min-w-0 text-sm">
+                  <div className="text-body min-w-0">
                     {trip ? (
                       <Link href={`/orders/${trip.id}`} className="group block rounded-md">
                         <span className="flex items-center gap-2">
-                          <span className="id-code text-muted-foreground text-xs">{trip.publicNumber}</span>
+                          <span className="id-code text-muted-foreground text-footnote">{trip.publicNumber}</span>
                           <HealthBadge health={trip.health} />
                         </span>
-                        <span className="group-hover:text-primary block truncate font-medium transition-colors">
+                        <span className="group-hover:text-link block truncate font-medium transition-colors">
                           {trip.origin} → {trip.destination}
                         </span>
-                        <span className="text-meta block truncate">
+                        <span className="text-footnote text-muted-foreground tabular block truncate">
                           {trip.statusLabel}
                           {trip.vehicle && <> · {trip.vehicle.plateNumber}</>} · до {formatDate(trip.deliveryDate)}
                         </span>
@@ -153,7 +146,7 @@ export default async function DriversPage({ searchParams }: { searchParams: Sear
                     )}
                   </div>
 
-                  <div className="text-meta min-w-0">
+                  <div className="text-footnote text-muted-foreground tabular min-w-0">
                     {trip ? (
                       <>
                         <span className="text-foreground block">{trip.statusLabel}</span>

@@ -90,30 +90,30 @@ export function DisputePanel({
             <CardHeader className="flex-row flex-wrap items-start justify-between gap-2">
               <div>
                 <CardTitle>Спор: {label("DisputeReason", d.reason)}</CardTitle>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-body">
                   Открыл {userNames[d.openedByUserId] ?? "участник"} · {formatDateTime(d.createdAt)}
                 </p>
               </div>
               <StatusBadge kind="DisputeStatus" value={d.status} size="lg" />
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm whitespace-pre-wrap">{d.description}</p>
+              <p className="text-body whitespace-pre-wrap">{d.description}</p>
               {d.resolution && (
-                <div className="bg-success-bg rounded-lg p-3 text-sm">
+                <div className="bg-success-bg text-body rounded-lg p-3">
                   <p className="text-success font-medium">Решение администратора</p>
                   <p>{d.resolution}</p>
-                  {d.resolvedAt && <p className="text-muted-foreground text-xs">{formatDateTime(d.resolvedAt)}</p>}
+                  {d.resolvedAt && <p className="text-muted-foreground text-footnote">{formatDateTime(d.resolvedAt)}</p>}
                 </div>
               )}
               <div>
-                <h4 className="mb-2 text-sm font-semibold">Комментарии</h4>
+                <h4 className="text-body mb-2 font-semibold">Комментарии</h4>
                 {d.comments.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Комментариев нет.</p>
+                  <p className="text-muted-foreground text-body">Комментариев нет.</p>
                 ) : (
                   <ul className="space-y-2">
                     {d.comments.map((c) => (
-                      <li key={c.id} className="border-border rounded-lg border p-2 text-sm">
-                        <p className="text-muted-foreground text-xs">
+                      <li key={c.id} className="bg-fill-quaternary text-body rounded-lg p-2">
+                        <p className="text-muted-foreground text-footnote">
                           {userNames[c.authorUserId] ?? "Участник"} · {formatDateTime(c.createdAt)}
                         </p>
                         <p className="whitespace-pre-wrap">{c.message}</p>
@@ -148,8 +148,8 @@ export function DisputePanel({
                 </div>
               )}
               {active && isAdmin && (
-                <div className="border-warning-border bg-warning-bg/50 space-y-3 rounded-lg border p-3">
-                  <p className="text-sm font-semibold">Решение администратора</p>
+                <div className="bg-warning-bg space-y-3 rounded-lg p-3.5">
+                  <p className="text-body font-semibold">Решение администратора</p>
                   {d.status === "OPEN" && (
                     <Button
                       size="sm"

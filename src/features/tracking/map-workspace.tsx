@@ -5,7 +5,7 @@ import { Maximize2, Minus, Plus } from "lucide-react";
 import * as React from "react";
 import type { Health } from "@/lib/operations";
 import { cn } from "@/lib/utils";
-import { HEALTH_COLORS, mapStyle } from "./map-style";
+import { cssColor, healthColors, mapStyle, useDarkScheme } from "./map-style";
 
 /** Объект карты: перевозка/машина с позицией и маршрутом. */
 export type MapObject = {
@@ -35,8 +35,7 @@ function boundsOf(points: [number, number][]) {
   ] as [[number, number], [number, number]];
 }
 
-function markerStyle(el: HTMLElement, health: Health, selected: boolean) {
-  const color = HEALTH_COLORS[health];
+function markerStyle(el: HTMLElement, color: string, selected: boolean) {
   const size = selected ? 22 : 14;
   el.style.cssText = [
     `width:${size}px`,
@@ -44,10 +43,10 @@ function markerStyle(el: HTMLElement, health: Health, selected: boolean) {
     "border-radius:9999px",
     `background:${color}`,
     "border:2.5px solid #fff",
-    `box-shadow:0 1px 4px rgb(11 18 32 / .35)${selected ? `, 0 0 0 6px ${color}33` : ""}`,
+    `box-shadow:0 1px 3px rgb(0 0 0 / .3)${selected ? `, 0 0 0 6px ${color}38` : ""}`,
     "padding:0",
     "cursor:pointer",
-    "transition:width 200ms cubic-bezier(.22,1,.36,1),height 200ms cubic-bezier(.22,1,.36,1),box-shadow 200ms",
+    "transition:width 200ms cubic-bezier(.32,.72,0,1),height 200ms cubic-bezier(.32,.72,0,1),box-shadow 200ms",
     `z-index:${selected ? 2 : 1}`,
   ].join(";");
 }
@@ -80,6 +79,12 @@ export function MapWorkspace({
   const fitted = React.useRef(false);
   const [ready, setReady] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
+  // Последняя подгонка камеры: повторяется без анимации, когда меняется размер карты
+  const refit = React.useRef<(() => void) | null>(null);
+  // Номер версии стиля: смена темы пересоздаёт слои, данные синхронизируются заново
+  const [styleRev, setStyleRev] = React.useState(0);
+  const dark = useDarkScheme();
+  const darkRef = React.useRef(dark);
   const pad: Padding = { top: 48, right: 48, bottom: 48, left: 48, ...padding };
   const padKey = JSON.stringify(pad);
 
@@ -101,7 +106,7 @@ export function MapWorkspace({
         lib.current = maplibregl;
         const map = new maplibregl.Map({
           container: ref.current,
-          style: mapStyle(),
+          style: mapStyle(darkRef.current),
           center: [66, 46],
           zoom: 3,
           attributionControl: { compact: true },
@@ -110,32 +115,38 @@ export function MapWorkspace({
         });
         mapRef.current = map;
         map.on("error", () => undefined);
-        map.once("style.load", () => {
+        map.on("style.load", () => {
           const empty = { type: "FeatureCollection" as const, features: [] };
-          map.addSource("routes", { type: "geojson", data: empty });
-          map.addSource("selected", { type: "geojson", data: empty });
-          map.addLayer({
-            id: "routes",
-            type: "line",
-            source: "routes",
-            layout: { "line-cap": "round", "line-join": "round" },
-            paint: { "line-color": ["get", "color"], "line-width": 2, "line-opacity": 0.32 },
-          });
-          map.addLayer({
-            id: "selected-casing",
-            type: "line",
-            source: "selected",
-            layout: { "line-cap": "round", "line-join": "round" },
-            paint: { "line-color": "#ffffff", "line-width": 7, "line-opacity": 0.95 },
-          });
-          map.addLayer({
-            id: "selected",
-            type: "line",
-            source: "selected",
-            layout: { "line-cap": "round", "line-join": "round" },
-            paint: { "line-color": ["get", "color"], "line-width": 3.5 },
-          });
-          if (!cancelled) setReady(true);
+          if (!map.getSource("routes")) map.addSource("routes", { type: "geojson", data: empty });
+          if (!map.getSource("selected")) map.addSource("selected", { type: "geojson", data: empty });
+          if (!map.getLayer("routes"))
+            map.addLayer({
+              id: "routes",
+              type: "line",
+              source: "routes",
+              layout: { "line-cap": "round", "line-join": "round" },
+              paint: { "line-color": ["get", "color"], "line-width": 2, "line-opacity": 0.35 },
+            });
+          if (!map.getLayer("selected-casing"))
+            map.addLayer({
+              id: "selected-casing",
+              type: "line",
+              source: "selected",
+              layout: { "line-cap": "round", "line-join": "round" },
+              paint: { "line-color": cssColor("--card", "#ffffff"), "line-width": 7, "line-opacity": 0.95 },
+            });
+          if (!map.getLayer("selected"))
+            map.addLayer({
+              id: "selected",
+              type: "line",
+              source: "selected",
+              layout: { "line-cap": "round", "line-join": "round" },
+              paint: { "line-color": ["get", "color"], "line-width": 3.5 },
+            });
+          if (!cancelled) {
+            setReady(true);
+            setStyleRev((r) => r + 1);
+          }
         });
       } catch {
         if (!cancelled) setFailed(true);
@@ -151,6 +162,25 @@ export function MapWorkspace({
     };
   }, []);
 
+  // Смена системной темы — другой стиль подложки
+  React.useEffect(() => {
+    if (darkRef.current === dark) return;
+    darkRef.current = dark;
+    mapRef.current?.setStyle(mapStyle(dark));
+  }, [dark]);
+
+  // Карта следует за размером блока (колонка деталей меняет высоту карты)
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      mapRef.current?.resize();
+      refit.current?.();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   const objectsKey = JSON.stringify(objects);
 
   // Синхронизация маркеров и маршрутов с данными
@@ -160,13 +190,14 @@ export function MapWorkspace({
     if (!ready || !map || !maplibregl) return;
     const list = JSON.parse(objectsKey) as MapObject[];
     const animate = !reducedMotion();
+    const colors = healthColors();
     (map.getSource("routes") as GeoJSONSource | undefined)?.setData({
       type: "FeatureCollection",
       features: list
         .filter((o) => o.route.length > 1 && o.id !== selectedId)
         .map((o) => ({
           type: "Feature" as const,
-          properties: { color: HEALTH_COLORS[o.health] },
+          properties: { color: colors[o.health] },
           geometry: { type: "LineString" as const, coordinates: o.route },
         })),
     });
@@ -177,7 +208,7 @@ export function MapWorkspace({
       seen.add(o.id);
       const existing = markers.current.get(o.id);
       if (existing) {
-        markerStyle(existing.el, o.health, o.id === selectedId);
+        markerStyle(existing.el, colors[o.health], o.id === selectedId);
         existing.el.setAttribute("aria-label", o.label);
         existing.el.setAttribute("aria-pressed", String(o.id === selectedId));
         const { lng: fromLng, lat: fromLat } = existing;
@@ -205,7 +236,7 @@ export function MapWorkspace({
       el.setAttribute("aria-label", o.label);
       el.setAttribute("aria-pressed", String(o.id === selectedId));
       el.dataset.objectId = o.id;
-      markerStyle(el, o.health, o.id === selectedId);
+      markerStyle(el, colors[o.health], o.id === selectedId);
       el.addEventListener("click", (e) => {
         e.stopPropagation();
         onSelectRef.current?.(o.id);
@@ -228,7 +259,7 @@ export function MapWorkspace({
         fitted.current = true;
       }
     }
-  }, [ready, objectsKey, selectedId, padKey]);
+  }, [ready, objectsKey, selectedId, padKey, styleRev]);
 
   // Выбранная перевозка: маршрут прорисовывается от загрузки к разгрузке, камера переходит к объекту
   React.useEffect(() => {
@@ -239,9 +270,13 @@ export function MapWorkspace({
     const sel = list.find((o) => o.id === selectedId);
     if (!sel) {
       src?.setData({ type: "FeatureCollection", features: [] });
+      const all = list.flatMap((o) => [...o.route, ...(o.position ? [[o.position.lng, o.position.lat] as [number, number]] : [])]);
+      refit.current = all.length
+        ? () => map.fitBounds(boundsOf(all), { padding: JSON.parse(padKey) as Padding, maxZoom: 7, duration: 0 })
+        : null;
       return;
     }
-    const color = HEALTH_COLORS[sel.health];
+    const color = healthColors()[sel.health];
     const route = sel.route;
     const feature = (coords: [number, number][]) => ({
       type: "Feature" as const,
@@ -268,13 +303,14 @@ export function MapWorkspace({
       src?.setData(feature(route));
     }
     const pts = [...route, ...(sel.position ? [[sel.position.lng, sel.position.lat] as [number, number]] : [])];
-    if (pts.length > 1) {
-      map.fitBounds(boundsOf(pts), { padding: JSON.parse(padKey) as Padding, maxZoom: 8, duration: reducedMotion() ? 0 : 700 });
-    } else if (pts.length === 1) {
-      map.easeTo({ center: pts[0], zoom: Math.max(map.getZoom(), 6), duration: reducedMotion() ? 0 : 700 });
-    }
+    const fit = (duration: number) => {
+      if (pts.length > 1) map.fitBounds(boundsOf(pts), { padding: JSON.parse(padKey) as Padding, maxZoom: 8, duration });
+      else if (pts.length === 1) map.easeTo({ center: pts[0], zoom: Math.max(map.getZoom(), 6), duration });
+    };
+    refit.current = () => fit(0);
+    fit(reducedMotion() ? 0 : 700);
     return () => cancelAnimationFrame(raf);
-  }, [ready, selectedId, objectsKey, padKey]);
+  }, [ready, selectedId, objectsKey, padKey, styleRev]);
 
   const fitAll = () => {
     const map = mapRef.current;
@@ -290,7 +326,7 @@ export function MapWorkspace({
   return (
     <div className={cn("bg-muted relative overflow-hidden", className)}>
       {failed ? (
-        <div className="text-muted-foreground absolute inset-0 grid place-items-center p-6 text-center text-sm">
+        <div className="text-subheadline text-muted-foreground absolute inset-0 grid place-items-center p-6 text-center">
           Карта недоступна в этом браузере — объекты перечислены в списке.
         </div>
       ) : (
@@ -301,9 +337,9 @@ export function MapWorkspace({
             role="region"
             aria-label={`Карта операций: объектов ${objects.length}`}
           />
-          {!ready && <div className="skeleton absolute inset-0" aria-hidden />}
+          {!ready && <div className="skeleton absolute inset-0 rounded-none" aria-hidden />}
           {ready && !hasData && (
-            <p className="bg-card/95 text-muted-foreground pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md px-3 py-2 text-sm shadow-sm">
+            <p className="material-menu shadow-menu text-subheadline text-muted-foreground pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md px-3 py-2">
               {emptyLabel}
             </p>
           )}
@@ -319,6 +355,7 @@ export function MapWorkspace({
   );
 }
 
+/** Кнопки карты, как в Картах Apple: столбик в материале с волосяными разделителями. */
 export function MapControls({
   onZoomIn,
   onZoomOut,
@@ -331,16 +368,16 @@ export function MapControls({
   style?: React.CSSProperties;
 }) {
   const btn =
-    "grid size-8 place-items-center text-foreground transition-colors duration-150 hover:bg-muted active:bg-secondary-hover focus-visible:relative focus-visible:z-10";
+    "grid size-10 place-items-center text-foreground transition-colors duration-(--duration-micro) hover:bg-fill-quaternary active:bg-fill-tertiary focus-visible:relative focus-visible:z-10 lg:size-8";
   return (
-    <div className="border-border bg-card absolute z-[2] flex flex-col overflow-hidden rounded-md border shadow-sm" style={style}>
+    <div className="material-menu shadow-menu absolute z-[2] flex flex-col overflow-hidden rounded-md" style={style}>
       <button type="button" className={btn} onClick={onZoomIn} aria-label="Приблизить">
         <Plus className="size-4" aria-hidden />
       </button>
-      <button type="button" className={cn(btn, "border-border border-t")} onClick={onZoomOut} aria-label="Отдалить">
+      <button type="button" className={cn(btn, "hairline-t")} onClick={onZoomOut} aria-label="Отдалить">
         <Minus className="size-4" aria-hidden />
       </button>
-      <button type="button" className={cn(btn, "border-border border-t")} onClick={onFit} aria-label="Показать все объекты">
+      <button type="button" className={cn(btn, "hairline-t")} onClick={onFit} aria-label="Показать все объекты">
         <Maximize2 className="size-3.5" aria-hidden />
       </button>
     </div>

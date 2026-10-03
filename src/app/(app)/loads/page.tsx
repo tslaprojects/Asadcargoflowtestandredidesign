@@ -60,7 +60,7 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Sear
           action={{ href: "/loads/new", label: "Создать первый груз" }}
         />
       ) : (
-        <ul className="divide-border border-border bg-card divide-y overflow-hidden rounded-lg border" data-testid="load-list">
+        <ul className="bg-card [&>li+li_[data-row-content]]:hairline-t overflow-hidden rounded-lg" data-testid="load-list">
           {data.items.map((l) => (
             <li key={l.id}>
               <LoadCard load={l as unknown as LoadCardData} showCompany={false} />

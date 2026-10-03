@@ -41,7 +41,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
                   >
                     <span>
                       <span className="font-medium">{o.publicNumber}</span>{" "}
-                      <span className="text-muted-foreground text-sm">
+                      <span className="text-muted-foreground text-body">
                         {o.load.originCity} → {o.load.destinationCity}
                       </span>
                     </span>
@@ -64,7 +64,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
                     className="hover:bg-muted flex items-center justify-between gap-2 rounded-lg p-2"
                   >
                     <span>
-                      <span className="font-medium">{l.publicNumber}</span> <span className="text-muted-foreground text-sm">{l.title}</span>
+                      <span className="font-medium">{l.publicNumber}</span>{" "}
+                      <span className="text-muted-foreground text-body">{l.title}</span>
                     </span>
                     <StatusBadge kind="LoadStatus" value={l.status} />
                   </Link>
@@ -86,7 +87,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
                   >
                     <span>
                       <span className="font-medium">{c.legalName}</span>{" "}
-                      <span className="text-muted-foreground text-sm">
+                      <span className="text-muted-foreground text-body">
                         {label("CompanyType", c.type)} · {c.city}
                       </span>
                     </span>
@@ -110,7 +111,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Searc
                   >
                     <span>
                       <span className="font-mono font-medium">{v.plateNumber}</span>{" "}
-                      <span className="text-muted-foreground text-sm">
+                      <span className="text-muted-foreground text-body">
                         {v.make} {v.model}
                       </span>
                     </span>

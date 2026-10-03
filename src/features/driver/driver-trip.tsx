@@ -27,6 +27,10 @@ type Props = {
 };
 
 /** Мобильный экран водителя: одна большая кнопка, соответствующая текущему статусу. */
+/** Быстрые действия водителя, как кнопки под карточкой в Картах: значок акцентом и подпись под ним. */
+const QUICK =
+  "bg-card text-link hover:bg-surface-secondary active:bg-muted text-footnote h-[4.5rem] flex-col gap-1.5 rounded-xl font-medium lg:h-[4.5rem] [&_svg]:size-5";
+
 export function DriverTripActions({ orderId, status, lastLocationAt, documents, carrierPhone }: Props) {
   const router = useRouter();
   const step: DriverStep = driverNextStep(status);
@@ -83,9 +87,9 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
 
   return (
     <div className="space-y-3">
-      <div className="border-border bg-card rounded-2xl border p-4">
-        <p className="text-muted-foreground text-sm">Следующее действие</p>
-        <p className="mt-1 mb-3 text-sm">{step.hint}</p>
+      <div className="bg-card rounded-xl p-4">
+        <p className="text-section">Следующее действие</p>
+        <p className="mt-1 mb-3.5">{step.hint}</p>
         <div className="space-y-2">
           {step.primary?.kind === "transition" &&
             (step.primary.to === "DELIVERED" ? (
@@ -122,65 +126,66 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
                 return r !== undefined;
               }}
               trigger={
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 w-full text-base"
-                  disabled={pending}
-                  data-testid={`driver-action-${s.to}`}
-                >
+                <Button size="lg" variant="secondary" className="h-12 w-full" disabled={pending} data-testid={`driver-action-${s.to}`}>
                   <MapPin /> {s.label}
                 </Button>
               }
             />
           ))}
           {step.primary?.kind === "transition" && status !== "WAITING_FOR_LOADING" && (
-            <Button size="lg" variant="ghost" className="w-full" onClick={sendLocation} loading={locating} loadingText="Определяем...">
+            <Button
+              size="lg"
+              variant="ghost"
+              className="text-link w-full"
+              onClick={sendLocation}
+              loading={locating}
+              loadingText="Определяем..."
+            >
               <LocateFixed /> Обновить местоположение
             </Button>
           )}
         </div>
-        <p className="text-muted-foreground mt-3 text-center text-xs">
+        <p className="text-muted-foreground text-footnote mt-3 text-center">
           {lastLocationAt ? `Последнее местоположение: ${formatRelative(lastLocationAt)}` : "Местоположение ещё не отправлялось"}
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Button variant="outline" className="h-16 flex-col gap-1 text-xs" onClick={() => setUploadOpen(true)}>
+        <Button variant="ghost" className={QUICK} onClick={() => setUploadOpen(true)}>
           <Upload /> Фото / документ
         </Button>
-        <Button variant="outline" className="h-16 flex-col gap-1 text-xs" onClick={() => setChatOpen(true)}>
+        <Button variant="ghost" className={QUICK} onClick={() => setChatOpen(true)}>
           <MessageSquare /> Сообщение
         </Button>
         {carrierPhone ? (
-          <Button asChild variant="outline" className="h-16 flex-col gap-1 text-xs">
+          <Button asChild variant="ghost" className={QUICK}>
             <a href={`tel:${carrierPhone}`}>
               <Phone /> Диспетчер
             </a>
           </Button>
         ) : (
-          <Button variant="outline" className="h-16 flex-col gap-1 text-xs" disabled>
+          <Button variant="ghost" className={QUICK} disabled>
             <Phone /> Нет телефона
           </Button>
         )}
       </div>
 
       {documents.length > 0 && (
-        <div className="border-border bg-card rounded-2xl border p-4">
-          <p className="mb-2 text-sm font-medium">Загруженные документы</p>
-          <ul className="space-y-1 text-sm">
+        <div className="bg-card rounded-xl px-4 py-3">
+          <p className="text-section mb-2">Загруженные документы</p>
+          <ul className="space-y-1.5">
             {documents.map((d) => (
               <li key={d.id} className="flex items-center gap-2">
                 <CheckCircle2 className="text-success size-4" aria-hidden />
                 <a
                   href={`/api/documents/${d.id}/download?inline=1`}
-                  className="text-primary truncate hover:underline"
+                  className="text-link truncate hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   {label("DocumentType", d.type)} — {d.filename}
                 </a>
-                <span className="text-muted-foreground ml-auto shrink-0 text-xs">{formatDateTime(d.createdAt)}</span>
+                <span className="text-muted-foreground text-footnote ml-auto shrink-0">{formatDateTime(d.createdAt)}</span>
               </li>
             ))}
           </ul>
@@ -212,7 +217,7 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
         </SheetContent>
       </Sheet>
       <p className="text-center">
-        <Link href={`/orders/${orderId}`} className="text-primary text-sm hover:underline">
+        <Link href={`/orders/${orderId}`} className="text-link text-body hover:underline">
           Подробнее о рейсе
         </Link>
       </p>

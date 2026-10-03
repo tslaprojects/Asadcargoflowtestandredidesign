@@ -6,9 +6,9 @@ import { api } from "@/lib/client/api";
 export function LogoutButton() {
   return (
     <Button
-      variant="outline"
+      variant="secondary"
       size="lg"
-      className="w-full"
+      className="text-danger w-full"
       onClick={async () => {
         await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
         window.location.assign("/login");

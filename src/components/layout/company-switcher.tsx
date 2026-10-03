@@ -1,5 +1,5 @@
 "use client";
-import { Building2, Check, ChevronsUpDown } from "lucide-react";
+import { Building2, Check, ChevronsUpDown, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import type { ClientActor } from "@/lib/auth/actor";
 import { api, errorMessage } from "@/lib/client/api";
 import { label } from "@/lib/i18n";
 
+/** Текущая компания внизу сайдбара (и в «Ещё» на телефоне): название, роль, смена компании. */
 export function CompanySwitcher({ actor }: { actor: ClientActor }) {
   const router = useRouter();
   const active = actor.active;
@@ -31,32 +32,32 @@ export function CompanySwitcher({ actor }: { actor: ClientActor }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="border-border hover:bg-muted flex max-w-[200px] items-center gap-2 rounded-lg border px-2 py-1.5 text-left text-sm"
+        className="hover:bg-fill-quaternary data-[state=open]:bg-fill-tertiary flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors duration-(--duration-micro)"
         aria-label="Текущая компания"
       >
-        <Building2 className="text-muted-foreground size-4 shrink-0" aria-hidden />
-        <span className="hidden min-w-0 sm:block">
-          <span className="block truncate leading-tight font-medium">{active?.company.legalName ?? "Нет компании"}</span>
-          <span className="text-muted-foreground block truncate text-xs leading-tight">
-            {active ? label("MemberRole", active.role) : ""}
-          </span>
+        <span className="bg-fill-secondary text-muted-foreground grid size-8 shrink-0 place-items-center rounded-sm" aria-hidden>
+          <Building2 className="size-4" />
         </span>
-        {actor.memberships.length > 1 && <ChevronsUpDown className="text-muted-foreground size-3.5" aria-hidden />}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-medium">{active?.company.legalName ?? "Нет компании"}</span>
+          <span className="text-footnote text-muted-foreground block truncate">{active ? label("MemberRole", active.role) : ""}</span>
+        </span>
+        <ChevronsUpDown className="text-tertiary-foreground size-3.5 shrink-0" aria-hidden />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-64">
+      <DropdownMenuContent align="start" side="top" className="w-64">
         <DropdownMenuLabel>{actor.memberships.length > 1 ? "Сменить компанию" : "Компания"}</DropdownMenuLabel>
         {actor.memberships.map((m) => (
-          <DropdownMenuItem key={m.companyId} onSelect={() => switchTo(m.companyId)}>
-            <span className="flex-1">
-              <span className="block font-medium">{m.company.legalName}</span>
-              <span className="text-muted-foreground block text-xs">{label("MemberRole", m.role)}</span>
+          <DropdownMenuItem key={m.companyId} onSelect={() => switchTo(m.companyId)} className="py-1.5">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate">{m.company.legalName}</span>
+              <span className="text-footnote block opacity-70">{label("MemberRole", m.role)}</span>
             </span>
-            {m.companyId === active?.companyId && <Check className="!text-primary" aria-label="Текущая" />}
+            {m.companyId === active?.companyId && <Check aria-label="Текущая" />}
           </DropdownMenuItem>
         ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => router.push("/company/new")}>
-          <Building2 /> Создать ещё одну компанию
+          <Plus /> Создать ещё одну компанию
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

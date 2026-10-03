@@ -60,7 +60,7 @@ export function LoadOwnerActions({ loadId, status, pendingBids }: { loadId: stri
             return r !== undefined;
           }}
           trigger={
-            <Button variant="ghost" className="text-destructive">
+            <Button variant="ghost" className="text-danger">
               <XCircle /> Отменить
             </Button>
           }

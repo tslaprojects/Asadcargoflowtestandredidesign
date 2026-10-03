@@ -5,7 +5,7 @@ import type { MapLine, MapPoint } from "./map-view";
  * Линия маршрута груза для карты: сохранённая геометрия по дорогам (сплошная).
  * Нет геометрии или это оценка (прямые между точками) — undefined: карта соединит точки пунктиром, как раньше.
  */
-export function routeLines(route: { routeGeometry?: unknown; routeSource?: string | null }, color = "#1d4ed8"): MapLine[] | undefined {
+export function routeLines(route: { routeGeometry?: unknown; routeSource?: string | null }, color = "#007aff"): MapLine[] | undefined {
   const coords = parseRouteGeometry(route.routeGeometry);
   if (!coords) return undefined;
   const estimate = route.routeSource !== "PROVIDER";

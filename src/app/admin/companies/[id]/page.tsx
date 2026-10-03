@@ -31,7 +31,7 @@ export default async function AdminCompanyPage({ params }: { params: Promise<{ i
         actions={<CompanyDecisionButtons companyId={company.id} status={company.verificationStatus} />}
       />
       {company.suspendReason && (
-        <p className="bg-danger-bg text-danger mb-4 rounded-lg px-3 py-2 text-sm">Приостановлена: {company.suspendReason}</p>
+        <p className="bg-danger-bg text-danger text-body mb-4 rounded-lg px-3 py-2">Приостановлена: {company.suspendReason}</p>
       )}
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>
@@ -58,7 +58,7 @@ export default async function AdminCompanyPage({ params }: { params: Promise<{ i
             <CardTitle>Сотрудники ({company.members.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-1 text-sm">
+            <ul className="text-body space-y-1">
               {company.members.map((m) => (
                 <li key={m.id} className="flex justify-between gap-2">
                   <span>
@@ -93,11 +93,11 @@ export default async function AdminCompanyPage({ params }: { params: Promise<{ i
           </CardHeader>
           <CardContent>
             {company.verificationRequests.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Заявок не было</p>
+              <p className="text-muted-foreground text-body">Заявок не было</p>
             ) : (
-              <ul className="space-y-2 text-sm">
+              <ul className="text-body space-y-2">
                 {company.verificationRequests.map((r) => (
-                  <li key={r.id} className="border-border rounded-lg border p-2">
+                  <li key={r.id} className="bg-fill-quaternary rounded-lg p-2">
                     <div className="flex justify-between">
                       <span>{formatDateTime(r.createdAt)}</span>
                       <StatusBadge kind="VerificationRequestStatus" value={r.status} />

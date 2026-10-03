@@ -1,15 +1,15 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, Check, Package, Truck, Users } from "lucide-react";
+import { Check, Package, Truck, Users } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { useForm, useWatch, type FieldPath } from "react-hook-form";
 import type { z } from "zod";
-import { Field, FormError } from "@/components/common/field";
+import { FormError } from "@/components/common/field";
+import { FormGroup, FormRow, rowInput, rowSelect } from "@/components/common/form-group";
 import { Button } from "@/components/ui/button";
-import { Input, NativeSelect } from "@/components/ui/input";
 import { api, ApiError, errorMessage } from "@/lib/client/api";
-import { label } from "@/lib/i18n";
+import { label, t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { registerSchema } from "@/lib/validation/auth";
 
@@ -84,52 +84,65 @@ export function RegisterWizard({
 
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Регистрация в CargoFlow</h1>
-      <ol className="mt-5 flex items-center gap-2" aria-label="Шаги регистрации">
+      <div className="text-center">
+        <h1 className="text-large-title">Регистрация в CargoFlow</h1>
+        <p className="text-subheadline text-muted-foreground mt-1">
+          Шаг {step + 1} из {STEPS.length} · {STEPS[step]}
+        </p>
+      </div>
+      <ol className="mt-4 flex justify-center gap-1.5" aria-label="Шаги регистрации">
         {STEPS.map((s, i) => (
-          <li key={s} className="flex flex-1 items-center gap-2" aria-current={i === step ? "step" : undefined}>
+          <li key={s} aria-current={i === step ? "step" : undefined}>
             <span
               className={cn(
-                "grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold",
-                i < step ? "bg-success text-white" : i === step ? "bg-primary text-white" : "bg-muted text-muted-foreground",
+                "block h-1.5 rounded-full transition-[width,background-color] duration-(--duration-complex)",
+                i === step ? "bg-primary w-6" : i < step ? "bg-primary/45 w-1.5" : "bg-fill w-1.5",
               )}
-            >
-              {i < step ? <Check className="size-4" aria-label="выполнено" /> : i + 1}
+              aria-hidden
+            />
+            <span className="sr-only">
+              {s}
+              {i < step ? ` — ${t("ui.stepDone")}` : ""}
             </span>
-            <span className={cn("text-sm", i === step ? "font-medium" : "text-muted-foreground")}>{s}</span>
-            {i < STEPS.length - 1 && <span className="bg-border h-px flex-1" aria-hidden />}
           </li>
         ))}
       </ol>
 
-      <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+      <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
         <FormError message={error} />
         {invite && (
-          <div className="border-info-border bg-info-bg text-info rounded-lg border p-3 text-sm">
+          <p className="bg-info-bg text-info text-subheadline rounded-md px-3 py-2.5">
             Приглашение в компанию <b>{invite.companyName}</b> на роль «{label("MemberRole", invite.role)}».
-          </div>
+          </p>
         )}
 
         {step === 0 && (
           <>
-            <div className="grid grid-cols-2 gap-3">
-              <Field id="firstName" label="Имя" error={err("firstName")} required>
-                <Input autoComplete="given-name" {...form.register("firstName")} />
-              </Field>
-              <Field id="lastName" label="Фамилия" error={err("lastName")} required>
-                <Input autoComplete="family-name" {...form.register("lastName")} />
-              </Field>
-            </div>
-            <Field id="phone" label="Телефон" error={err("phone")} hint="В международном формате, например +7 700 123 45 67" required>
-              <Input type="tel" autoComplete="tel" inputMode="tel" {...form.register("phone")} />
-            </Field>
-            <Field id="email" label="Email" error={err("email")} required>
-              <Input type="email" autoComplete="email" readOnly={!!invite} {...form.register("email")} />
-            </Field>
-            <Field id="password" label="Пароль" error={err("password")} hint="Не менее 8 символов, буквы и цифры" required>
-              <Input type="password" autoComplete="new-password" {...form.register("password")} />
-            </Field>
-            <Button type="button" className="w-full" onClick={next}>
+            <FormGroup footer={t("ui.phoneAndPasswordHint")}>
+              <FormRow id="firstName" label="Имя" error={err("firstName")} required>
+                <input autoComplete="given-name" className={rowInput} {...form.register("firstName")} />
+              </FormRow>
+              <FormRow id="lastName" label="Фамилия" error={err("lastName")} required>
+                <input autoComplete="family-name" className={rowInput} {...form.register("lastName")} />
+              </FormRow>
+              <FormRow id="phone" label="Телефон" error={err("phone")} required>
+                <input type="tel" autoComplete="tel" inputMode="tel" placeholder="+7" className={rowInput} {...form.register("phone")} />
+              </FormRow>
+              <FormRow id="email" label="Email" error={err("email")} required>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  readOnly={!!invite}
+                  placeholder="name@company.com"
+                  className={rowInput}
+                  {...form.register("email")}
+                />
+              </FormRow>
+              <FormRow id="password" label="Пароль" error={err("password")} required>
+                <input type="password" autoComplete="new-password" className={rowInput} {...form.register("password")} />
+              </FormRow>
+            </FormGroup>
+            <Button type="button" size="lg" className="w-full" onClick={next}>
               Продолжить
             </Button>
           </>
@@ -138,32 +151,37 @@ export function RegisterWizard({
         {step === 1 && (
           <>
             <fieldset>
-              <legend className="mb-3 text-sm font-medium">Выберите тип деятельности</legend>
-              <div className="space-y-2">
+              <legend className="text-section mb-1.5 px-4">Выберите тип деятельности</legend>
+              <div className="bg-card [&>label+label>[data-row-content]]:hairline-t overflow-hidden rounded-lg">
                 {ACTIVITIES.map((a) => (
                   <label
                     key={a.value}
                     className={cn(
-                      "has-[:focus-visible]:outline-ring flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors has-[:focus-visible]:outline-2",
-                      activity === a.value ? "border-primary bg-accent" : "border-border bg-card hover:bg-muted",
-                      invite && "pointer-events-none opacity-70",
+                      "has-[:focus-visible]:bg-accent/60 hover:bg-fill-quaternary flex cursor-pointer items-stretch gap-3 pl-4 transition-colors duration-(--duration-micro)",
+                      invite && "pointer-events-none opacity-60",
                     )}
                   >
                     <input type="radio" value={a.value} className="sr-only" {...form.register("activity")} disabled={!!invite} />
-                    <a.icon className={cn("mt-0.5 size-5", activity === a.value ? "text-primary" : "text-muted-foreground")} aria-hidden />
-                    <span>
-                      <span className="block font-medium">{a.title}</span>
-                      <span className="text-muted-foreground block text-sm">{a.text}</span>
+                    <a.icon className="text-link mt-3.5 size-5 shrink-0" aria-hidden />
+                    <span data-row-content className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-4">
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">{a.title}</span>
+                        <span className="text-subheadline text-muted-foreground block">{a.text}</span>
+                      </span>
+                      <Check
+                        className={cn("text-link size-5 shrink-0 [stroke-width:2.5]", activity !== a.value && "invisible")}
+                        aria-hidden
+                      />
                     </span>
                   </label>
                 ))}
               </div>
             </fieldset>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(0)}>
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(0)}>
                 Назад
               </Button>
-              <Button type="button" className="flex-1" onClick={next}>
+              <Button type="button" size="lg" className="flex-1" onClick={next}>
                 Продолжить
               </Button>
             </div>
@@ -173,87 +191,77 @@ export function RegisterWizard({
         {step === 2 && (
           <>
             {!invite && (
-              <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Компания">
+              <div className="bg-fill-tertiary grid grid-cols-2 gap-0.5 rounded-md p-0.5" role="radiogroup" aria-label="Компания">
                 {(["create", "invite"] as const).map((m) => (
                   <label
                     key={m}
                     className={cn(
-                      "flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm",
-                      companyMode === m ? "border-primary bg-accent text-primary font-medium" : "border-border",
+                      "has-[:focus-visible]:outline-ring text-body flex h-11 cursor-pointer items-center justify-center rounded-[0.4375rem] font-medium transition-[background-color,box-shadow] duration-(--duration-standard) has-[:focus-visible]:outline-3 lg:h-8",
+                      companyMode === m ? "bg-segment-thumb shadow-control" : "text-foreground/75",
                     )}
                   >
                     <input type="radio" value={m} className="sr-only" {...form.register("companyMode")} />
-                    {m === "create" ? <Building2 className="size-4" aria-hidden /> : <Users className="size-4" aria-hidden />}
                     {m === "create" ? "Создать компанию" : "По приглашению"}
                   </label>
                 ))}
               </div>
             )}
             {companyMode === "create" ? (
-              <>
-                <Field id="company.legalName" label="Юридическое название" error={err("company.legalName")} required>
-                  <Input autoComplete="organization" {...form.register("company.legalName")} />
-                </Field>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field
-                    id="company.registrationNumber"
-                    label="Рег. номер (БИН/ОГРН/USCC)"
-                    error={err("company.registrationNumber")}
-                    required
-                  >
-                    <Input {...form.register("company.registrationNumber")} />
-                  </Field>
-                  <Field id="company.taxId" label="ИНН / налоговый номер" error={err("company.taxId")}>
-                    <Input {...form.register("company.taxId")} />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Field id="company.country" label="Страна" error={err("company.country")} required>
-                    <NativeSelect {...form.register("company.country")}>
-                      {countries.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </NativeSelect>
-                  </Field>
-                  <Field id="company.city" label="Город" error={err("company.city")} required>
-                    <Input autoComplete="address-level2" {...form.register("company.city")} />
-                  </Field>
-                </div>
-                <Field id="company.address" label="Адрес" error={err("company.address")} required>
-                  <Input autoComplete="street-address" {...form.register("company.address")} />
-                </Field>
-                <p className="text-muted-foreground text-xs">
-                  Вы станете {label("MemberRole", activity === "CARRIER" ? "CARRIER_ADMIN" : activity).toLowerCase()} компании и сможете
-                  пригласить сотрудников.
-                </p>
-              </>
-            ) : (
-              <Field
-                id="inviteToken"
-                label="Код приглашения"
-                error={err("inviteToken")}
-                hint="Код из ссылки-приглашения, которую прислал руководитель компании"
-                required
+              <FormGroup
+                header="Компания"
+                footer={`Вы станете ${label("MemberRole", activity === "CARRIER" ? "CARRIER_ADMIN" : activity).toLowerCase()} компании и сможете пригласить сотрудников.`}
               >
-                <Input readOnly={!!invite} {...form.register("inviteToken")} />
-              </Field>
+                <FormRow id="company.legalName" label="Юридическое название" error={err("company.legalName")} required>
+                  <input autoComplete="organization" className={rowInput} {...form.register("company.legalName")} />
+                </FormRow>
+                <FormRow
+                  id="company.registrationNumber"
+                  label="Рег. номер (БИН/ОГРН/USCC)"
+                  error={err("company.registrationNumber")}
+                  required
+                >
+                  <input className={rowInput} {...form.register("company.registrationNumber")} />
+                </FormRow>
+                <FormRow id="company.taxId" label="ИНН / налоговый номер" error={err("company.taxId")}>
+                  <input className={rowInput} placeholder={t("ui.optional")} {...form.register("company.taxId")} />
+                </FormRow>
+                <FormRow id="company.country" label="Страна" error={err("company.country")} required>
+                  <select className={rowSelect} {...form.register("company.country")}>
+                    {countries.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </FormRow>
+                <FormRow id="company.city" label="Город" error={err("company.city")} required>
+                  <input autoComplete="address-level2" className={rowInput} {...form.register("company.city")} />
+                </FormRow>
+                <FormRow id="company.address" label="Адрес" error={err("company.address")} required>
+                  <input autoComplete="street-address" className={rowInput} {...form.register("company.address")} />
+                </FormRow>
+              </FormGroup>
+            ) : (
+              <FormGroup footer="Код из ссылки-приглашения, которую прислал руководитель компании">
+                <FormRow id="inviteToken" label="Код приглашения" error={err("inviteToken")} required>
+                  <input readOnly={!!invite} className={rowInput} {...form.register("inviteToken")} />
+                </FormRow>
+              </FormGroup>
             )}
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(invite ? 0 : 1)}>
+              <Button type="button" variant="secondary" size="lg" onClick={() => setStep(invite ? 0 : 1)}>
                 Назад
               </Button>
-              <Button type="submit" className="flex-1" loading={isSubmitting} loadingText="Создаём аккаунт...">
+              <Button type="submit" size="lg" className="flex-1" loading={isSubmitting} loadingText="Создаём аккаунт...">
                 Зарегистрироваться
               </Button>
             </div>
           </>
         )}
       </form>
-      <p className="text-muted-foreground mt-6 text-center text-sm">
+      <p className="text-subheadline text-muted-foreground mt-8 text-center">
         Уже есть аккаунт?{" "}
-        <Link href="/login" className="text-primary font-medium hover:underline">
+        <Link href="/login" className="text-link font-medium hover:underline">
           Войти
         </Link>
       </p>

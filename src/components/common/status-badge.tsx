@@ -238,20 +238,41 @@ export function StatusBadge({
   if (!value) return null;
   const cfg = STATUS_STYLES[kind]?.[value] ?? { tone: "neutral" as const, icon: CircleDot };
   const Icon = cfg.icon;
-  // «Живой» индикатор — только для крупного бейджа перевозки в движении (шапка), не в списках: не отвлекает.
+  // «Живой» индикатор — только для крупного статуса перевозки в движении (шапка), не в списках: не отвлекает.
   const live = size === "lg" && kind === "OrderStatus" && MOVING.has(value);
+  const marker = live ? (
+    <span className={cn("animate-live-pulse size-2 rounded-full bg-current", TONE_TEXT[cfg.tone])} aria-hidden />
+  ) : hideIcon ? (
+    <span className={cn("size-1.5 rounded-full bg-current", TONE_TEXT[cfg.tone])} aria-hidden />
+  ) : (
+    <Icon className={cn("shrink-0", size === "lg" ? "size-4" : "size-3.5", size === "sm" && TONE_TEXT[cfg.tone])} aria-hidden />
+  );
+  // В списках — цветной значок и обычный текст, как в Reminders; в шапке — тонированная капсула.
+  if (size === "sm")
+    return (
+      <span className={cn("text-subheadline inline-flex items-center gap-1.5 whitespace-nowrap", className)} data-status={value}>
+        {marker}
+        {statusLabel(kind, value)}
+      </span>
+    );
   return (
     <Badge
       tone={cfg.tone}
-      className={cn("transition-colors duration-(--duration-complex)", size === "lg" && "px-3 py-1 text-sm [&_svg]:size-4", className)}
+      className={cn("text-subheadline h-7 gap-1.5 rounded-full px-3 transition-colors duration-(--duration-complex)", className)}
       data-status={value}
     >
-      {live ? (
-        <span className="animate-live-pulse text-info bg-info mx-0.5 size-2 rounded-full" aria-hidden />
-      ) : (
-        !hideIcon && <Icon aria-hidden />
-      )}
+      {marker}
       {statusLabel(kind, value)}
     </Badge>
   );
 }
+
+const TONE_TEXT: Record<BadgeTone, string> = {
+  success: "text-success",
+  warning: "text-warning",
+  info: "text-info",
+  delayed: "text-delayed",
+  danger: "text-danger",
+  neutral: "text-neutral",
+  outline: "text-muted-foreground",
+};

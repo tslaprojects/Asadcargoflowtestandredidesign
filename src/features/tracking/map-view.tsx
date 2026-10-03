@@ -3,7 +3,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { Map as MLMap } from "maplibre-gl";
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { mapStyle } from "./map-style";
+import { cssColor, mapStyle, useDarkScheme } from "./map-style";
 
 export type MapPoint = {
   lat: number;
@@ -19,19 +19,21 @@ export type MapLine = { coordinates: [number, number][]; color: string; dashed?:
  * Карта на MapLibre GL (open-source). Стиль задаётся NEXT_PUBLIC_MAP_STYLE_URL,
  * иначе NEXT_PUBLIC_GEOAPIFY_KEY (Geoapify), без них — тайлы OpenStreetMap (dev). Провайдер карт заменяется без изменения компонентов.
  */
-const COLORS: Record<MapPoint["kind"], string> = {
-  PICKUP: "#1d4ed8",
-  BORDER: "#b45309",
-  TRANSIT: "#64748b",
-  DELIVERY: "#15803d",
-  VEHICLE: "#dc2626",
-  TARGET: "#7c3aed",
-  CANDIDATE: "#0891b2",
+/** Цвет точки по типу — из переменных темы globals.css (--map-*), с запасными значениями светлой темы. */
+const POINT_COLOR: Record<MapPoint["kind"], [string, string]> = {
+  PICKUP: ["--map-moving", "#007aff"],
+  BORDER: ["--map-waiting", "#d99a00"],
+  TRANSIT: ["--map-cancelled", "#8e8e93"],
+  DELIVERY: ["--map-done", "#34c759"],
+  VEHICLE: ["--map-attention", "#ff3b30"],
+  TARGET: ["--map-delayed", "#ff9500"],
+  CANDIDATE: ["--map-arriving", "#30b0c7"],
   // Заправки: совпадает / требует проверки / нет данных для проверки
-  FUEL_OK: "#15803d",
-  FUEL_ALERT: "#c2410c",
-  FUEL_UNVERIFIED: "#64748b",
+  FUEL_OK: ["--map-done", "#34c759"],
+  FUEL_ALERT: ["--map-delayed", "#ff9500"],
+  FUEL_UNVERIFIED: ["--map-cancelled", "#8e8e93"],
 };
+const pointColor = (kind: MapPoint["kind"]) => cssColor(...POINT_COLOR[kind]);
 
 export function MapView({
   points,
@@ -58,6 +60,7 @@ export function MapView({
     pickRef.current = onPick;
   }, [onPick]);
   const picking = Boolean(onPick);
+  const dark = useDarkScheme();
 
   React.useEffect(() => {
     let cancelled = false;
@@ -73,7 +76,7 @@ export function MapView({
         }
         const map = new maplibregl.Map({
           container: ref.current,
-          style: mapStyle(),
+          style: mapStyle(dark),
           center: points.length ? [points[0].lng, points[0].lat] : [70, 48],
           zoom: 3,
           attributionControl: { compact: true },
@@ -114,13 +117,13 @@ export function MapView({
               id: "route",
               type: "line",
               source: "route",
-              paint: { "line-color": "#1d4ed8", "line-width": 3, "line-dasharray": [2, 1.5], "line-opacity": 0.7 },
+              paint: { "line-color": cssColor("--map-route", "#007aff"), "line-width": 3, "line-dasharray": [2, 1.5], "line-opacity": 0.7 },
             });
           }
         });
         for (const p of points) {
           const el = document.createElement("div");
-          el.style.cssText = `width:${p.kind === "VEHICLE" ? 20 : 14}px;height:${p.kind === "VEHICLE" ? 20 : 14}px;border-radius:9999px;background:${COLORS[p.kind]};border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,.35)`;
+          el.style.cssText = `width:${p.kind === "VEHICLE" ? 20 : 14}px;height:${p.kind === "VEHICLE" ? 20 : 14}px;border-radius:9999px;background:${pointColor(p.kind)};border:2.5px solid white;box-shadow:0 1px 3px rgb(0 0 0 / .3)`;
           el.setAttribute("role", "img");
           el.setAttribute("aria-label", p.label);
           new maplibregl.Marker({ element: el })
@@ -142,12 +145,12 @@ export function MapView({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [pointsKey, picking]);
+  }, [pointsKey, picking, dark]);
 
   if ((points.length === 0 && !picking) || failed) {
     return (
       <div className={className}>
-        <div className="border-border bg-muted/40 text-muted-foreground grid h-full min-h-48 place-items-center rounded-lg border border-dashed p-4 text-center text-sm">
+        <div className="bg-fill-quaternary text-subheadline text-muted-foreground grid h-full min-h-48 place-items-center rounded-lg p-4 text-center">
           {failed ? "Карта недоступна в этом браузере. Точки маршрута перечислены ниже." : "Нет координат для отображения на карте"}
         </div>
       </div>
@@ -164,7 +167,7 @@ export function MapView({
         aria-label={`Карта: ${points.map((p) => p.label).join(", ")}`}
       />
       {picking && pickHint && (
-        <p className="bg-card/90 pointer-events-none absolute top-2 left-2 rounded-md px-2 py-1 text-xs shadow">{pickHint}</p>
+        <p className="material-menu shadow-menu text-footnote pointer-events-none absolute top-2 left-2 rounded-sm px-2 py-1">{pickHint}</p>
       )}
     </div>
   );
