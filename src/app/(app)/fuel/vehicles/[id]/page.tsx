@@ -56,7 +56,7 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
         back={{ href: "/fuel", label: "Топливо" }}
         title={
           <span className="flex flex-wrap items-center gap-3">
-            {v.make} {v.model} <span className="text-muted-foreground font-mono text-lg">{v.plateNumber}</span>
+            {v.make} {v.model} <span className="text-muted-foreground text-title3 font-mono">{v.plateNumber}</span>
             <FuelHealthBadge health={s.health} />
             {r.state.demo && <DemoBadge />}
           </span>
@@ -67,40 +67,40 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4" data-testid="vehicle-fuel-summary">
         <Card>
           <CardContent className="pt-5">
-            <p className="text-muted-foreground text-sm">Текущий уровень</p>
+            <p className="text-muted-foreground text-body">Текущий уровень</p>
             <TankGauge liters={lvl?.value.liters ?? null} capacity={v.tankCapacityLiters} />
-            <p className="text-muted-foreground mt-1 text-xs">
+            <p className="text-muted-foreground text-footnote mt-1">
               {lvl ? `${label("FuelLevelSource", lvl.value.source)} · ${formatRelative(lvl.recordedAt)}` : "датчик уровня не подключён"}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5">
-            <p className="text-muted-foreground text-sm">Средний расход (30 дней)</p>
-            <p className="text-lg font-semibold">
+            <p className="text-muted-foreground text-body">Средний расход (30 дней)</p>
+            <p className="text-title3 font-semibold">
               <Metric value={r.consumption.per100Km} unit="л/100 км" />
             </p>
-            <p className="text-muted-foreground text-xs">
+            <p className="text-muted-foreground text-footnote">
               {r.consumption.method ? CONSUMPTION_METHOD_LABELS[r.consumption.method] : "нужны одометр и уровень топлива"}
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5">
-            <p className="text-muted-foreground text-sm">Норма / отклонение</p>
-            <p className="text-lg font-semibold">
+            <p className="text-muted-foreground text-body">Норма / отклонение</p>
+            <p className="text-title3 font-semibold">
               <Metric value={v.fuelNormPer100Km} unit="л/100 км" na="не задана" /> · <DeviationText pct={r.deviationPct} />
             </p>
-            <p className="text-muted-foreground text-xs">норму задаёт владелец для этого автомобиля</p>
+            <p className="text-muted-foreground text-footnote">норму задаёт владелец для этого автомобиля</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-5">
-            <p className="text-muted-foreground text-sm">Несоответствия</p>
-            <p className={s.openAnomalies ? "text-danger text-lg font-semibold" : "text-lg font-semibold"}>
+            <p className="text-muted-foreground text-body">Несоответствия</p>
+            <p className={s.openAnomalies ? "text-danger text-title3 font-semibold" : "text-title3 font-semibold"}>
               {s.openAnomalies} требуют внимания
             </p>
-            <p className="text-muted-foreground text-xs">всего за период: {r.anomalies.length}</p>
+            <p className="text-muted-foreground text-footnote">всего за период: {r.anomalies.length}</p>
           </CardContent>
         </Card>
       </div>
@@ -120,8 +120,8 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
                   .map((t) => ({ at: t.transactionDate, liters: t.liters, alert: t.matchStatus === "MISMATCH" }))}
               />
               {r.levelSeries.length > 0 && (
-                <details className="mt-2 text-sm">
-                  <summary className="text-primary cursor-pointer">Показания таблицей</summary>
+                <details className="text-body mt-2">
+                  <summary className="text-link cursor-pointer">Показания таблицей</summary>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -150,7 +150,7 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent className="overflow-x-auto">
               {r.transactions.length === 0 ? (
-                <p className="text-muted-foreground text-sm">Заправок нет.</p>
+                <p className="text-muted-foreground text-body">Заправок нет.</p>
               ) : (
                 <Table data-testid="vehicle-transactions">
                   <TableHeader>
@@ -172,10 +172,10 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
                         <TableCell>
                           {t.stationName}
                           {t.status === "DECLINED" && t.declineReason && (
-                            <span className="text-danger block text-xs">{t.declineReason}</span>
+                            <span className="text-danger text-footnote block">{t.declineReason}</span>
                           )}
                           {t.levelBefore != null && t.levelAfter != null && (
-                            <span className="text-muted-foreground block text-xs">
+                            <span className="text-muted-foreground text-footnote block">
                               уровень {Math.round(t.levelBefore)} → {Math.round(t.levelAfter)} л
                             </span>
                           )}
@@ -189,7 +189,7 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
                         <TableCell>{t.driver?.fullName ?? "—"}</TableCell>
                         <TableCell>
                           {t.order ? (
-                            <Link className="text-primary hover:underline" href={`/orders/${t.order.id}?tab=fuel`}>
+                            <Link className="text-link hover:underline" href={`/orders/${t.order.id}?tab=fuel`}>
                               {t.order.publicNumber}
                             </Link>
                           ) : (
@@ -222,7 +222,7 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
             </CardHeader>
             <CardContent>
               <MapView points={points} lines={trackLine} className="h-[300px] w-full overflow-hidden rounded-lg" />
-              <p className="text-muted-foreground mt-2 text-xs">
+              <p className="text-muted-foreground text-footnote mt-2">
                 Синяя линия — трек за 3 дня (телематика). Зелёный — заправка совпадает, оранжевый — требует проверки, серый — нет данных.
               </p>
             </CardContent>
@@ -238,7 +238,7 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
                   {
                     label: "Рейс",
                     value: s.trip ? (
-                      <Link className="text-primary hover:underline" href={`/orders/${s.trip.id}?tab=fuel`}>
+                      <Link className="text-link hover:underline" href={`/orders/${s.trip.id}?tab=fuel`}>
                         {s.trip.publicNumber} · {s.trip.route}
                       </Link>
                     ) : (
@@ -278,17 +278,14 @@ export default async function VehicleFuelPage({ params }: { params: Promise<{ id
                 <ul className="space-y-2">
                   {r.anomalies.map((a) => (
                     <li key={a.id}>
-                      <Link
-                        href={`/fuel/anomalies/${a.id}`}
-                        className="border-border hover:border-primary/40 block rounded-lg border p-2.5 text-sm"
-                      >
+                      <Link href={`/fuel/anomalies/${a.id}`} className="hover:border-primary/40 text-body block rounded-lg border p-2.5">
                         <span className="flex items-center justify-between gap-2">
                           <span className="flex items-center gap-1.5 font-medium">
                             <AlertTriangle className="size-3.5" aria-hidden /> {label("FuelAnomalyType", a.type)}
                           </span>
                           <StatusBadge kind="FuelAnomalyStatus" value={a.status} />
                         </span>
-                        <span className="text-muted-foreground text-xs">{formatDateTime(a.detectedAt)}</span>
+                        <span className="text-muted-foreground text-footnote">{formatDateTime(a.detectedAt)}</span>
                       </Link>
                     </li>
                   ))}

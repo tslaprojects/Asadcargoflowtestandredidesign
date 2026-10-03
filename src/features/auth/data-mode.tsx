@@ -13,12 +13,12 @@ export const DATA_MODE_META: Record<DataModeValue, { label: string; short: strin
   real: { label: "Реальная база", short: "Реальная", hint: "рабочие данные компании", icon: Database },
 };
 
-/** Выбор режима данных на странице входа (радиогруппа: доступна с клавиатуры и для скринридеров). */
+/** Выбор режима данных на странице входа — сегментированный контрол (радиогруппа: клавиатура и скринридеры). */
 export function DataModeSelector({ value, onChange }: { value: DataModeValue; onChange: (v: DataModeValue) => void }) {
   return (
     <fieldset>
-      <legend className="text-sm leading-none font-medium">Режим данных</legend>
-      <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Режим данных">
+      <legend className="text-section mb-1.5 px-4">Режим данных</legend>
+      <div className="bg-fill-tertiary grid grid-cols-2 gap-0.5 rounded-md p-0.5" role="radiogroup" aria-label="Режим данных">
         {(["demo", "real"] as const).map((mode) => {
           const meta = DATA_MODE_META[mode];
           const Icon = meta.icon;
@@ -27,33 +27,19 @@ export function DataModeSelector({ value, onChange }: { value: DataModeValue; on
             <label
               key={mode}
               className={cn(
-                "border-border-strong bg-card has-[:focus-visible]:outline-ring relative flex min-h-16 cursor-pointer items-start gap-2.5 rounded-lg border p-3 transition-[border-color,box-shadow,background-color] duration-150 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2",
-                checked
-                  ? mode === "demo"
-                    ? "border-warning bg-warning-bg ring-warning/15 ring-4"
-                    : "border-primary bg-accent ring-primary/15 ring-4"
-                  : "hover:border-input",
+                "has-[:focus-visible]:outline-ring text-body flex h-11 cursor-pointer items-center justify-center gap-1.5 rounded-[0.4375rem] font-medium transition-[background-color,box-shadow] duration-(--duration-standard) has-[:focus-visible]:outline-3 lg:h-8",
+                checked ? "bg-segment-thumb shadow-control" : "text-foreground/75 hover:text-foreground",
               )}
               data-testid={`data-mode-${mode}`}
             >
               <input type="radio" name="dataMode" value={mode} checked={checked} onChange={() => onChange(mode)} className="sr-only" />
-              <span
-                className={cn(
-                  "grid size-8 shrink-0 place-items-center rounded-md",
-                  checked ? (mode === "demo" ? "bg-card text-warning" : "bg-card text-primary") : "bg-muted text-muted-foreground",
-                )}
-                aria-hidden
-              >
-                <Icon className="size-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold">{meta.label}</span>
-                <span className="text-muted-foreground block text-xs leading-4">{meta.hint}</span>
-              </span>
+              <Icon className={cn("size-4", checked && (mode === "demo" ? "text-warning" : "text-link"))} aria-hidden />
+              {meta.label}
             </label>
           );
         })}
       </div>
+      <p className="text-footnote text-muted-foreground mt-1.5 px-4">{DATA_MODE_META[value].hint}</p>
     </fieldset>
   );
 }

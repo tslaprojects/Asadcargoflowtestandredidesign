@@ -77,13 +77,13 @@ export function FinancePanel({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="finance-summary">
         {tiles.map((t) => (
-          <div key={t.label} className="border-border bg-card rounded-lg border p-4">
-            <p className="text-muted-foreground text-sm">{t.label}</p>
-            <MoneyDisplay amount={t.value} currency={summary.currency} className="text-xl" />
+          <div key={t.label} className="bg-card rounded-lg px-4 py-3">
+            <p className="text-muted-foreground text-footnote font-medium">{t.label}</p>
+            <MoneyDisplay amount={t.value} currency={summary.currency} className="text-title2 font-semibold" />
           </div>
         ))}
       </div>
-      {summary.mismatchedCurrency && <p className="text-warning text-sm">Есть платежи в другой валюте — они не учитываются в сводке.</p>}
+      {summary.mismatchedCurrency && <p className="text-warning text-body">Есть платежи в другой валюте — они не учитываются в сводке.</p>}
       {!secureDeal && (
         <Card>
           <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
@@ -98,7 +98,7 @@ export function FinancePanel({
           </CardHeader>
           <CardContent>
             {payments.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Платежей пока нет. Зафиксируйте предоплату и окончательный расчёт.</p>
+              <p className="text-muted-foreground text-body">Платежей пока нет. Зафиксируйте предоплату и окончательный расчёт.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -160,7 +160,7 @@ export function FinancePanel({
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="text-destructive"
+                                className="text-danger"
                                 disabled={pending}
                                 onClick={() =>
                                   run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "CANCELLED" } }), {
@@ -179,7 +179,7 @@ export function FinancePanel({
                 </TableBody>
               </Table>
             )}
-            <p className="text-muted-foreground mt-3 text-xs">
+            <p className="text-muted-foreground text-footnote mt-3">
               CargoFlow фиксирует финансовые договорённости, но не проводит платежи. Согласованная стоимость после подписания договора
               меняется только через администратора.
             </p>

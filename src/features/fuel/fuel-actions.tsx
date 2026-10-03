@@ -59,10 +59,10 @@ function LimitsFields({ v, set, currency }: { v: LimitsValue; set: (v: LimitsVal
         </Field>
       </div>
       <fieldset className="sm:col-span-3">
-        <legend className="mb-1 text-sm font-medium">Разрешённое топливо (пусто — любое)</legend>
+        <legend className="text-body mb-1 font-medium">Разрешённое топливо (пусто — любое)</legend>
         <div className="flex flex-wrap gap-3">
           {enumOptions("FuelType").map((o) => (
-            <label key={o.value} className="flex items-center gap-1.5 text-sm">
+            <label key={o.value} className="text-body flex items-center gap-1.5">
               <Checkbox
                 checked={v.allowedFuelTypes.includes(o.value)}
                 onCheckedChange={(c) =>
@@ -80,7 +80,7 @@ function LimitsFields({ v, set, currency }: { v: LimitsValue; set: (v: LimitsVal
       <Field id="l-regions" label="Страны (коды)">
         <Input value={v.allowedRegions} onChange={f("allowedRegions")} placeholder="KZ, RU" />
       </Field>
-      <label className="flex items-center gap-2 text-sm sm:col-span-3">
+      <label className="text-body flex items-center gap-2 sm:col-span-3">
         <Checkbox checked={v.driverCanSeeFuelLevel} onCheckedChange={(c) => set({ ...v, driverCanSeeFuelLevel: c === true })} />
         Водитель видит текущий уровень топлива
       </label>
@@ -141,7 +141,7 @@ export function IssueCardDialog({ vehicles, drivers }: { vehicles: Opt[]; driver
               </NativeSelect>
             </Field>
           </div>
-          <h3 className="text-sm font-semibold">Лимиты</h3>
+          <h3 className="text-body font-semibold">Лимиты</h3>
           <LimitsFields v={limits} set={setLimits} currency={form.currency} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
@@ -208,7 +208,7 @@ export function CardActions({
           confirmLabel="Заблокировать"
           onConfirm={status("BLOCKED", "Карта заблокирована")}
           trigger={
-            <Button size="sm" variant="ghost" className="text-destructive" data-testid={`block-${card.label}`}>
+            <Button size="sm" variant="ghost" className="text-danger" data-testid={`block-${card.label}`}>
               <Ban /> Заблокировать
             </Button>
           }
@@ -451,7 +451,7 @@ export function SimulateRefuelDialog({ cards, stations }: { cards: Opt[]; statio
             </Field>
           </div>
           {result && (
-            <p className="bg-muted rounded-lg p-2 text-sm" role="status">
+            <p className="bg-muted text-body rounded-lg p-2" role="status">
               {result}
             </p>
           )}

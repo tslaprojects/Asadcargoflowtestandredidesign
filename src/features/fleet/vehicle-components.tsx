@@ -263,7 +263,7 @@ export function VehicleRowActions({
           }
           trigger={
             <Button variant="ghost" size="icon-sm" aria-label={`Удалить ${vehicle.plateNumber}`}>
-              <Trash2 className="text-destructive" />
+              <Trash2 className="text-danger" />
             </Button>
           }
         />

@@ -15,7 +15,7 @@ export default async function DriverProfilePage() {
   const profiles = toPlain(await getMyDriverProfile(actor));
   return (
     <div className="space-y-4 pt-1">
-      <h1 className="text-2xl font-semibold">Профиль</h1>
+      <h1 className="text-title1 font-semibold">Профиль</h1>
       <Card>
         <CardHeader>
           <CardTitle>{actor.fullName}</CardTitle>
@@ -44,7 +44,7 @@ export default async function DriverProfilePage() {
                 {
                   label: "Телефон диспетчерской",
                   value: p.company.phone ? (
-                    <a className="text-primary" href={`tel:${p.company.phone}`}>
+                    <a className="text-link" href={`tel:${p.company.phone}`}>
                       {p.company.phone}
                     </a>
                   ) : (

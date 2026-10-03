@@ -83,9 +83,9 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
 
   return (
     <div className="space-y-3">
-      <div className="border-border bg-card rounded-2xl border p-4">
-        <p className="text-muted-foreground text-sm">Следующее действие</p>
-        <p className="mt-1 mb-3 text-sm">{step.hint}</p>
+      <div className="bg-card rounded-2xl p-4">
+        <p className="text-muted-foreground text-body">Следующее действие</p>
+        <p className="text-body mt-1 mb-3">{step.hint}</p>
         <div className="space-y-2">
           {step.primary?.kind === "transition" &&
             (step.primary.to === "DELIVERED" ? (
@@ -140,47 +140,47 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
             </Button>
           )}
         </div>
-        <p className="text-muted-foreground mt-3 text-center text-xs">
+        <p className="text-muted-foreground text-footnote mt-3 text-center">
           {lastLocationAt ? `Последнее местоположение: ${formatRelative(lastLocationAt)}` : "Местоположение ещё не отправлялось"}
         </p>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
-        <Button variant="outline" className="h-16 flex-col gap-1 text-xs" onClick={() => setUploadOpen(true)}>
+        <Button variant="outline" className="text-footnote h-16 flex-col gap-1" onClick={() => setUploadOpen(true)}>
           <Upload /> Фото / документ
         </Button>
-        <Button variant="outline" className="h-16 flex-col gap-1 text-xs" onClick={() => setChatOpen(true)}>
+        <Button variant="outline" className="text-footnote h-16 flex-col gap-1" onClick={() => setChatOpen(true)}>
           <MessageSquare /> Сообщение
         </Button>
         {carrierPhone ? (
-          <Button asChild variant="outline" className="h-16 flex-col gap-1 text-xs">
+          <Button asChild variant="outline" className="text-footnote h-16 flex-col gap-1">
             <a href={`tel:${carrierPhone}`}>
               <Phone /> Диспетчер
             </a>
           </Button>
         ) : (
-          <Button variant="outline" className="h-16 flex-col gap-1 text-xs" disabled>
+          <Button variant="outline" className="text-footnote h-16 flex-col gap-1" disabled>
             <Phone /> Нет телефона
           </Button>
         )}
       </div>
 
       {documents.length > 0 && (
-        <div className="border-border bg-card rounded-2xl border p-4">
-          <p className="mb-2 text-sm font-medium">Загруженные документы</p>
-          <ul className="space-y-1 text-sm">
+        <div className="bg-card rounded-2xl p-4">
+          <p className="text-body mb-2 font-medium">Загруженные документы</p>
+          <ul className="text-body space-y-1">
             {documents.map((d) => (
               <li key={d.id} className="flex items-center gap-2">
                 <CheckCircle2 className="text-success size-4" aria-hidden />
                 <a
                   href={`/api/documents/${d.id}/download?inline=1`}
-                  className="text-primary truncate hover:underline"
+                  className="text-link truncate hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   {label("DocumentType", d.type)} — {d.filename}
                 </a>
-                <span className="text-muted-foreground ml-auto shrink-0 text-xs">{formatDateTime(d.createdAt)}</span>
+                <span className="text-muted-foreground text-footnote ml-auto shrink-0">{formatDateTime(d.createdAt)}</span>
               </li>
             ))}
           </ul>
@@ -212,7 +212,7 @@ export function DriverTripActions({ orderId, status, lastLocationAt, documents, 
         </SheetContent>
       </Sheet>
       <p className="text-center">
-        <Link href={`/orders/${orderId}`} className="text-primary text-sm hover:underline">
+        <Link href={`/orders/${orderId}`} className="text-link text-body hover:underline">
           Подробнее о рейсе
         </Link>
       </p>

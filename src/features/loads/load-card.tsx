@@ -1,10 +1,9 @@
-import { Calendar, Scale } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { CompanyBadge, MoneyDisplay } from "@/components/common/misc";
 import { RouteDistance, type RouteSummary } from "@/components/common/route-distance";
 import { RouteChain } from "@/components/common/route-timeline";
 import { StatusBadge } from "@/components/common/status-badge";
-import { Badge } from "@/components/ui/badge";
 import { formatDateRange, formatVolume, formatWeight } from "@/lib/format";
 import { label } from "@/lib/i18n";
 
@@ -30,8 +29,8 @@ export type LoadCardData = {
 } & Partial<RouteSummary>;
 
 /**
- * Строка груза на бирже / в списке (плотный операционный список вместо сетки карточек).
- * Иерархия: маршрут и что везём → параметры → даты → заказчик/статус/предложения → цена.
+ * Строка груза в списке, как письмо в Mail: маршрут и цена — первой строкой, что везём — второй,
+ * параметры, даты, заказчик и статус — третьей, вторичным цветом.
  * Статус «Опубликован» не показывается (на бирже он у всех), значимые статусы — «Идут торги», «Выбран» и т. п. — видны.
  */
 export function LoadCard({ load, showCompany = true }: { load: LoadCardData; showCompany?: boolean }) {
@@ -40,70 +39,71 @@ export function LoadCard({ load, showCompany = true }: { load: LoadCardData; sho
   return (
     <Link
       href={`/loads/${load.id}`}
-      className="group hover:bg-surface-secondary focus-visible:outline-ring grid gap-x-5 gap-y-2 px-4 py-3 transition-colors duration-150 focus-visible:outline-2 focus-visible:-outline-offset-2 md:grid-cols-[minmax(0,1fr)_15rem_13rem_8.5rem] md:items-center"
+      className="hover:bg-fill-quaternary active:bg-fill-tertiary flex items-center gap-2 pl-4 transition-colors duration-(--duration-micro)"
       data-testid="load-card"
     >
-      <div className="min-w-0">
-        <RouteChain stops={load.stops} compact className="text-sm leading-5 font-semibold" />
-        <p className="group-hover:text-primary truncate text-sm transition-colors duration-150">{load.title}</p>
-        <p className="text-muted-foreground id-code text-xs">{load.publicNumber}</p>
-      </div>
-      <div className="text-muted-foreground min-w-0 space-y-0.5 text-xs">
-        <p className="flex min-w-0 items-center gap-1.5">
-          <Scale className="size-3.5 shrink-0" aria-hidden />
-          <span className="num truncate">
-            {formatWeight(load.weightKg)}
-            {load.volumeM3 ? ` · ${formatVolume(load.volumeM3)}` : ""} · {load.bodyType ? label("BodyType", load.bodyType) : "любой кузов"}
-          </span>
-        </p>
-        <p className="flex min-w-0 items-center gap-1.5">
-          <Calendar className="size-3.5 shrink-0" aria-hidden />
-          <span className="num truncate">
-            <span className="sr-only">Загрузка: </span>
-            {formatDateRange(load.loadingDateFrom, load.loadingDateTo)}
-            {(load.deliveryDateFrom || load.deliveryDateTo) && (
+      <div data-row-content className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-3">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="flex items-baseline gap-3">
+            <RouteChain stops={load.stops} compact className="min-w-0 flex-1 font-semibold" />
+            {quote ? (
+              <span className="shrink-0 font-semibold">Запрос цены</span>
+            ) : (
+              <MoneyDisplay amount={load.targetPrice} currency={load.currency} className="text-title3 shrink-0 font-semibold" />
+            )}
+          </div>
+          <div className="flex items-baseline gap-3">
+            <p className="min-w-0 flex-1 truncate">
+              {load.title} <span className="id-code text-footnote text-muted-foreground">{load.publicNumber}</span>
+            </p>
+            <span className="text-footnote text-muted-foreground shrink-0">{label("PriceType", load.priceType)}</span>
+          </div>
+          <p className="text-footnote text-muted-foreground num flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <span>
+              {formatWeight(load.weightKg)}
+              {load.volumeM3 ? ` · ${formatVolume(load.volumeM3)}` : ""} ·{" "}
+              {load.bodyType ? label("BodyType", load.bodyType) : "любой кузов"}
+            </span>
+            <span aria-hidden>·</span>
+            <span>
+              <span className="sr-only">Загрузка: </span>
+              {formatDateRange(load.loadingDateFrom, load.loadingDateTo)}
+              {(load.deliveryDateFrom || load.deliveryDateTo) && (
+                <>
+                  {" "}
+                  → <span className="sr-only">доставка: </span>
+                  {formatDateRange(load.deliveryDateFrom, load.deliveryDateTo)}
+                </>
+              )}
+            </span>
+            {load.routeDistanceKm != null && (
               <>
-                {" "}
-                → <span className="sr-only">доставка: </span>
-                {formatDateRange(load.deliveryDateFrom, load.deliveryDateTo)}
+                <span aria-hidden>·</span>
+                <RouteDistance
+                  compact
+                  route={{
+                    routeDistanceKm: load.routeDistanceKm,
+                    routeDurationMin: load.routeDurationMin ?? null,
+                    routeSource: load.routeSource ?? null,
+                  }}
+                />
               </>
             )}
-          </span>
-        </p>
-        {load.routeDistanceKm != null && (
-          <p className="min-w-0 truncate">
-            <RouteDistance
-              compact
-              route={{
-                routeDistanceKm: load.routeDistanceKm,
-                routeDurationMin: load.routeDurationMin ?? null,
-                routeSource: load.routeSource ?? null,
-              }}
-            />
           </p>
-        )}
-      </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm md:flex-col md:items-start">
-        {showCompany && <CompanyBadge name={load.company.legalName} verification={load.company.verificationStatus} link={false} />}
-        <span className="flex flex-wrap items-center gap-1.5">
-          {load.status !== "PUBLISHED" && <StatusBadge kind="LoadStatus" value={load.status} />}
-          {load._count && load._count.bids > 0 && (
-            <span className="text-muted-foreground num text-xs">предложений: {load._count.bids}</span>
+          {(showCompany || load.status !== "PUBLISHED" || (load._count && load._count.bids > 0) || myBid) && (
+            <div className="text-footnote flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
+              {showCompany && <CompanyBadge name={load.company.legalName} verification={load.company.verificationStatus} link={false} />}
+              {load.status !== "PUBLISHED" && <StatusBadge kind="LoadStatus" value={load.status} />}
+              {load._count && load._count.bids > 0 && <span className="text-muted-foreground num">предложений: {load._count.bids}</span>}
+              {myBid && (
+                <span className={myBid.status === "ACCEPTED" ? "text-success" : "text-link"}>
+                  Ваше предложение: <MoneyDisplay amount={myBid.amount} currency={myBid.currency} />
+                </span>
+              )}
+            </div>
           )}
-        </span>
-        {myBid && (
-          <Badge tone={myBid.status === "ACCEPTED" ? "success" : "info"} className="w-fit">
-            Ваше предложение: <MoneyDisplay amount={myBid.amount} currency={myBid.currency} />
-          </Badge>
-        )}
-      </div>
-      <div className="flex items-baseline gap-2 md:block md:text-right">
-        {quote ? (
-          <span className="text-sm font-semibold">Запрос цены</span>
-        ) : (
-          <MoneyDisplay amount={load.targetPrice} currency={load.currency} className="text-base font-semibold" />
-        )}
-        <p className="text-muted-foreground text-xs">{label("PriceType", load.priceType)}</p>
+        </div>
+        <ChevronRight className="text-tertiary-foreground size-4 shrink-0" aria-hidden />
       </div>
     </Link>
   );

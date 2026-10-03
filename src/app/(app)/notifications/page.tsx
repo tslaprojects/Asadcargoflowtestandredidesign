@@ -42,16 +42,16 @@ function EventRow({ n, now }: { n: Item & { priority: EventPriority }; now: Date
                 {formatRelative(n.createdAt, now)}
               </time>
               {!n.readAt && (
-                <span className="text-primary inline-flex items-center gap-1 font-medium">
+                <span className="text-link inline-flex items-center gap-1 font-medium">
                   <span className="bg-primary size-1.5 rounded-full" aria-hidden /> новое
                 </span>
               )}
             </span>
-            <span className={cn("block text-sm leading-5", !n.readAt ? "font-semibold" : "font-medium")}>{n.title}</span>
-            {n.body && <span className="text-muted-foreground block text-sm leading-5">{n.body}</span>}
+            <span className={cn("text-body block leading-5", !n.readAt ? "font-semibold" : "font-medium")}>{n.title}</span>
+            {n.body && <span className="text-muted-foreground text-body block leading-5">{n.body}</span>}
           </span>
           {obj && (
-            <span className="text-primary hidden shrink-0 items-center gap-0.5 self-center text-sm font-medium sm:inline-flex">
+            <span className="text-link text-body hidden shrink-0 items-center gap-0.5 self-center font-medium sm:inline-flex">
               {obj.action} <ChevronRight className="size-4" aria-hidden />
             </span>
           )}
@@ -81,7 +81,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       <PageHeader title="События" description={`Непрочитанных: ${data.unread}`} actions={data.unread > 0 && <MarkAllReadButton />} />
       <div className="mb-4 flex flex-wrap gap-2" aria-label="Непрочитанные по приоритету">
         {(Object.keys(PRIORITY) as EventPriority[]).map((p) => (
-          <span key={p} className="border-border bg-card inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm">
+          <span key={p} className="bg-card text-body inline-flex items-center gap-2 rounded-md px-3 py-1.5">
             <span className={cn("size-2 rounded-full", PRIORITY[p].dot)} aria-hidden />
             {PRIORITY[p].label}
             <span className="num font-semibold">{count(p)}</span>
@@ -101,7 +101,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
               <h2 id="attention-h" className="text-overline mb-2">
                 Требует внимания · {attention.length}
               </h2>
-              <ul className="divide-border border-border bg-card divide-y overflow-hidden rounded-lg border">
+              <ul className="bg-card divide-y-(length:--hairline) overflow-hidden rounded-lg">
                 {attention.map((n) => (
                   <EventRow key={n.id} n={n} now={now} />
                 ))}
@@ -113,7 +113,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
               <h2 id="feed-h" className="text-overline mb-2">
                 Лента событий
               </h2>
-              <ul className="divide-border border-border bg-card divide-y overflow-hidden rounded-lg border">
+              <ul className="bg-card divide-y-(length:--hairline) overflow-hidden rounded-lg">
                 {feed.map((n) => (
                   <EventRow key={n.id} n={n} now={now} />
                 ))}
@@ -123,9 +123,9 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         </div>
       )}
       <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/notifications" searchParams={params} />
-      <p className="text-muted-foreground mt-4 text-xs">
+      <p className="text-muted-foreground text-footnote mt-4">
         События дублируются на email (в локальной среде — в лог сервера). Настройки —{" "}
-        <Link className="text-primary underline underline-offset-2" href="/profile">
+        <Link className="text-link underline underline-offset-2" href="/profile">
           в профиле
         </Link>
         .

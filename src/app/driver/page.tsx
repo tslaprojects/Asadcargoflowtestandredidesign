@@ -22,7 +22,7 @@ export default async function DriverHomePage() {
   if (!trip) {
     return (
       <div className="pt-4">
-        <h1 className="mb-4 text-2xl font-semibold">Мой рейс</h1>
+        <h1 className="text-title1 mb-4 font-semibold">Мой рейс</h1>
         <EmptyState
           icon={Truck}
           title="У вас нет назначенных рейсов"
@@ -40,11 +40,11 @@ export default async function DriverHomePage() {
   return (
     <div className="space-y-3 pt-1" data-testid="driver-trip">
       <div className="bg-sidebar rounded-2xl p-4 text-white">
-        <p className="text-sidebar-foreground text-sm">Рейс</p>
-        <p className="text-2xl font-bold" data-testid="driver-trip-number">
+        <p className="text-sidebar-foreground text-body">Рейс</p>
+        <p className="text-title1 font-bold" data-testid="driver-trip-number">
           #{order.publicNumber}
         </p>
-        <p className="mt-2 text-xl font-semibold">
+        <p className="text-title2 mt-2 font-semibold">
           {countryFlag(first.country)} {first.city} → {countryFlag(last.country)} {last.city}
         </p>
         {order.vehicle && (
@@ -53,7 +53,7 @@ export default async function DriverHomePage() {
           </p>
         )}
         <div className="mt-3 flex items-center gap-2">
-          <span className="text-sidebar-foreground text-sm">Статус:</span>
+          <span className="text-sidebar-foreground text-body">Статус:</span>
           <StatusBadge kind="OrderStatus" value={order.currentStatus} size="lg" className="uppercase" />
         </div>
       </div>
@@ -77,16 +77,16 @@ export default async function DriverHomePage() {
         />
       )}
 
-      <div className="border-border bg-card rounded-2xl border p-4">
+      <div className="bg-card rounded-2xl p-4">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <p className="text-sm font-semibold">Маршрут</p>
-          {order.load.routeDistanceKm != null && <RouteDistance route={order.load} className="text-sm" />}
+          <p className="text-body font-semibold">Маршрут</p>
+          {order.load.routeDistanceKm != null && <RouteDistance route={order.load} className="text-body" />}
         </div>
         <ol className="space-y-3">
           {stops.map((s, i) => (
             <li key={s.id} className="flex gap-3">
-              <span className="bg-muted grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold">{i + 1}</span>
-              <div className="min-w-0 text-sm">
+              <span className="bg-muted text-footnote grid size-7 shrink-0 place-items-center rounded-full font-semibold">{i + 1}</span>
+              <div className="text-body min-w-0">
                 <p className="font-medium">
                   {label("StopType", s.type)}: {countryFlag(s.country)} {s.city}
                 </p>
@@ -95,7 +95,7 @@ export default async function DriverHomePage() {
                   <p className="text-muted-foreground">{formatDateTime(s.plannedDateFrom, s.timezone ?? undefined)} (местное)</p>
                 )}
                 {s.contactPhone && (
-                  <a className="text-primary" href={`tel:${s.contactPhone}`}>
+                  <a className="text-link" href={`tel:${s.contactPhone}`}>
                     {s.contactName ?? "Контакт"}: {s.contactPhone}
                   </a>
                 )}
@@ -109,7 +109,7 @@ export default async function DriverHomePage() {
           ))}
         </ol>
       </div>
-      <div className="border-border bg-card rounded-2xl border p-4 text-sm">
+      <div className="bg-card text-body rounded-2xl p-4">
         <p className="mb-2 font-semibold">Груз</p>
         <p>
           {order.load.title} · {formatWeight(order.load.weightKg)}

@@ -53,18 +53,14 @@ export default async function AdminFuelPage() {
             <CardTitle>Открытые несоответствия ({anomalies.total})</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {anomalies.items.length === 0 && <p className="text-muted-foreground text-sm">Нет открытых несоответствий.</p>}
+            {anomalies.items.length === 0 && <p className="text-muted-foreground text-body">Нет открытых несоответствий.</p>}
             {anomalies.items.map((a) => (
-              <Link
-                key={a.id}
-                href={`/fuel/anomalies/${a.id}`}
-                className="border-border hover:border-primary/40 block rounded-lg border p-3 text-sm"
-              >
+              <Link key={a.id} href={`/fuel/anomalies/${a.id}`} className="hover:border-primary/40 text-body block rounded-lg border p-3">
                 <span className="flex items-center justify-between gap-2">
                   <span className="font-medium">{label("FuelAnomalyType", a.type)}</span>
                   <StatusBadge kind="FuelAnomalySeverity" value={a.severity} />
                 </span>
-                <span className="text-muted-foreground text-xs">
+                <span className="text-muted-foreground text-footnote">
                   {a.company.legalName} · {a.vehicle.plateNumber} · {formatDateTime(a.detectedAt)}
                   {a.isDemo && " · DEMO"}
                 </span>
@@ -78,18 +74,18 @@ export default async function AdminFuelPage() {
               <CardTitle>Расследования</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {investigations.length === 0 && <p className="text-muted-foreground text-sm">Расследований нет.</p>}
+              {investigations.length === 0 && <p className="text-muted-foreground text-body">Расследований нет.</p>}
               {investigations.map((i) => (
                 <Link
                   key={i.id}
                   href={`/fuel/investigations/${i.id}`}
-                  className="border-border hover:border-primary/40 block rounded-lg border p-3 text-sm"
+                  className="hover:border-primary/40 text-body block rounded-lg border p-3"
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className="font-medium">{i.title}</span>
                     <StatusBadge kind="FuelInvestigationStatus" value={i.status} />
                   </span>
-                  <span className="text-muted-foreground text-xs">
+                  <span className="text-muted-foreground text-footnote">
                     {i.company.legalName} · {formatDateTime(i.createdAt)}
                   </span>
                 </Link>
@@ -101,18 +97,18 @@ export default async function AdminFuelPage() {
               <CardTitle>Интеграции</CardTitle>
             </CardHeader>
             <CardContent>
-              <ul className="space-y-2 text-sm" data-testid="fuel-integrations">
+              <ul className="text-body space-y-2" data-testid="fuel-integrations">
                 {integrations.map((x) => (
                   <li key={x.name} className="flex flex-wrap items-center justify-between gap-2">
                     <span>
                       <span className="font-medium">{x.name}</span>
-                      <span className="text-muted-foreground block font-mono text-xs">{x.value}</span>
+                      <span className="text-muted-foreground text-footnote block font-mono">{x.value}</span>
                     </span>
                     <Badge tone={x.ok ? "success" : "warning"}>{x.note}</Badge>
                   </li>
                 ))}
               </ul>
-              <p className="text-muted-foreground mt-3 text-xs">
+              <p className="text-muted-foreground text-footnote mt-3">
                 Секреты интеграций задаются только переменными окружения и не хранятся в базе данных.
               </p>
             </CardContent>

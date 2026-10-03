@@ -38,7 +38,7 @@ export function RoutePreview({ stops }: { stops: PreviewStop[] }) {
   const current = state?.key === key ? state : null;
   if (!current) {
     return (
-      <p className="text-muted-foreground text-sm" aria-live="polite">
+      <p className="text-muted-foreground text-body" aria-live="polite">
         {t("route.calculating")}
       </p>
     );
@@ -46,15 +46,17 @@ export function RoutePreview({ stops }: { stops: PreviewStop[] }) {
   const d = current.data;
   if (!d) return null;
   if (d.distanceKm == null) {
-    return <p className="text-muted-foreground text-sm">{t("route.notCalculated")}</p>;
+    return <p className="text-muted-foreground text-body">{t("route.notCalculated")}</p>;
   }
   return (
-    <div className="space-y-1 text-sm" data-testid="route-preview" aria-live="polite">
+    <div className="text-body space-y-1" data-testid="route-preview" aria-live="polite">
       <RouteDistance
         route={{ routeDistanceKm: d.distanceKm, routeDurationMin: d.durationMin, routeSource: d.source }}
         className="font-medium"
       />
-      {d.located < d.total && <p className="text-muted-foreground text-xs">{t("route.partial", { located: d.located, total: d.total })}</p>}
+      {d.located < d.total && (
+        <p className="text-muted-foreground text-footnote">{t("route.partial", { located: d.located, total: d.total })}</p>
+      )}
     </div>
   );
 }

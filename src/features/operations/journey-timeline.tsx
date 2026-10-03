@@ -109,7 +109,7 @@ export function JourneyTimeline({
             >
               {s.state === "done" && <Check className="size-2.5 [stroke-width:3.5]" />}
               {s.state === "current" && (
-                <span className={cn("size-1.5 rounded-full", halted ? "bg-delayed" : "bg-primary text-primary animate-live-pulse")} />
+                <span className={cn("size-1.5 rounded-full", halted ? "bg-delayed" : "bg-primary text-link animate-live-pulse")} />
               )}
             </span>
             <div className="min-w-0 flex-1">

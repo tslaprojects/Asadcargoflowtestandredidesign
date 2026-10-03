@@ -42,8 +42,8 @@ export default async function ProfilePage() {
                 value: `${label("MemberRole", m.role)}${m.companyId === actor.active?.companyId ? " (текущая)" : ""}`,
               }))}
             />
-            {actor.isAdmin && <p className="mt-3 text-sm">Роль платформы: {label("PlatformRole", actor.platformRole)}</p>}
-            <p className="text-muted-foreground mt-3 text-xs">
+            {actor.isAdmin && <p className="text-body mt-3">Роль платформы: {label("PlatformRole", actor.platformRole)}</p>}
+            <p className="text-muted-foreground text-footnote mt-3">
               Часовой пояс: {actor.timezone}. Даты хранятся в UTC и отображаются в вашем часовом поясе.
             </p>
           </CardContent>

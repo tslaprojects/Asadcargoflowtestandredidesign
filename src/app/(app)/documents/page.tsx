@@ -62,15 +62,11 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
           {[...groups.values()].map(({ order, docs }) => {
             const present = new Set(docs.map((d) => d.type));
             return (
-              <section
-                key={order.id}
-                className="border-border bg-card overflow-hidden rounded-lg border"
-                aria-labelledby={`dg-${order.id}`}
-              >
-                <header className="border-border bg-surface-secondary flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b px-4 py-2.5">
-                  <h2 id={`dg-${order.id}`} className="text-sm font-semibold">
-                    <Link href={`/orders/${order.id}?tab=documents`} className="hover:text-primary">
-                      <span className="id-code text-muted-foreground mr-2 text-xs font-medium">{order.publicNumber}</span>
+              <section key={order.id} className="bg-card overflow-hidden rounded-lg" aria-labelledby={`dg-${order.id}`}>
+                <header className="bg-surface-secondary hairline-b flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5">
+                  <h2 id={`dg-${order.id}`} className="text-body font-semibold">
+                    <Link href={`/orders/${order.id}?tab=documents`} className="hover:text-link">
+                      <span className="id-code text-muted-foreground text-footnote mr-2 font-medium">{order.publicNumber}</span>
                       {order.load.originCity} → {order.load.destinationCity}
                     </Link>
                   </h2>
@@ -80,8 +76,8 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
                       <li
                         key={t}
                         className={cn(
-                          "inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-xs",
-                          present.has(t) ? "border-success-border bg-success-bg text-success" : "border-border text-muted-foreground",
+                          "bg-fill-quaternary text-footnote inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5",
+                          present.has(t) ? "border-success-border bg-success-bg text-success" : "text-muted-foreground",
                         )}
                       >
                         {present.has(t) ? <Check className="size-3" aria-hidden /> : <Minus className="size-3" aria-hidden />}
@@ -91,9 +87,9 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
                     ))}
                   </ul>
                 </header>
-                <ul className="divide-border divide-y">
+                <ul className="divide-y-(length:--hairline)">
                   {docs.map((d) => (
-                    <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
+                    <li key={d.id} className="text-body flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
                       <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium">{d.filename}</span>
@@ -103,7 +99,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
                       </span>
                       <span className="inline-flex gap-3">
                         <a
-                          className="text-primary inline-flex min-h-8 items-center gap-1 hover:underline"
+                          className="text-link inline-flex min-h-8 items-center gap-1 hover:underline"
                           href={`/api/documents/${d.id}/download?inline=1`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -111,7 +107,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
                           <Eye className="size-4" aria-hidden /> Открыть
                         </a>
                         <a
-                          className="text-primary inline-flex min-h-8 items-center gap-1 hover:underline"
+                          className="text-link inline-flex min-h-8 items-center gap-1 hover:underline"
                           href={`/api/documents/${d.id}/download`}
                         >
                           <Download className="size-4" aria-hidden /> Скачать

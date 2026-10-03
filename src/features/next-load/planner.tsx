@@ -143,22 +143,22 @@ export function NextLoadPlanner({
 
   const choice = (active: boolean) =>
     cn(
-      "border-border hover:border-primary/50 flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition-colors",
-      active && "border-primary bg-primary/5 text-primary",
+      "hover:border-primary/50 flex w-full items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-body font-medium transition-colors",
+      active && "border-primary bg-primary/5 text-link",
     );
 
   return (
     <div className="space-y-4" data-testid="next-load-planner">
-      <div className="text-sm">
-        <p className="text-muted-foreground text-xs">Текущая точка</p>
+      <div className="text-body">
+        <p className="text-muted-foreground text-footnote">Текущая точка</p>
         {!editOrigin && free ? (
           <p className="flex flex-wrap items-center gap-2">
-            <MapPin className="text-destructive size-4" aria-hidden />
+            <MapPin className="text-danger size-4" aria-hidden />
             <span className="font-medium">{free.label}</span>
-            <span className="text-muted-foreground text-xs">
+            <span className="text-muted-foreground text-footnote">
               {free.source === "TRACKING" ? "по последней отметке водителя" : "адрес разгрузки текущего рейса"}
             </span>
-            <button type="button" className="text-primary text-xs hover:underline" onClick={() => setEditOrigin(true)}>
+            <button type="button" className="text-link text-footnote hover:underline" onClick={() => setEditOrigin(true)}>
               изменить
             </button>
           </p>
@@ -194,7 +194,7 @@ export function NextLoadPlanner({
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-semibold">Что дальше?</p>
+        <p className="text-body font-semibold">Что дальше?</p>
         {ret && (
           <button type="button" className={choice(mode === "RETURN")} onClick={() => setMode("RETURN")} data-testid="nl-return">
             <RotateCcw className="size-4" aria-hidden /> Вернуться в {countryFlag(ret.country)} {ret.city}
@@ -207,7 +207,7 @@ export function NextLoadPlanner({
               key={`${c.country}-${c.city}`}
               onClick={() => toggleCity(c)}
               className={cn(
-                "border-border hover:border-primary/50 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                "hover:border-primary/50 text-body rounded-full border px-3 py-1.5 transition-colors",
                 mode === "PICK" && has(c.city) && "border-primary bg-primary text-primary-foreground",
               )}
               aria-pressed={mode === "PICK" && has(c.city)}
@@ -262,7 +262,7 @@ export function NextLoadPlanner({
 
       {mode === "PICK" && dests.length > 0 && (
         <div>
-          <p className="text-muted-foreground mb-1 text-xs">Направления (можно несколько)</p>
+          <p className="text-muted-foreground text-footnote mb-1">Направления (можно несколько)</p>
           <div className="flex flex-wrap gap-1.5">
             {dests.map((d, i) => (
               <Badge key={`${d.label}-${i}`} tone="info" className="gap-1 pr-1">
@@ -276,8 +276,8 @@ export function NextLoadPlanner({
         </div>
       )}
 
-      <details className="text-sm">
-        <summary className="text-primary cursor-pointer">Параметры поиска</summary>
+      <details className="text-body">
+        <summary className="text-link cursor-pointer">Параметры поиска</summary>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <Field id="nl-dev" label="Допустимый крюк, км" hint="Сколько лишних км готовы проехать ради груза по пути">
             <Input type="number" min={10} max={1000} value={deviation} onChange={(e) => setDeviation(e.target.value)} />
@@ -336,7 +336,7 @@ export function NextLoadPlanner({
             pickHint="Кликните, чтобы выбрать точку"
           />
           <DialogFooter>
-            <p className="text-muted-foreground mr-auto self-center text-sm">
+            <p className="text-muted-foreground text-body mr-auto self-center">
               {mapPoint ? `Выбрано: ${mapPoint.lat.toFixed(2)}, ${mapPoint.lng.toFixed(2)}` : "Точка не выбрана"}
             </p>
             <Button variant="outline" onClick={() => setMapOpen(false)}>

@@ -37,15 +37,15 @@ export function DriverNextStep({
     );
   const quick = QUICK.filter((c) => c.city !== deliveryCity && c.city !== returnCity);
   return (
-    <div className="border-border bg-card space-y-3 rounded-2xl border p-4" data-testid="driver-next-step">
+    <div className="bg-card space-y-3 rounded-2xl p-4" data-testid="driver-next-step">
       <p className="flex items-center gap-2 font-semibold">
-        <Navigation className="text-primary size-5" aria-hidden /> Что планируете дальше?
+        <Navigation className="text-link size-5" aria-hidden /> Что планируете дальше?
       </p>
-      <p className="text-muted-foreground text-sm">
+      <p className="text-muted-foreground text-body">
         После разгрузки в {deliveryCity} диспетчер подберёт груз по пути — чтобы не ехать порожняком.
       </p>
       {plan && (
-        <p className="bg-primary/5 text-primary rounded-lg p-2 text-sm">
+        <p className="bg-primary/5 text-link text-body rounded-lg p-2">
           Ваш план: {plan.destinations.length ? plan.destinations.join(", ") : "свободен, грузы рядом"} · подходящих грузов: {plan.matches}
         </p>
       )}

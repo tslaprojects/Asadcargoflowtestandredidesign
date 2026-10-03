@@ -37,7 +37,7 @@ export default async function AdminCompanies({ searchParams }: { searchParams: S
         columns={[
           { key: "name", header: "Компания", primary: true, cell: (c) => c.legalName },
           { key: "type", header: "Тип", cell: (c) => label("CompanyType", c.type) },
-          { key: "reg", header: "Рег. номер", cell: (c) => <span className="font-mono text-xs">{c.registrationNumber}</span> },
+          { key: "reg", header: "Рег. номер", cell: (c) => <span className="text-footnote font-mono">{c.registrationNumber}</span> },
           { key: "country", header: "Страна", cell: (c) => `${countryFlag(c.country)} ${c.country}` },
           { key: "ver", header: "Верификация", cell: (c) => <StatusBadge kind="VerificationStatus" value={c.verificationStatus} /> },
           { key: "members", header: "Сотрудники", cell: (c) => c._count.members, hideOnMobile: true },

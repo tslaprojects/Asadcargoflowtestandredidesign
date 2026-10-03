@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 export function NavigatorLinks({ target, className, testId }: { target: NavTarget; className?: string; testId?: string }) {
   return (
     <div className={cn("space-y-1.5", className)} data-testid={testId}>
-      <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+      <p className="text-muted-foreground text-footnote flex items-center gap-1.5">
         <Navigation className="size-3.5" aria-hidden /> {t("route.navigator")}
       </p>
       <div className="flex flex-wrap gap-2">
@@ -20,7 +20,7 @@ export function NavigatorLinks({ target, className, testId }: { target: NavTarge
             href={navigatorWebLink(app, target)}
             target="_blank"
             rel="noopener noreferrer"
-            className="border-border bg-card hover:bg-muted active:bg-muted inline-flex min-h-10 items-center rounded-lg border px-3 text-sm font-medium"
+            className="bg-card hover:bg-muted active:bg-muted text-body inline-flex min-h-10 items-center rounded-lg px-3 font-medium"
             data-navigator={app}
           >
             {t(`route.navigators.${app}`)}

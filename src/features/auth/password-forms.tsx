@@ -6,9 +6,9 @@ import { useSearchParams } from "next/navigation";
 import * as React from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Field, FormError } from "@/components/common/field";
+import { FormError } from "@/components/common/field";
+import { FormGroup, FormRow, rowInput } from "@/components/common/form-group";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { api, errorMessage } from "@/lib/client/api";
 import { forgotPasswordSchema, passwordSchema } from "@/lib/validation/auth";
 
@@ -27,27 +27,33 @@ export function ForgotPasswordForm() {
   });
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Восстановление пароля</h1>
+      <div className="text-center">
+        <h1 className="text-large-title">Восстановление пароля</h1>
+        {!sent && (
+          <p className="text-subheadline text-muted-foreground mt-1">Укажите email, и мы пришлём ссылку для установки нового пароля.</p>
+        )}
+      </div>
       {sent ? (
-        <div className="border-success-border bg-success-bg text-success mt-6 rounded-lg border p-4 text-sm" role="status">
-          <CheckCircle2 className="mb-2 size-5" aria-hidden />
-          Если такой email зарегистрирован, мы отправили на него ссылку для сброса пароля. Ссылка действует 1 час.
-          <p className="text-muted-foreground mt-2 text-xs">В локальной среде письмо выводится в лог сервера (EMAIL_DRIVER=log).</p>
+        <div className="bg-card mt-7 flex flex-col items-center rounded-lg px-5 py-6 text-center" role="status">
+          <CheckCircle2 className="text-success mb-2 size-9 [stroke-width:1.5]" aria-hidden />
+          <p>Если такой email зарегистрирован, мы отправили на него ссылку для сброса пароля. Ссылка действует 1 час.</p>
+          <p className="text-footnote text-muted-foreground mt-2">В локальной среде письмо выводится в лог сервера (EMAIL_DRIVER=log).</p>
         </div>
       ) : (
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
-          <p className="text-muted-foreground text-sm">Укажите email, и мы пришлём ссылку для установки нового пароля.</p>
+        <form onSubmit={onSubmit} className="mt-7 space-y-5" noValidate>
           <FormError message={error} />
-          <Field id="email" label="Email" error={form.formState.errors.email?.message} required>
-            <Input type="email" autoComplete="email" {...form.register("email")} />
-          </Field>
-          <Button type="submit" className="w-full" loading={form.formState.isSubmitting} loadingText="Отправляем...">
+          <FormGroup>
+            <FormRow id="email" label="Email" error={form.formState.errors.email?.message} required>
+              <input type="email" autoComplete="email" placeholder="name@company.com" className={rowInput} {...form.register("email")} />
+            </FormRow>
+          </FormGroup>
+          <Button type="submit" size="lg" className="w-full" loading={form.formState.isSubmitting} loadingText="Отправляем...">
             Отправить ссылку
           </Button>
         </form>
       )}
-      <p className="mt-6 text-center text-sm">
-        <Link href="/login" className="text-primary hover:underline">
+      <p className="text-subheadline mt-7 text-center">
+        <Link href="/login" className="text-link hover:underline">
           Вернуться ко входу
         </Link>
       </p>
@@ -76,32 +82,29 @@ export function ResetPasswordForm() {
   if (!token) return <FormError message="Ссылка для сброса пароля недействительна. Запросите новую." />;
   return (
     <div>
-      <h1 className="text-2xl font-semibold">Новый пароль</h1>
+      <h1 className="text-large-title text-center">Новый пароль</h1>
       {done ? (
-        <div className="mt-6 space-y-4">
-          <p className="border-success-border bg-success-bg text-success rounded-lg border p-4 text-sm" role="status">
+        <div className="mt-7 space-y-5">
+          <div className="bg-card flex flex-col items-center rounded-lg px-5 py-6 text-center" role="status">
+            <CheckCircle2 className="text-success mb-2 size-9 [stroke-width:1.5]" aria-hidden />
             Пароль изменён. Все активные сессии завершены.
-          </p>
-          <Button asChild className="w-full">
+          </div>
+          <Button asChild size="lg" className="w-full">
             <Link href="/login">Войти</Link>
           </Button>
         </div>
       ) : (
-        <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate>
+        <form onSubmit={onSubmit} className="mt-7 space-y-5" noValidate>
           <FormError message={error} />
-          <Field
-            id="password"
-            label="Новый пароль"
-            error={form.formState.errors.password?.message}
-            hint="Не менее 8 символов, буквы и цифры"
-            required
-          >
-            <Input type="password" autoComplete="new-password" {...form.register("password")} />
-          </Field>
-          <Field id="repeat" label="Повторите пароль" error={form.formState.errors.repeat?.message} required>
-            <Input type="password" autoComplete="new-password" {...form.register("repeat")} />
-          </Field>
-          <Button type="submit" className="w-full" loading={form.formState.isSubmitting} loadingText="Сохраняем...">
+          <FormGroup footer="Не менее 8 символов, буквы и цифры">
+            <FormRow id="password" label="Новый пароль" error={form.formState.errors.password?.message} required>
+              <input type="password" autoComplete="new-password" className={rowInput} {...form.register("password")} />
+            </FormRow>
+            <FormRow id="repeat" label="Повторите пароль" error={form.formState.errors.repeat?.message} required>
+              <input type="password" autoComplete="new-password" className={rowInput} {...form.register("repeat")} />
+            </FormRow>
+          </FormGroup>
+          <Button type="submit" size="lg" className="w-full" loading={form.formState.isSubmitting} loadingText="Сохраняем...">
             Установить пароль
           </Button>
         </form>

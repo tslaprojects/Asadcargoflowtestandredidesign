@@ -37,7 +37,7 @@ export type DriverRow = {
 
 export function InviteLinkNotice({ link }: { link: string }) {
   return (
-    <div className="border-info-border bg-info-bg space-y-2 rounded-lg border p-3 text-sm">
+    <div className="border-info-border bg-info-bg text-body space-y-2 rounded-lg border p-3">
       <p className="text-info font-medium">Приглашение создано</p>
       <p className="text-muted-foreground">
         Отправьте ссылку водителю (в локальной среде письмо пишется в лог сервера). Ссылка показывается один раз.

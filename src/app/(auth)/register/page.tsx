@@ -10,7 +10,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   const preview = invite ? await getInvitePreview(invite) : null;
   return (
     <RegisterWizard
-      countries={COUNTRIES.map((c) => ({ code: c.code, name: `${c.flag} ${c.name}` }))}
+      countries={COUNTRIES.map((c) => ({ code: c.code, name: c.name }))}
       invite={
         preview && invite
           ? {
