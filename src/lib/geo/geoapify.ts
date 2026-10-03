@@ -63,11 +63,22 @@ export function parseGeoapifyRoute(body: unknown): RouteResult | null {
   return { distanceKm: Math.round(distance / 100) / 10, durationMin: Math.round(time / 60), geometry };
 }
 
-/** Разбор ответа Geocoding API (format=json): первый результат с достаточной уверенностью. */
+type GeocodeRow = { lat?: unknown; lon?: unknown; result_type?: unknown; category?: unknown; rank?: { confidence?: unknown } };
+
+/**
+ * Разбор ответа Geocoding API (format=json): первый результат с достаточной уверенностью.
+ * Для города предпочитается населённый пункт (category = populated_place): административная единица
+ * («city administration») даёт центр границы, который может быть в километрах от города.
+ */
 export function parseGeoapifyGeocode(body: unknown, wanted: "address" | "city"): GeocodeResult | null {
   const results = (body as { results?: unknown[] } | null)?.results;
   if (!Array.isArray(results)) return null;
-  for (const r of results as { lat?: unknown; lon?: unknown; result_type?: unknown; rank?: { confidence?: unknown } }[]) {
+  const rows = results as GeocodeRow[];
+  const ordered =
+    wanted === "city"
+      ? [...rows.filter((r) => r.category === "populated_place"), ...rows.filter((r) => r.category !== "populated_place")]
+      : rows;
+  for (const r of ordered) {
     const lat = Number(r.lat);
     const lon = Number(r.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;

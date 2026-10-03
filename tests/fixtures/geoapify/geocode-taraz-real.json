@@ -1,0 +1,48 @@
+{
+  "results": [
+    {
+      "datasource": { "sourcename": "openstreetmap", "attribution": "© OpenStreetMap contributors" },
+      "name": "Taraz city administration",
+      "country": "Kazakhstan",
+      "country_code": "kz",
+      "state": "Jambyl Region",
+      "city": "Taraz city administration",
+      "lon": 71.3769302,
+      "lat": 42.9015945,
+      "result_type": "city",
+      "formatted": "Taraz city administration, Jambyl Region, Kazakhstan",
+      "category": "administrative",
+      "timezone": { "name": "Asia/Almaty" },
+      "rank": {
+        "importance": 0.5467812029515616,
+        "popularity": 2.738322290121161,
+        "confidence": 1,
+        "confidence_city_level": 1,
+        "match_type": "full_match"
+      }
+    },
+    {
+      "datasource": { "sourcename": "openstreetmap", "attribution": "© OpenStreetMap contributors" },
+      "name": "Taraz",
+      "country": "Kazakhstan",
+      "country_code": "kz",
+      "state": "Jambyl Region",
+      "city": "Taraz",
+      "postcode": "080000",
+      "lon": 71.3519903,
+      "lat": 42.8778381,
+      "result_type": "city",
+      "formatted": "Taraz, Jambyl Region, Kazakhstan",
+      "category": "populated_place",
+      "timezone": { "name": "Asia/Almaty" },
+      "rank": {
+        "importance": 0.5467812029515616,
+        "popularity": 2.2567586423311226,
+        "confidence": 1,
+        "confidence_city_level": 1,
+        "match_type": "full_match"
+      }
+    }
+  ],
+  "query": { "text": "Тараз", "parsed": { "city": "тараз", "expected_type": "unknown" } }
+}

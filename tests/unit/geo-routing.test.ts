@@ -87,6 +87,15 @@ describe("Geoapify: разбор ответов", () => {
     });
   });
 
+  it("реальный ответ Geoapify (Тараз): населённый пункт, а не центр административной границы", () => {
+    expect(parseGeoapifyGeocode(fixture("geocode-taraz-real.json"), "city")).toEqual({
+      latitude: 42.8778381,
+      longitude: 71.3519903,
+      accuracy: "city",
+      confidence: 1,
+    });
+  });
+
   it("геокодинг адреса: результат уровня города пропускается", () => {
     expect(parseGeoapifyGeocode(fixture("geocode-address.json"), "address")).toMatchObject({ latitude: 43.2402, accuracy: "address" });
   });
