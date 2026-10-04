@@ -51,7 +51,7 @@ export default async function AdminDashboard() {
               <Link
                 key={c.id}
                 href={`/admin/companies/${c.id}`}
-                className="hover:bg-muted flex items-center justify-between gap-2 rounded-lg p-2 text-sm"
+                className="hover:bg-muted text-body flex items-center justify-between gap-2 rounded-lg p-2"
               >
                 <span>
                   <span className="font-medium">{c.legalName}</span>{" "}
@@ -73,7 +73,7 @@ export default async function AdminDashboard() {
               <Link
                 key={o.id}
                 href={`/orders/${o.id}`}
-                className="hover:bg-muted flex items-center justify-between gap-2 rounded-lg p-2 text-sm"
+                className="hover:bg-muted text-body flex items-center justify-between gap-2 rounded-lg p-2"
               >
                 <span className="min-w-0">
                   <span className="font-medium">{o.publicNumber}</span>{" "}
@@ -94,12 +94,12 @@ export default async function AdminDashboard() {
             <CardTitle>Новые споры</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {d.newDisputes.length === 0 && <p className="text-muted-foreground text-sm">Открытых споров нет</p>}
+            {d.newDisputes.length === 0 && <p className="text-muted-foreground text-body">Открытых споров нет</p>}
             {d.newDisputes.map((x) => (
               <Link
                 key={x.id}
                 href={`/orders/${x.order.id}?tab=dispute`}
-                className="hover:bg-muted flex items-center justify-between gap-2 rounded-lg p-2 text-sm"
+                className="hover:bg-muted text-body flex items-center justify-between gap-2 rounded-lg p-2"
               >
                 <span>
                   <span className="font-medium">{x.order.publicNumber}</span> · {label("DisputeReason", x.reason)}{" "}
@@ -114,7 +114,7 @@ export default async function AdminDashboard() {
           <CardHeader>
             <CardTitle>Подозрительная активность (24 ч)</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="text-body space-y-2">
             {d.suspicious.length === 0 && <p className="text-muted-foreground">Аномалий не обнаружено (≥3 неудачных входа за сутки).</p>}
             {d.suspicious.map((u) => (
               <Link key={u.id} href={`/admin/users/${u.id}`} className="hover:bg-muted flex items-center justify-between rounded-lg p-2">

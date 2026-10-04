@@ -174,6 +174,7 @@ async function candidateLoads(companyId: string, until: Date) {
     where: {
       status: { in: ["PUBLISHED", "BIDDING"] },
       deletedAt: null,
+      company: { verificationStatus: { not: "SUSPENDED" }, deletedAt: null },
       loadingDateFrom: { lte: new Date(until.getTime() + DAY) },
       OR: [
         { loadingDateTo: { gte: new Date(now.getTime() - DAY) } },
@@ -429,7 +430,7 @@ export async function cancelMovement(actor: Actor, movementId: string) {
 
 // ─────────── Подбор ───────────
 
-async function computeMatches(movementId: string, companyId: string, sort: MatchSort) {
+async function computeMatches(movementId: string, companyId: string, sort: MatchSort, preloaded?: CandidateLoad[]) {
   const movement = await prisma.plannedMovement.findFirstOrThrow({
     where: { id: movementId, companyId },
     include: {
@@ -448,7 +449,7 @@ async function computeMatches(movementId: string, companyId: string, sort: Match
       },
     },
   });
-  const loads = await candidateLoads(companyId, movement.availableUntil);
+  const loads = preloaded ?? (await candidateLoads(companyId, movement.availableUntil));
   const byId = new Map(loads.map((l) => [l.id, l]));
   const { matches, rejected } = matchNextLoads(
     {
@@ -502,7 +503,13 @@ export async function getMovementMatches(actor: Actor, movementId: string, sort:
   const scope = scopeFor(actor, scopeNeed(actor));
   const m = await prisma.plannedMovement.findFirst({ where: { id: movementId, companyId: scope.companyId } });
   if (!m) throw errors.notFound("План не найден.");
-  if (scope.driverUserId && m.createdByUserId !== actor.userId && m.driverId === null) throw errors.forbidden();
+  if (scope.driverUserId && m.createdByUserId !== actor.userId) {
+    // Водитель видит только планы своего автомобиля (где он указан водителем)
+    const own = m.driverId
+      ? await prisma.driverProfile.count({ where: { id: m.driverId, userId: actor.userId, companyId: scope.companyId } })
+      : 0;
+    if (!own) throw errors.forbidden();
+  }
   const { movement, matches, rejected, byId } = await computeMatches(movementId, scope.companyId, sort);
   const hidePrices = Boolean(scope.driverUserId);
   return {
@@ -584,23 +591,36 @@ export async function nextLoadPreviews(actor: Actor) {
       vehicle: { select: { id: true, plateNumber: true, bodyType: true, capacityKg: true, volumeM3: true, gpsEnabled: true } },
     },
   });
-  const seen = new Set<string>();
-  const previews = [];
-  for (const o of orders) {
-    if (!o.vehicleId || seen.has(o.vehicleId)) continue;
-    seen.add(o.vehicleId);
-    const situation = await situationForOrder(o);
-    if (!situation.freePoint) continue;
-    const movement = await prisma.plannedMovement.findFirst({
-      where: { vehicleId: o.vehicleId, status: "ACTIVE" },
+  // Уникальные машины (последний рейс каждой) и все данные для подбора — пакетно, без запросов в цикле
+  const latestByVehicle = new Map<string, (typeof orders)[number]>();
+  for (const o of orders) if (o.vehicleId && !latestByVehicle.has(o.vehicleId)) latestByVehicle.set(o.vehicleId, o);
+  const vehicleOrders = [...latestByVehicle.values()];
+  const [situations, movements] = await Promise.all([
+    Promise.all(vehicleOrders.map((o) => situationForOrder(o))),
+    prisma.plannedMovement.findMany({
+      where: { vehicleId: { in: [...latestByVehicle.keys()] }, status: "ACTIVE" },
       include: { destinations: { orderBy: { sequence: "asc" } } },
-    });
+    }),
+  ]);
+  const until = new Date(
+    Math.max(
+      Date.now(),
+      ...situations.map((x) => x.freeFrom.getTime() + DEFAULT_WINDOW_DAYS * DAY),
+      ...movements.map((m) => m.availableUntil.getTime()),
+    ),
+  );
+  const loads = vehicleOrders.length ? await candidateLoads(scope.companyId, until) : [];
+  const candidates = loads.map(toCandidate);
+  const previews = [];
+  for (const [i, o] of vehicleOrders.entries()) {
+    const situation = situations[i];
+    if (!situation.freePoint) continue;
+    const movement = movements.find((m) => m.vehicleId === o.vehicleId) ?? null;
     let count: number;
     if (movement) {
-      count = (await computeMatches(movement.id, scope.companyId, "efficiency")).matches.length;
+      count = (await computeMatches(movement.id, scope.companyId, "efficiency", loads)).matches.length;
     } else {
-      const until = new Date(situation.freeFrom.getTime() + DEFAULT_WINDOW_DAYS * DAY);
-      const loads = await candidateLoads(scope.companyId, until);
+      const vehicleUntil = new Date(situation.freeFrom.getTime() + DEFAULT_WINDOW_DAYS * DAY);
       count = matchNextLoads(
         {
           origin: situation.freePoint,
@@ -608,7 +628,7 @@ export async function nextLoadPreviews(actor: Actor) {
           allowedDeviationKm: 250,
           maxPickupDistanceKm: 300,
           availableFrom: situation.freeFrom,
-          availableUntil: until,
+          availableUntil: vehicleUntil,
           vehicle: o.vehicle
             ? {
                 bodyType: o.vehicle.bodyType,
@@ -618,7 +638,7 @@ export async function nextLoadPreviews(actor: Actor) {
               }
             : null,
         },
-        loads.map(toCandidate),
+        candidates,
       ).matches.length;
     }
     const directions = movement?.destinations.map((d) => d.label) ?? [];

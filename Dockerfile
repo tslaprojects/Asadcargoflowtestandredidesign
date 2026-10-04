@@ -10,9 +10,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Сборке нужен только факт наличия DATABASE_URL (подключения к БД при сборке нет).
-# Railway/Docker передают переменные сервиса в сборку через ARG; в финальный образ они не попадают.
-ARG DATABASE_URL
 # 1 — показывать на странице входа кнопки демо-аккаунтов (значение встраивается при сборке).
 ARG NEXT_PUBLIC_SHOW_DEMO
 RUN npm run build
@@ -25,5 +22,6 @@ COPY --from=build /app ./
 RUN mkdir -p /app/storage /app/.next/cache && chown -R app:app /app/storage /app/.next/cache
 USER app
 EXPOSE 3000
-# Миграции → (только при DEMO_SEED=1 и пустой базе) демо-данные → сервер. PORT задаёт хостинг, по умолчанию 3000.
-CMD ["sh", "-c", "npx prisma migrate deploy && node scripts/demo-seed-if-empty.mjs && npx next start -p ${PORT:-3000}"]
+# Миграции обеих баз (REAL и DEMO) → сервер сразу (healthcheck). Демо-данные (только DEMO_SEED=1) грузятся
+# в фоне и только в демо-базу. PORT задаёт хостинг, по умолчанию 3000. См. docs/DATABASE_MODES.md.
+CMD ["sh", "scripts/docker-start.sh"]

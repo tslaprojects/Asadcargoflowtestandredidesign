@@ -39,7 +39,7 @@ export function TripFuelReport({ r, canFinance }: { r: Report; canFinance: boole
       c?.distanceKm != null ? (
         <>
           <Metric value={Math.round(c.distanceKm)} unit="км" />
-          <span className="text-muted-foreground block text-xs">
+          <span className="text-muted-foreground text-footnote block">
             {c.distanceSource === "ODOMETER" ? "по одометру" : "оценка по маршруту"}
           </span>
         </>
@@ -52,7 +52,7 @@ export function TripFuelReport({ r, canFinance }: { r: Report; canFinance: boole
       "Средний расход",
       <>
         <Metric value={c?.per100Km} unit="л/100 км" />
-        {c?.method && <span className="text-muted-foreground block text-xs">{CONSUMPTION_METHOD_LABELS[c.method]}</span>}
+        {c?.method && <span className="text-muted-foreground text-footnote block">{CONSUMPTION_METHOD_LABELS[c.method]}</span>}
       </>,
     ],
     [
@@ -76,8 +76,8 @@ export function TripFuelReport({ r, canFinance }: { r: Report; canFinance: boole
         <CardContent>
           <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {tiles.map(([k, v]) => (
-              <div key={k} className="border-border rounded-xl border p-3">
-                <dt className="text-muted-foreground text-xs">{k}</dt>
+              <div key={k} className="bg-fill-quaternary rounded-lg p-3">
+                <dt className="text-muted-foreground text-footnote">{k}</dt>
                 <dd className="font-semibold">{v}</dd>
               </div>
             ))}
@@ -90,7 +90,7 @@ export function TripFuelReport({ r, canFinance }: { r: Report; canFinance: boole
         </CardHeader>
         <CardContent className="overflow-x-auto">
           {r.transactions.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Заправок по этому рейсу нет.</p>
+            <p className="text-muted-foreground text-body">Заправок по этому рейсу нет.</p>
           ) : (
             <Table>
               <TableHeader>
@@ -121,7 +121,7 @@ export function TripFuelReport({ r, canFinance }: { r: Report; canFinance: boole
             </Table>
           )}
           {r.vehicle && (
-            <Link href={`/fuel/vehicles/${r.vehicle.id}`} className="text-primary mt-3 inline-block text-sm hover:underline">
+            <Link href={`/fuel/vehicles/${r.vehicle.id}`} className="text-link text-body mt-3 inline-block hover:underline">
               Топливо автомобиля {r.vehicle.plateNumber} →
             </Link>
           )}

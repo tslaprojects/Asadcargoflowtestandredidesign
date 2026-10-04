@@ -108,7 +108,7 @@ export default async function CompanyPage() {
                       { label: "Дата регистрации на платформе", value: formatDate(company.createdAt) },
                     ]}
                   />
-                  <p className="text-muted-foreground mt-4 text-xs">
+                  <p className="text-muted-foreground text-footnote mt-4">
                     Регистрационный номер и страну может изменить только администратор платформы.
                   </p>
                 </CardContent>
@@ -138,8 +138,9 @@ export default async function CompanyPage() {
             label: "Документы",
             content: (
               <div className="space-y-4">
+                {!canManage && <p className="text-muted-foreground text-body">Документы компании доступны её руководителю.</p>}
                 <DocumentList
-                  docs={company.documents.map((d) => ({
+                  docs={(canManage ? company.documents : []).map((d) => ({
                     ...d,
                     type: "OTHER",
                     version: 1,
@@ -183,7 +184,7 @@ export default async function CompanyPage() {
             content: (
               <Card>
                 <CardContent className="flex items-center justify-between gap-3 pt-5">
-                  <p className="text-sm">В автопарке: {company._count.vehicles}</p>
+                  <p className="text-body">В автопарке: {company._count.vehicles}</p>
                   <Button asChild variant="outline">
                     <Link href="/vehicles">Открыть автопарк</Link>
                   </Button>
@@ -198,7 +199,7 @@ export default async function CompanyPage() {
             content: (
               <Card>
                 <CardContent className="flex items-center justify-between gap-3 pt-5">
-                  <p className="text-sm">Водителей: {company._count.drivers}</p>
+                  <p className="text-body">Водителей: {company._count.drivers}</p>
                   <Button asChild variant="outline">
                     <Link href="/drivers">Открыть список водителей</Link>
                   </Button>
@@ -228,7 +229,7 @@ export default async function CompanyPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <StatusBadge kind="VerificationStatus" value={company.verificationStatus} size="lg" />
-                    <p className="text-muted-foreground text-sm">
+                    <p className="text-muted-foreground text-body">
                       Проверенные компании отмечаются значком на бирже и вызывают больше доверия у контрагентов. Для проверки загрузите
                       регистрационный и налоговый документы, лицензии (если применимо).
                     </p>
@@ -241,11 +242,11 @@ export default async function CompanyPage() {
                   </CardHeader>
                   <CardContent>
                     {company.verificationRequests.length === 0 ? (
-                      <p className="text-muted-foreground text-sm">Заявок на проверку ещё не было.</p>
+                      <p className="text-muted-foreground text-body">Заявок на проверку ещё не было.</p>
                     ) : (
-                      <ul className="space-y-3 text-sm">
+                      <ul className="text-body space-y-3">
                         {company.verificationRequests.map((r) => (
-                          <li key={r.id} className="border-border rounded-lg border p-3">
+                          <li key={r.id} className="bg-fill-quaternary rounded-lg p-3">
                             <div className="flex items-center justify-between gap-2">
                               <span>{formatDateTime(r.createdAt)}</span>
                               <StatusBadge kind="VerificationRequestStatus" value={r.status} />

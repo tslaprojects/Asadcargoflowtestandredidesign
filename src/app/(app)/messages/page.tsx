@@ -21,35 +21,35 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
       {data.items.length === 0 ? (
         <EmptyState icon={MessageSquare} title="Сообщений пока нет" description="Чат появляется после выбора перевозчика." />
       ) : (
-        <ul className="divide-border border-border bg-card divide-y rounded-xl border">
+        <ul className="bg-card divide-y-(length:--hairline) rounded-lg">
           {data.items.map((t) => (
             <li key={t.id}>
               <Link href={`/orders/${t.order.id}?tab=chat`} className="hover:bg-muted/50 flex items-start gap-3 p-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold">{t.order.publicNumber}</span>
-                    <span className="text-muted-foreground text-sm">
+                    <span className="text-muted-foreground text-body">
                       {t.order.load.originCity} → {t.order.load.destinationCity}
                     </span>
                     <StatusBadge kind="OrderStatus" value={t.order.currentStatus} />
                   </div>
-                  <p className="text-muted-foreground text-xs">
+                  <p className="text-muted-foreground text-footnote">
                     {t.order.shipper.legalName} · {t.order.carrier.legalName}
                   </p>
                   {t.lastMessage ? (
-                    <p className="mt-1 truncate text-sm">
+                    <p className="text-body mt-1 truncate">
                       <span className="text-muted-foreground">{t.lastMessage.sender}: </span>
                       {t.lastMessage.text || "📎 файл"}
                     </p>
                   ) : (
-                    <p className="text-muted-foreground mt-1 text-sm">Сообщений пока нет</p>
+                    <p className="text-muted-foreground text-body mt-1">Сообщений пока нет</p>
                   )}
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
-                  {t.lastMessage && <span className="text-muted-foreground text-xs">{formatRelative(t.lastMessage.at)}</span>}
+                  {t.lastMessage && <span className="text-muted-foreground text-footnote">{formatRelative(t.lastMessage.at)}</span>}
                   {t.unread > 0 && (
                     <span
-                      className="bg-primary rounded-full px-2 text-xs font-semibold text-white"
+                      className="bg-primary text-footnote rounded-full px-2 font-semibold text-white"
                       aria-label={`Непрочитанных: ${t.unread}`}
                     >
                       {t.unread}

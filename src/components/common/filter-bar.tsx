@@ -1,10 +1,12 @@
 "use client";
-import { Search, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
+import { SearchField } from "@/components/common/search-field";
 import { Button } from "@/components/ui/button";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export type FilterField =
@@ -15,8 +17,27 @@ export type FilterField =
   | { type: "date"; name: string; label: string }
   | { type: "checkbox"; name: string; label: string };
 
-/** Панель фильтров, синхронизированная с URL (серверная фильтрация и пагинация). */
-export function FilterBar({ fields, className }: { fields: FilterField[]; className?: string }) {
+/** Сколько фильтров (кроме поиска) видно в строке на широком экране; остальные — по кнопке «Фильтры». */
+const INLINE_FIELDS = 3;
+
+/**
+ * Строка поиска и фильтров над списком, синхронизированная с URL (серверная фильтрация и пагинация).
+ * Поиск + основные фильтры в строке, остальные — по кнопке «Фильтры» (со счётчиком активных).
+ * На телефоне в строке только поиск и кнопка — список начинается на первом экране.
+ */
+export function FilterBar({
+  fields,
+  className,
+  inlineFields = INLINE_FIELDS,
+  bare,
+}: {
+  fields: FilterField[];
+  className?: string;
+  /** Сколько фильтров видно сразу (в узкой колонке — меньше). */
+  inlineFields?: number;
+  /** Компактный вид — внутри колонки списка. */
+  bare?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -24,6 +45,14 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
     Object.fromEntries(fields.map((f) => [f.name, params.get(f.name) ?? ""])),
   );
   const [pending, startTransition] = React.useTransition();
+  const panelId = React.useId();
+
+  const nonSearch = fields.filter((f) => f.type !== "search");
+  const inline = new Set(nonSearch.slice(0, inlineFields).map((f) => f.name));
+  const hasAdvanced = nonSearch.length > inlineFields;
+  const activeCount = nonSearch.filter((f) => params.get(f.name)).length;
+  const advancedActive = nonSearch.some((f) => !inline.has(f.name) && params.get(f.name));
+  const [open, setOpen] = React.useState(advancedActive);
 
   const apply = (next: Record<string, string>) => {
     const sp = new URLSearchParams(params.toString());
@@ -44,9 +73,13 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
 
   const hasActive = fields.some((f) => params.get(f.name));
 
+  /** Основные поля видны всегда на широком экране, на телефоне — в раскрытой панели; дополнительные — только в панели. */
+  const visibility = (name: string) => (inline.has(name) ? (open ? "" : "max-md:hidden") : open ? "animate-rise-in" : "hidden");
+  const size = bare ? "sm" : "default";
+
   return (
     <form
-      className={cn("border-border bg-card mb-4 rounded-xl border p-3 shadow-xs", className)}
+      className={cn(bare ? "px-3 pb-2" : "mb-4", className)}
       onSubmit={(e) => {
         e.preventDefault();
         apply(values);
@@ -54,35 +87,33 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
       role="search"
       aria-busy={pending}
     >
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
+      <div id={panelId} className="flex flex-wrap items-end gap-x-2 gap-y-2.5">
         {fields.map((f) => {
           const id = `f-${f.name}`;
           if (f.type === "search")
             return (
-              <div key={f.name} className="col-span-2 md:col-span-2">
+              <div key={f.name} className={cn("min-w-0 flex-1 basis-full", !bare && "md:max-w-80 md:basis-64")}>
                 <Label htmlFor={id} className="sr-only">
-                  {f.label ?? "Поиск"}
+                  {f.label ?? t("common.search")}
                 </Label>
-                <div className="relative">
-                  <Search className="text-muted-foreground pointer-events-none absolute top-2.5 left-2.5 size-4" aria-hidden />
-                  <Input
-                    id={id}
-                    className="pl-8"
-                    placeholder={f.placeholder ?? "Поиск"}
-                    value={values[f.name]}
-                    onChange={(e) => set(f.name, e.target.value)}
-                  />
-                </div>
+                <SearchField
+                  id={id}
+                  placeholder={f.placeholder ?? t("common.search")}
+                  value={values[f.name]}
+                  onChange={(e) => set(f.name, e.target.value)}
+                />
               </div>
             );
+          const wrap = cn("w-[calc(50%-0.25rem)] space-y-1", !bare && "sm:w-44", visibility(f.name));
+          const caption = "text-footnote text-muted-foreground px-0.5";
           if (f.type === "select")
             return (
-              <div key={f.name} className="space-y-1">
-                <Label htmlFor={id} className="text-muted-foreground text-xs">
+              <div key={f.name} className={wrap}>
+                <Label htmlFor={id} className={caption}>
                   {f.label}
                 </Label>
                 <NativeSelect id={id} value={values[f.name]} onChange={(e) => set(f.name, e.target.value, true)}>
-                  <option value="">{f.allLabel ?? "Все"}</option>
+                  <option value="">{f.allLabel ?? t("common.all")}</option>
                   {f.options.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
@@ -93,10 +124,10 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
             );
           if (f.type === "checkbox")
             return (
-              <label key={f.name} className="flex items-end gap-2 pb-2 text-sm">
+              <label key={f.name} className={cn("text-body flex min-h-11 items-center gap-2 lg:min-h-[1.875rem]", visibility(f.name))}>
                 <input
                   type="checkbox"
-                  className="size-4 accent-[var(--primary)]"
+                  className="size-4 accent-[var(--primary)] lg:size-3.5"
                   checked={values[f.name] === "1"}
                   onChange={(e) => set(f.name, e.target.checked ? "1" : "", true)}
                 />
@@ -104,8 +135,8 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
               </label>
             );
           return (
-            <div key={f.name} className="space-y-1">
-              <Label htmlFor={id} className="text-muted-foreground text-xs">
+            <div key={f.name} className={wrap}>
+              <Label htmlFor={id} className={caption}>
                 {f.label}
               </Label>
               <Input
@@ -120,25 +151,50 @@ export function FilterBar({ fields, className }: { fields: FilterField[]; classN
             </div>
           );
         })}
-      </div>
-      <div className="mt-3 flex items-center gap-2">
-        <Button type="submit" size="sm" loading={pending} loadingText="Ищем...">
-          Применить
-        </Button>
-        {hasActive && (
+        <div className="flex items-center gap-1.5">
+          {(hasAdvanced || nonSearch.length > 0) && (
+            <Button
+              type="button"
+              variant="secondary"
+              size={size}
+              className={cn(!hasAdvanced && "md:hidden")}
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              aria-controls={panelId}
+            >
+              <SlidersHorizontal /> {t("common.filters")}
+              {activeCount > 0 && (
+                <span className="bg-primary text-primary-foreground num text-caption grid h-4 min-w-4 place-items-center rounded-full px-1 font-semibold">
+                  {activeCount}
+                </span>
+              )}
+            </Button>
+          )}
           <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              const cleared = Object.fromEntries(fields.map((f) => [f.name, ""]));
-              setValues(cleared);
-              apply(cleared);
-            }}
+            type="submit"
+            size={size}
+            loading={pending}
+            loadingText="Ищем..."
+            className={cn(bare && nonSearch.length === 0 && "sr-only")}
           >
-            <X /> Сбросить
+            {t("common.apply")}
           </Button>
-        )}
+          {hasActive && (
+            <Button
+              type="button"
+              variant="ghost"
+              size={size}
+              className="text-link"
+              onClick={() => {
+                const cleared = Object.fromEntries(fields.map((f) => [f.name, ""]));
+                setValues(cleared);
+                apply(cleared);
+              }}
+            >
+              <X /> {t("common.reset")}
+            </Button>
+          )}
+        </div>
       </div>
     </form>
   );

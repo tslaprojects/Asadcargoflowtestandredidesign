@@ -1,11 +1,12 @@
 "use client";
-import { Loader2, Paperclip, Send, X } from "lucide-react";
+import { ArrowUp, Loader2, Paperclip, Plus, X } from "lucide-react";
 import * as React from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { api, errorMessage, newIdempotencyKey } from "@/lib/client/api";
 import { formatDateTime } from "@/lib/format";
+import { t } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type Msg = {
@@ -100,13 +101,20 @@ export function ChatPanel({ orderId, canSend, className }: { orderId: string; ca
       let attachmentId: string | null = null;
       if (file) {
         const fd = new FormData();
-        fd.set("type", file.type.startsWith("image/") ? "CARGO_PHOTO" : "OTHER");
+        // Тип документа из чата не угадываем (скриншот счёта — не «фото груза»)
+        fd.set("type", "OTHER");
         fd.set("file", file);
         fd.set("note", "Вложение из чата");
         const doc = await api<{ id: string }>(`/api/orders/${orderId}/documents`, { method: "POST", formData: fd });
         attachmentId = doc.id;
       }
-      await api(`/api/orders/${orderId}/messages`, { body: { message: text, attachmentId }, idempotencyKey: newIdempotencyKey() });
+      try {
+        await api(`/api/orders/${orderId}/messages`, { body: { message: text, attachmentId }, idempotencyKey: newIdempotencyKey() });
+      } catch (e) {
+        // Сообщение не отправлено — не оставляем «осиротевший» файл в документах рейса
+        if (attachmentId) await api(`/api/documents/${attachmentId}`, { method: "DELETE" }).catch(() => undefined);
+        throw e;
+      }
       setText("");
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
@@ -122,11 +130,8 @@ export function ChatPanel({ orderId, canSend, className }: { orderId: string; ca
   };
 
   return (
-    <div
-      className={cn("border-border bg-card flex h-[560px] max-h-[75dvh] flex-col rounded-xl border", className)}
-      data-testid="chat-panel"
-    >
-      <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto p-3" aria-live="polite" aria-label="Сообщения чата">
+    <div className={cn("bg-card flex h-[560px] max-h-[75dvh] flex-col rounded-lg", className)} data-testid="chat-panel">
+      <div ref={listRef} className="flex-1 overflow-y-auto overscroll-contain px-3 py-4" aria-live="polite" aria-label="Сообщения чата">
         {hasMore && (
           <div className="text-center">
             <Button variant="ghost" size="sm" onClick={loadEarlier}>
@@ -135,56 +140,62 @@ export function ChatPanel({ orderId, canSend, className }: { orderId: string; ca
           </div>
         )}
         {loading && (
-          <p className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-sm">
+          <p className="text-muted-foreground text-body flex items-center justify-center gap-2 py-8">
             <Loader2 className="size-4 animate-spin" aria-hidden /> Загружаем сообщения...
           </p>
         )}
-        {error && <p className="text-destructive py-8 text-center text-sm">{error}</p>}
+        {error && <p className="text-danger text-body py-8 text-center">{error}</p>}
         {!loading && !error && messages.length === 0 && (
-          <p className="text-muted-foreground py-8 text-center text-sm">Сообщений пока нет. Напишите первым!</p>
+          <p className="text-muted-foreground text-body py-8 text-center">Сообщений пока нет. Напишите первым!</p>
         )}
-        {messages.map((m) => (
-          <div key={m.id} className={cn("flex", m.mine ? "justify-end" : "justify-start")}>
-            <div
-              className={cn(
-                "max-w-[85%] rounded-2xl px-3 py-2 text-sm",
-                m.mine ? "bg-primary text-primary-foreground rounded-br-sm" : "bg-muted rounded-bl-sm",
-              )}
-            >
-              {!m.mine && (
-                <p className="mb-0.5 text-xs font-medium">
+        {messages.map((m, i) => {
+          const prev = messages[i - 1];
+          const grouped = prev && prev.mine === m.mine && prev.sender.name === m.sender.name;
+          return (
+            <div key={m.id} className={cn("flex flex-col", m.mine ? "items-end" : "items-start", grouped ? "mt-0.5" : "mt-3 first:mt-0")}>
+              {!m.mine && !grouped && (
+                <p className="text-footnote text-muted-foreground mb-1 px-3">
                   {m.sender.name}
-                  {m.sender.company && <span className="font-normal opacity-70"> · {m.sender.company}</span>}
+                  {m.sender.company && <span> · {m.sender.company}</span>}
                 </p>
               )}
-              {m.message && <p className="break-words whitespace-pre-wrap">{m.message}</p>}
-              {m.attachment && (
-                <a
-                  href={`/api/documents/${m.attachment.id}/download?inline=1`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn("mt-1 flex items-center gap-1 underline", m.mine ? "text-primary-foreground" : "text-primary")}
-                >
-                  <Paperclip className="size-3.5" aria-hidden /> {m.attachment.filename}
-                </a>
-              )}
-              <p className={cn("mt-0.5 text-[11px]", m.mine ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                {formatDateTime(m.createdAt)}
-              </p>
+              <div
+                className={cn(
+                  "max-w-[78%] rounded-[1.125rem] px-3.5 py-2",
+                  m.mine ? "bg-primary text-primary-foreground rounded-br-md" : "bg-fill-tertiary text-foreground rounded-bl-md",
+                )}
+              >
+                {m.message && <p className="break-words whitespace-pre-wrap">{m.message}</p>}
+                {m.attachment && (
+                  <a
+                    href={`/api/documents/${m.attachment.id}/download?inline=1`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "flex items-center gap-1 underline underline-offset-2",
+                      m.message && "mt-1",
+                      m.mine ? "text-primary-foreground" : "text-link",
+                    )}
+                  >
+                    <Paperclip className="size-3.5" aria-hidden /> {m.attachment.filename}
+                  </a>
+                )}
+              </div>
+              <p className="text-caption text-tertiary-foreground num mt-0.5 px-3">{formatDateTime(m.createdAt)}</p>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       {canSend ? (
         <form
-          className="border-border border-t p-2"
+          className="hairline-t px-3 py-2.5"
           onSubmit={(e) => {
             e.preventDefault();
             void send();
           }}
         >
           {file && (
-            <p className="bg-muted mb-2 flex items-center gap-2 rounded-md px-2 py-1 text-xs">
+            <p className="bg-fill-quaternary text-footnote mb-2 flex items-center gap-2 rounded-md px-2.5 py-1.5">
               <Paperclip className="size-3.5" aria-hidden /> {file.name}
               <button type="button" onClick={() => setFile(null)} aria-label="Убрать вложение" className="ml-auto">
                 <X className="size-3.5" />
@@ -200,33 +211,44 @@ export function ChatPanel({ orderId, canSend, className }: { orderId: string; ca
               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
-            <Button type="button" variant="ghost" size="icon" asChild>
-              <label htmlFor={`chat-file-${orderId}`} aria-label="Прикрепить файл или фото" className="cursor-pointer">
-                <Paperclip />
-              </label>
-            </Button>
-            <Textarea
-              rows={1}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  void send();
-                }
-              }}
-              placeholder="Написать сообщение…"
-              className="min-h-9 resize-none"
-              aria-label="Текст сообщения"
-              maxLength={4000}
-            />
-            <Button type="submit" size="icon" loading={sending} disabled={!text.trim() && !file} aria-label="Отправить сообщение">
-              <Send />
-            </Button>
+            <label
+              htmlFor={`chat-file-${orderId}`}
+              aria-label="Прикрепить файл или фото"
+              className="bg-fill-tertiary text-muted-foreground hover:bg-fill-secondary grid size-9 shrink-0 cursor-pointer place-items-center rounded-full transition-colors duration-(--duration-micro)"
+            >
+              <Plus className="size-5" aria-hidden />
+            </label>
+            <div className="relative flex min-w-0 flex-1 items-end">
+              <Textarea
+                rows={1}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void send();
+                  }
+                }}
+                placeholder={t("ui.messagePlaceholder")}
+                className="border-border-strong min-h-9 resize-none rounded-[1.125rem] py-2 pr-11 pl-3.5 lg:min-h-9 lg:py-2"
+                aria-label="Текст сообщения"
+                maxLength={4000}
+              />
+              <Button
+                type="submit"
+                size="icon-sm"
+                loading={sending}
+                disabled={!text.trim() && !file}
+                aria-label="Отправить сообщение"
+                className="absolute right-1 bottom-1 size-7 rounded-full p-0 lg:size-7 [&_svg]:size-4"
+              >
+                <ArrowUp className="[stroke-width:2.5]" />
+              </Button>
+            </div>
           </div>
         </form>
       ) : (
-        <p className="border-border text-muted-foreground border-t p-3 text-center text-xs">Чат доступен только для чтения</p>
+        <p className="text-muted-foreground hairline-t text-footnote p-3 text-center">Чат доступен только для чтения</p>
       )}
     </div>
   );

@@ -4,7 +4,9 @@ import * as React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDateTime } from "@/lib/format";
 import { label } from "@/lib/i18n";
-import { ORDER_STATUS_LABELS, TIMELINE_STEPS } from "@/lib/state-machine/order-state-machine";
+import type { OrderStatus } from "@/generated/prisma/enums";
+import { orderProgress, type StepState } from "@/lib/state-machine/order-progress";
+import { ORDER_STATUS_LABELS } from "@/lib/state-machine/order-state-machine";
 import { cn } from "@/lib/utils";
 
 export type HistoryEntry = {
@@ -19,17 +21,15 @@ export type HistoryEntry = {
   createdAt: Date | string;
 };
 
-type Step = { key: string; label: string; state: "done" | "current" | "todo"; entries: HistoryEntry[] };
+type Step = { key: string; label: string; state: StepState; entries: HistoryEntry[] };
 
-function buildSteps(history: HistoryEntry[], current: string, createdAt: Date | string): Step[] {
-  const reached = (statuses: readonly string[]) => history.filter((h) => statuses.includes(h.toStatus));
-  const effective =
-    current === "DISPUTED" || current === "ON_HOLD"
-      ? ([...history].reverse().find((h) => h.toStatus !== "DISPUTED" && h.toStatus !== "ON_HOLD")?.toStatus ?? current)
-      : current;
-  const currentIdx = TIMELINE_STEPS.findIndex((s) => (s.statuses as string[]).includes(effective));
-  return TIMELINE_STEPS.map((s, i) => {
-    const entries =
+function buildSteps(history: HistoryEntry[], current: string, createdAt: Date | string): { steps: Step[]; note: string | null } {
+  const progress = orderProgress(history, current as OrderStatus);
+  const steps = progress.steps.map((s) => ({
+    key: s.key,
+    label: s.label,
+    state: s.state,
+    entries:
       s.key === "created"
         ? [
             {
@@ -44,13 +44,9 @@ function buildSteps(history: HistoryEntry[], current: string, createdAt: Date | 
               createdAt,
             },
           ]
-        : reached(s.statuses);
-    let state: Step["state"] = entries.length > 0 ? "done" : "todo";
-    if (s.key === "created") state = "done";
-    if (i === currentIdx && current !== "CLOSED") state = "current";
-    if (current === "CLOSED" && s.key === "closed") state = "done";
-    return { key: s.key, label: s.label, state, entries };
-  });
+        : history.filter((h) => (s.statuses as readonly string[]).includes(h.toStatus)),
+  }));
+  return { steps, note: progress.currentNote };
 }
 
 /** Основной timeline перевозки. Клик по этапу — подробности события из истории статусов. */
@@ -67,43 +63,70 @@ export function OrderStatusTimeline({
   userNames: Record<string, string>;
   documents?: Record<string, string>;
 }) {
-  const steps = buildSteps(history, current, createdAt);
+  const { steps, note } = buildSteps(history, current, createdAt);
   const [selected, setSelected] = React.useState<Step | null>(null);
   return (
     <>
-      <ol className="grid grid-cols-1 gap-0 sm:grid-cols-2 lg:grid-cols-1" aria-label="Этапы перевозки">
-        {steps.map((s, i) => (
-          <li key={s.key} className="relative">
-            <button
-              type="button"
-              onClick={() => s.entries.length && setSelected(s)}
-              disabled={!s.entries.length}
-              className={cn("group flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left", s.entries.length && "hover:bg-muted")}
-              aria-label={`${s.label}: ${s.state === "done" ? "выполнено" : s.state === "current" ? "текущий этап" : "не начато"}`}
-            >
-              <span
-                className={cn(
-                  "grid size-6 shrink-0 place-items-center rounded-full border-2 text-xs",
-                  s.state === "done" && "border-success bg-success text-white",
-                  s.state === "current" && "border-primary bg-primary ring-primary/15 text-white ring-4",
-                  s.state === "todo" && "border-border bg-card text-muted-foreground",
-                )}
-                aria-hidden
-              >
-                {s.state === "done" ? <Check className="size-3.5" strokeWidth={3} /> : s.state === "current" ? "●" : i + 1}
-              </span>
-              <span className={cn("flex-1 text-sm", s.state === "todo" ? "text-muted-foreground" : "font-medium")}>{s.label}</span>
-              {s.entries.length > 0 && (
-                <span className="text-muted-foreground group-hover:text-foreground text-xs">
-                  {formatDateTime(s.entries[s.entries.length - 1].createdAt)}
-                </span>
+      <ol className="relative" aria-label="Этапы перевозки">
+        {steps.map((s, i) => {
+          const next = steps[i + 1];
+          return (
+            <li key={s.key} className="relative">
+              {next && (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute top-8 bottom-0 left-[1.125rem] w-0.5 -translate-x-1/2 rounded-full transition-colors duration-(--duration-complex)",
+                    s.state === "done" && next.state !== "todo" ? "bg-primary" : "bg-border-strong",
+                  )}
+                />
               )}
-            </button>
-          </li>
-        ))}
+              <button
+                type="button"
+                onClick={() => s.entries.length && setSelected(s)}
+                disabled={!s.entries.length}
+                className={cn(
+                  "group relative flex w-full items-start gap-3 rounded-md px-2 py-1.5 text-left transition-colors duration-(--duration-micro)",
+                  s.entries.length > 0 && "hover:bg-fill-quaternary",
+                )}
+                aria-current={s.state === "current" ? "step" : undefined}
+                aria-label={`${s.label}: ${s.state === "done" ? "выполнено" : s.state === "current" ? "текущий этап" : "не начато"}`}
+              >
+                <span
+                  className={cn(
+                    "num relative z-10 mt-px grid size-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-semibold transition-colors duration-(--duration-complex)",
+                    s.state === "done" && "bg-primary text-primary-foreground",
+                    s.state === "current" && "border-primary bg-card border-2",
+                    s.state === "todo" && "border-border-strong bg-card text-muted-foreground border",
+                  )}
+                  aria-hidden
+                >
+                  {s.state === "done" ? (
+                    <Check className="size-3 [stroke-width:3]" />
+                  ) : s.state === "current" ? (
+                    <span className="bg-primary animate-live-pulse text-primary size-2 rounded-full" />
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block", s.state === "todo" && "text-muted-foreground", s.state === "current" && "font-semibold")}>
+                    {s.label}
+                    {s.state === "current" && note && <span className="text-muted-foreground font-normal"> · {note}</span>}
+                  </span>
+                </span>
+                {s.entries.length > 0 && (
+                  <span className="text-footnote text-muted-foreground group-hover:text-foreground num shrink-0 pt-px">
+                    {formatDateTime(s.entries[s.entries.length - 1].createdAt)}
+                  </span>
+                )}
+              </button>
+            </li>
+          );
+        })}
       </ol>
       {(current === "DISPUTED" || current === "ON_HOLD" || current === "CANCELLED") && (
-        <p className="bg-danger-bg text-danger mt-2 rounded-md px-3 py-2 text-sm">
+        <p className="bg-danger-bg text-danger text-subheadline mt-3 rounded-md px-3 py-2">
           Текущий статус: {ORDER_STATUS_LABELS[current as keyof typeof ORDER_STATUS_LABELS]}
         </p>
       )}
@@ -115,12 +138,12 @@ export function OrderStatusTimeline({
           </DialogHeader>
           <ul className="space-y-3">
             {selected?.entries.map((e) => (
-              <li key={e.id} className="border-border rounded-lg border p-3 text-sm">
+              <li key={e.id} className="bg-fill-quaternary rounded-md p-3">
                 <p className="font-medium">
                   {e.fromStatus ? `${ORDER_STATUS_LABELS[e.fromStatus as keyof typeof ORDER_STATUS_LABELS]} → ` : ""}
                   {ORDER_STATUS_LABELS[e.toStatus as keyof typeof ORDER_STATUS_LABELS]}
                 </p>
-                <dl className="text-muted-foreground mt-2 grid grid-cols-[110px_minmax(0,1fr)] gap-y-1">
+                <dl className="text-subheadline text-muted-foreground mt-2 grid grid-cols-[110px_minmax(0,1fr)] gap-y-1">
                   <dt>Дата и время</dt>
                   <dd className="text-foreground">{formatDateTime(e.createdAt)}</dd>
                   <dt>Пользователь</dt>
@@ -143,7 +166,7 @@ export function OrderStatusTimeline({
                             href={`/api/documents/${d}/download?inline=1`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-primary flex items-center gap-1 hover:underline"
+                            className="text-link flex items-center gap-1 hover:underline"
                           >
                             <Paperclip className="size-3.5" aria-hidden /> {documents?.[d] ?? "Документ"}
                           </a>

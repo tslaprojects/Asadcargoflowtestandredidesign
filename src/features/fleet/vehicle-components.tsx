@@ -2,7 +2,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Pencil, Plus, Trash2, Truck, Unlink } from "lucide-react";
 import * as React from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { ConfirmDialog } from "@/components/common/confirm-dialog";
 import { Field, FormError } from "@/components/common/field";
@@ -80,6 +80,7 @@ export function VehicleFormDialog({ vehicle, trigger }: { vehicle?: VehicleRow; 
           status: "AVAILABLE",
         },
   });
+  const gpsEnabled = useWatch({ control: f.control, name: "gpsEnabled" });
   const submit = f.handleSubmit(async (v) => {
     setError(null);
     try {
@@ -116,7 +117,7 @@ export function VehicleFormDialog({ vehicle, trigger }: { vehicle?: VehicleRow; 
               <NativeSelect {...f.register("country")}>
                 {COUNTRIES.map((c) => (
                   <option key={c.code} value={c.code}>
-                    {c.flag} {c.name}
+                    {c.name}
                   </option>
                 ))}
               </NativeSelect>
@@ -167,7 +168,7 @@ export function VehicleFormDialog({ vehicle, trigger }: { vehicle?: VehicleRow; 
               <Input type="number" inputMode="decimal" {...f.register("volumeM3")} />
             </Field>
             <div className="flex items-center gap-2 pt-6">
-              <Checkbox id="v-gps" checked={f.watch("gpsEnabled")} onCheckedChange={(c) => f.setValue("gpsEnabled", c === true)} />
+              <Checkbox id="v-gps" checked={gpsEnabled} onCheckedChange={(c) => f.setValue("gpsEnabled", c === true)} />
               <Label htmlFor="v-gps">Есть GPS</Label>
             </div>
             <DialogFooter className="sm:col-span-3">
@@ -262,7 +263,7 @@ export function VehicleRowActions({
           }
           trigger={
             <Button variant="ghost" size="icon-sm" aria-label={`Удалить ${vehicle.plateNumber}`}>
-              <Trash2 className="text-destructive" />
+              <Trash2 className="text-danger" />
             </Button>
           }
         />

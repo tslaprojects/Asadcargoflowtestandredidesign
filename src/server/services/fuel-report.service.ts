@@ -272,6 +272,7 @@ export async function tripFuelReport(actor: Actor, orderId: string) {
   const { access, order } = await requireOrderAccess(actor, orderId);
   if (access.side !== "CARRIER" && access.side !== "ADMIN") throw errors.forbidden("Отчёт по топливу доступен перевозчику.");
   if (!access.can("FUEL_VIEW")) throw errors.forbidden("Недостаточно прав для просмотра топлива.");
+  const money = access.can("FUEL_FINANCE_VIEW");
   const full = await prisma.transportOrder.findUniqueOrThrow({
     where: { id: orderId },
     include: {
@@ -311,14 +312,16 @@ export async function tripFuelReport(actor: Actor, orderId: string) {
     vehicle: full.vehicle,
     finished: Boolean(full.deliveredAt),
     liters: Math.round(fueled.reduce((a, t) => a + Number(t.liters), 0) * 10) / 10,
-    cost: [...spend.entries()].map(([currency, minor]) => ({ currency: currency as Currency, amount: fromMinor(minor) })),
+    // Суммы — только с правом FUEL_FINANCE_VIEW (диспетчер видит литры, но не деньги)
+    cost: money ? [...spend.entries()].map(([currency, minor]) => ({ currency: currency as Currency, amount: fromMinor(minor) })) : [],
     refuels: fueled.length,
     anomalies,
     consumption,
     norm,
     deviationPct: normDeviationPct(consumption?.per100Km ?? null, norm),
     routeEstimateKm: routeKm ? Math.round(routeKm) : null,
-    transactions: txs,
+    transactions: money ? txs : txs.map((t) => ({ ...t, totalAmount: null, pricePerLiter: null, authorizedAmount: null })),
+    moneyVisible: money,
   };
 }
 

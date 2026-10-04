@@ -44,3 +44,19 @@ export async function driverProfileFor(actor: Actor) {
   if (!profile) throw errors.forbidden("Профиль водителя не найден.");
   return profile;
 }
+
+/** Суммы по топливу видит только роль с FUEL_FINANCE_VIEW (руководитель, администратор); диспетчер — только литры. */
+export function canSeeFuelMoney(actor: Actor) {
+  return actor.permissions.has("FUEL_FINANCE_VIEW");
+}
+
+type MoneyFields = { totalAmount?: unknown; pricePerLiter?: unknown; authorizedAmount?: unknown };
+
+export function hideFuelMoney<T extends MoneyFields>(t: T): T {
+  return {
+    ...t,
+    ...("totalAmount" in t ? { totalAmount: null } : {}),
+    ...("pricePerLiter" in t ? { pricePerLiter: null } : {}),
+    ...("authorizedAmount" in t ? { authorizedAmount: null } : {}),
+  };
+}

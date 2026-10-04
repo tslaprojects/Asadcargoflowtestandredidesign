@@ -38,10 +38,16 @@ export default defineConfig({
         reuseExistingServer: false,
         env: {
           DATABASE_URL: process.env.TEST_DATABASE_URL ?? "",
+          // Демо-схема тестовой базы (cargoflow_demo рядом с TEST_DATABASE_URL), не демо-база разработки
+          DEMO_DATABASE_URL: "",
           APP_URL: baseURL,
           STORAGE_DRIVER: "local",
+          // E2E без внешних сервисов: километраж — оценка
+          GEOAPIFY_API_KEY: "",
           STORAGE_LOCAL_DIR: "./storage-e2e",
           EMAIL_DRIVER: "none",
+          // Плановую задачу в E2E запускают тесты явно
+          JOB_SECURE_DEAL_INTERVAL_MIN: "0",
         },
       },
 });

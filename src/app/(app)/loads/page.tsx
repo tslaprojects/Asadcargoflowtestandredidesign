@@ -20,7 +20,8 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Sear
   const actor = await pageActor();
   if (!isCustomerRole(actor.active?.role)) redirect("/marketplace");
   const params = await searchParams;
-  const q = loadListQuerySchema.parse({ ...params, scope: "mine" });
+  const parsed = loadListQuerySchema.safeParse({ ...params, scope: "mine" });
+  const q = parsed.success ? parsed.data : loadListQuerySchema.parse({ scope: "mine" });
   const data = toPlain(await listLoads(actor, q));
   return (
     <>
@@ -59,11 +60,13 @@ export default async function MyLoadsPage({ searchParams }: { searchParams: Sear
           action={{ href: "/loads/new", label: "Создать первый груз" }}
         />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <ul className="bg-card [&>li+li_[data-row-content]]:hairline-t overflow-hidden rounded-lg" data-testid="load-list">
           {data.items.map((l) => (
-            <LoadCard key={l.id} load={l as unknown as LoadCardData} showCompany={false} />
+            <li key={l.id}>
+              <LoadCard load={l as unknown as LoadCardData} showCompany={false} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/loads" searchParams={params} />
     </>

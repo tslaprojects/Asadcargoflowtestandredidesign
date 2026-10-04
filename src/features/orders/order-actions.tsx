@@ -113,11 +113,11 @@ function AssignVehicleDialog({ orderId, weightKg }: { orderId: string; weightKg:
             <DialogDescription>Вес груза: {formatWeight(weightKg)}. Недоступные автомобили отмечены с причиной.</DialogDescription>
           </DialogHeader>
           <FormError message={loadError} />
-          {!options && !loadError && <p className="text-muted-foreground text-sm">Загружаем автопарк...</p>}
+          {!options && !loadError && <p className="text-muted-foreground text-body">Загружаем автопарк...</p>}
           {options && options.length === 0 && (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-body">
               В автопарке нет автомобилей.{" "}
-              <Link href="/vehicles" className="text-primary hover:underline">
+              <Link href="/vehicles" className="text-link hover:underline">
                 Добавить автомобиль
               </Link>
             </p>
@@ -127,9 +127,9 @@ function AssignVehicleDialog({ orderId, weightKg }: { orderId: string; weightKg:
               <label
                 key={v.id}
                 className={cn(
-                  "flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm",
+                  "flex cursor-pointer items-start gap-3 rounded-md p-3 transition-colors duration-(--duration-micro)",
                   !v.available && "cursor-not-allowed opacity-60",
-                  selected === v.id ? "border-primary bg-accent" : "border-border",
+                  selected === v.id ? "bg-accent ring-primary/40 ring-1 ring-inset" : "bg-fill-quaternary hover:bg-fill-tertiary",
                 )}
               >
                 <input
@@ -155,12 +155,12 @@ function AssignVehicleDialog({ orderId, weightKg }: { orderId: string; weightKg:
                     {v.volumeM3 ? ` · ${v.volumeM3} м³` : ""} · GPS: {v.gpsEnabled ? "есть" : "нет"}
                   </span>
                   {v.problems.map((p) => (
-                    <span key={p} className="text-destructive block text-xs">
+                    <span key={p} className="text-danger text-footnote block">
                       {p}
                     </span>
                   ))}
                   {v.warnings.map((p) => (
-                    <span key={p} className="text-warning block text-xs">
+                    <span key={p} className="text-warning text-footnote block">
                       {p}
                     </span>
                   ))}
@@ -231,9 +231,9 @@ function AssignDriverDialog({ orderId }: { orderId: string }) {
           </DialogHeader>
           <FormError message={loadError} />
           {options && options.length === 0 && (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-body">
               Водители не добавлены.{" "}
-              <Link href="/drivers" className="text-primary hover:underline">
+              <Link href="/drivers" className="text-link hover:underline">
                 Добавить водителя
               </Link>
             </p>
@@ -243,9 +243,9 @@ function AssignDriverDialog({ orderId }: { orderId: string }) {
               <label
                 key={d.id}
                 className={cn(
-                  "flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm",
+                  "flex cursor-pointer items-start gap-3 rounded-md p-3 transition-colors duration-(--duration-micro)",
                   !d.available && "cursor-not-allowed opacity-60",
-                  selected === d.id ? "border-primary bg-accent" : "border-border",
+                  selected === d.id ? "bg-accent ring-primary/40 ring-1 ring-inset" : "bg-fill-quaternary hover:bg-fill-tertiary",
                 )}
               >
                 <input
@@ -268,7 +268,7 @@ function AssignDriverDialog({ orderId }: { orderId: string }) {
                     {d.phone} · активных рейсов: {d.activeTrips.length}
                   </span>
                   {d.problems.map((p) => (
-                    <span key={p} className="text-destructive block text-xs">
+                    <span key={p} className="text-danger text-footnote block">
                       {p}
                     </span>
                   ))}
@@ -339,7 +339,7 @@ export function DeliverDialog({ orderId, size = "lg", className }: { orderId: st
             submitLabel="Приложить файл"
           />
           {docs.length > 0 && (
-            <ul className="space-y-1 text-sm">
+            <ul className="text-body space-y-1">
               {docs.map((d) => (
                 <li key={d.id} className="text-success flex items-center gap-2">
                   <CheckCircle2 className="size-4" aria-hidden /> {label("DocumentType", d.type)}: {d.filename}
@@ -397,7 +397,7 @@ function ReviewDialog({ orderId, counterpart }: { orderId: string; counterpart: 
   const { run, pending } = useAction();
   const stars = (key: "rating" | "punctuality" | "communication" | "documentation", title: string) => (
     <fieldset className="space-y-1">
-      <legend className="text-sm font-medium">{title}</legend>
+      <legend className="text-body font-medium">{title}</legend>
       <div className="flex gap-1">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
@@ -408,7 +408,7 @@ function ReviewDialog({ orderId, counterpart }: { orderId: string; counterpart: 
             aria-pressed={v[key] >= n}
             className="rounded p-0.5"
           >
-            <Star className={cn("size-6", v[key] >= n ? "fill-amber-400 text-amber-400" : "text-slate-300")} />
+            <Star className={cn("size-6", v[key] >= n ? "fill-rating text-rating" : "text-border-strong")} />
           </button>
         ))}
       </div>
@@ -467,7 +467,7 @@ export function OpenDisputeDialog({ orderId }: { orderId: string }) {
   const { run, pending } = useAction();
   return (
     <>
-      <Button variant="outline" className="text-destructive" onClick={() => setOpen(true)}>
+      <Button variant="outline" className="text-danger" onClick={() => setOpen(true)}>
         <AlertTriangle /> Открыть спор
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -534,7 +534,7 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
   if (status === "CONTRACT_PENDING" && (isCarrier || isCustomer)) {
     blocks.push(
       ctx.contractSignedByMe ? (
-        <p key="signed" className="text-success flex items-center gap-2 text-sm">
+        <p key="signed" className="text-success text-body flex items-center gap-2">
           <CheckCircle2 className="size-4" aria-hidden /> Вы подписали договор. Ожидаем подпись второй стороны.
         </p>
       ) : can("CONTRACT_SIGN") ? (
@@ -544,7 +544,7 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
           </Link>
         </Button>
       ) : (
-        <p key="nosign" className="text-muted-foreground text-sm">
+        <p key="nosign" className="text-muted-foreground text-body">
           Договор должен подписать руководитель компании.
         </p>
       ),
@@ -635,14 +635,14 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
   const dueText = ctx.confirmationDueAt ? formatDateTime(ctx.confirmationDueAt) : null;
   if (status === "DELIVERED" && ctx.receiptConfirmedAt && secureHeld) {
     blocks.push(
-      <p key="payout" className="text-info flex items-center gap-2 text-sm" data-testid="payout-pending">
+      <p key="payout" className="text-info text-body flex items-center gap-2" data-testid="payout-pending">
         <Loader className="size-4" aria-hidden /> Получение подтверждено. Выплата перевозчику обрабатывается платёжным провайдером —
         перевозка закроется после подтверждения выплаты.
       </p>,
     );
   } else if (status === "DELIVERED" && isCarrier && secureHeld && dueText) {
     blocks.push(
-      <p key="await-confirm" className="text-muted-foreground text-sm">
+      <p key="await-confirm" className="text-muted-foreground text-body">
         Ожидаем подтверждения получения заказчиком до {dueText}. Если спор не будет открыт, выплата по безопасной сделке выполнится
         автоматически.
       </p>,
@@ -652,15 +652,15 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
     const blocked = ctx.requirePod && ctx.podCount === 0;
     blocks.push(
       <div key="confirm" className="space-y-2">
-        <p className="text-sm font-medium">Подтвердить получение</p>
+        <p className="text-body font-medium">Подтвердить получение</p>
         {secureHeld && dueText && (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-body">
             Проверьте груз и документы до {dueText}. Если есть претензии — откройте спор; иначе после этого срока получение будет
             подтверждено автоматически и перевозчик получит оплату.
           </p>
         )}
         {blocked && (
-          <p className="text-warning text-sm">
+          <p className="text-warning text-body">
             Перевозчик ещё не загрузил подтверждение доставки (POD/CMR). Закрыть перевозку без него нельзя.
           </p>
         )}
@@ -704,7 +704,7 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
   if (status === "CLOSED" && (isCustomer || isCarrier) && can("REVIEW_CREATE")) {
     blocks.push(
       ctx.reviewedByMe ? (
-        <p key="reviewed" className="text-success flex items-center gap-2 text-sm">
+        <p key="reviewed" className="text-success text-body flex items-center gap-2">
           <CheckCircle2 className="size-4" aria-hidden /> Вы оставили отзыв по этой перевозке
         </p>
       ) : (
@@ -753,7 +753,7 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
             })) !== undefined
           }
           trigger={
-            <Button variant="ghost" className="text-destructive">
+            <Button variant="ghost" className="text-danger">
               <Ban /> Отменить перевозку
             </Button>
           }
@@ -821,7 +821,7 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
           })) !== undefined
         }
         trigger={
-          <Button variant="ghost" className="text-destructive">
+          <Button variant="ghost" className="text-danger">
             <Ban /> Отменить (админ)
           </Button>
         }
@@ -833,9 +833,9 @@ export function OrderActions({ ctx, counterpart }: { ctx: Ctx; counterpart: stri
   return (
     <div className="space-y-3" data-testid="order-actions">
       {blocks.length > 0 && <div className="flex flex-col items-start gap-3">{blocks}</div>}
-      {secondary.length > 0 && <div className="border-border flex flex-wrap gap-2 border-t pt-3">{secondary}</div>}
+      {secondary.length > 0 && <div className="hairline-t flex flex-wrap gap-2 pt-3">{secondary}</div>}
       {status === "DISPUTED" && (
-        <p className="text-danger text-sm">По перевозке открыт спор — действия приостановлены до решения администратора.</p>
+        <p className="text-danger text-body">По перевозке открыт спор — действия приостановлены до решения администратора.</p>
       )}
     </div>
   );

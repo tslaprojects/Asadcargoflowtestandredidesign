@@ -1,0 +1,14 @@
+{
+  "results": [
+    {
+      "country_code": "kz",
+      "city": "Тараз",
+      "lon": 71.3666,
+      "lat": 42.9,
+      "result_type": "city",
+      "formatted": "Тараз, Жамбылская область, Казахстан",
+      "rank": { "importance": 0.6, "popularity": 5.1, "confidence": 1, "confidence_city_level": 1, "match_type": "full_match" }
+    }
+  ],
+  "query": { "city": "Тараз", "parsed": { "city": "тараз", "expected_type": "city" } }
+}

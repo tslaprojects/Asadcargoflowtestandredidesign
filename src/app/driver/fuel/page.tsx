@@ -20,20 +20,20 @@ export default async function DriverFuelPage() {
   const actor = await pageActor();
   const v = toPlain(await guard(driverFuelView(actor)));
   return (
-    <div className="space-y-3 pt-1" data-testid="driver-fuel">
-      <h1 className="text-2xl font-semibold">Топливо</h1>
-      <div className="border-border bg-card rounded-2xl border p-4">
-        <p className="text-muted-foreground text-sm">Моя машина</p>
+    <div className="space-y-4 pt-2" data-testid="driver-fuel">
+      <h1 className="text-large-title">Топливо</h1>
+      <div className="bg-card rounded-xl p-4">
+        <p className="text-section">Моя машина</p>
         {v.vehicle ? (
-          <p className="text-xl font-semibold">
-            {v.vehicle.make} {v.vehicle.model} · <span className="font-mono">{v.vehicle.plateNumber}</span>
+          <p className="text-title2 font-semibold">
+            {v.vehicle.make} {v.vehicle.model} · <span className="id-code">{v.vehicle.plateNumber}</span>
           </p>
         ) : (
           <p className="text-muted-foreground">Автомобиль не назначен</p>
         )}
         {v.fuelLevelVisible && v.vehicle && (
           <div className="mt-3">
-            <p className="text-muted-foreground mb-1 flex items-center gap-2 text-sm">Топливо {v.fuelLevel?.demo && <DemoBadge />}</p>
+            <p className="text-muted-foreground text-body mb-1 flex items-center gap-2">Топливо {v.fuelLevel?.demo && <DemoBadge />}</p>
             {v.fuelLevel ? (
               <TankGauge liters={v.fuelLevel.liters} capacity={v.vehicle.tankCapacityLiters} />
             ) : (
@@ -43,28 +43,28 @@ export default async function DriverFuelPage() {
         )}
       </div>
 
-      <div className="border-border bg-card rounded-2xl border p-4" data-testid="driver-card">
-        <p className="text-muted-foreground flex items-center gap-2 text-sm">
+      <div className="bg-card rounded-xl p-4" data-testid="driver-card">
+        <p className="text-section flex items-center gap-2">
           <CreditCard className="size-4" aria-hidden /> Моя топливная карта {v.card?.isDemo && <DemoBadge />}
         </p>
         {v.card ? (
           <>
-            <p className="mt-1 flex items-center gap-2 text-lg font-semibold">
-              {v.card.label} {v.card.last4 && <span className="text-muted-foreground font-mono text-sm">•••• {v.card.last4}</span>}
+            <p className="text-title3 mt-1 flex items-center gap-2 font-semibold">
+              {v.card.label} {v.card.last4 && <span className="text-muted-foreground text-body id-code">•••• {v.card.last4}</span>}
               <StatusBadge kind="FuelCardStatus" value={v.card.status} />
             </p>
             <p
               className={
                 v.payment.allowed
-                  ? "text-success mt-2 flex items-center gap-2 text-lg font-semibold"
-                  : "text-danger mt-2 flex items-center gap-2 text-lg font-semibold"
+                  ? "text-success text-title3 mt-2 flex items-center gap-2 font-semibold"
+                  : "text-danger text-title3 mt-2 flex items-center gap-2 font-semibold"
               }
               data-testid="payment-status"
             >
               {v.payment.allowed ? <CheckCircle2 className="size-6" aria-hidden /> : <XCircle className="size-6" aria-hidden />}{" "}
               {v.payment.message}
             </p>
-            <ul className="text-muted-foreground mt-2 space-y-0.5 text-sm">
+            <ul className="text-muted-foreground text-body mt-2 space-y-0.5">
               {v.remaining?.perTransaction != null && <li>На одну заправку — до {v.remaining.perTransaction} л</li>}
               {v.remaining?.day != null && <li>Сегодня доступно ещё {Math.round(v.remaining.day)} л</li>}
               {v.card.allowedFuelTypes.length > 0 && (
@@ -83,28 +83,28 @@ export default async function DriverFuelPage() {
       </div>
 
       {v.card?.isDemo && v.card.status === "ACTIVE" && (
-        <div className="border-border bg-card rounded-2xl border p-4">
+        <div className="bg-card rounded-xl p-4">
           <p className="mb-2 flex items-center gap-2 font-semibold">
             Заправка <DemoBadge />
           </p>
-          <p className="text-muted-foreground mb-3 text-sm">
+          <p className="text-muted-foreground text-body mb-3">
             Демо-режим: при подключённом процессинге заправка регистрируется автоматически при оплате картой.
           </p>
           <DriverRefuelForm stations={DEMO_STATIONS} />
         </div>
       )}
 
-      <div className="border-border bg-card rounded-2xl border p-4">
-        <p className="mb-2 font-semibold">Мои заправки</p>
+      <div className="bg-card rounded-xl p-4">
+        <p className="text-section mb-1">Мои заправки</p>
         {v.transactions.length === 0 ? (
           <EmptyState icon={Fuel} title="Заправок пока нет" className="py-6" />
         ) : (
-          <ul className="divide-border divide-y text-sm">
+          <ul className="text-body divide-y-(length:--hairline)">
             {v.transactions.map((t) => (
               <li key={t.id} className="flex items-center justify-between gap-2 py-2">
                 <span>
                   <span className="font-medium">{t.liters} л</span> · {t.stationName}
-                  <span className="text-muted-foreground block text-xs">{formatDateTime(t.transactionDate)}</span>
+                  <span className="text-muted-foreground text-footnote block">{formatDateTime(t.transactionDate)}</span>
                 </span>
                 <StatusBadge kind="FuelTransactionStatus" value={t.status} />
               </li>

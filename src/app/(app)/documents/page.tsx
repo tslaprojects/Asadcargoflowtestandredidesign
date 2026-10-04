@@ -1,30 +1,45 @@
-import { Download, Eye } from "lucide-react";
+import { Check, Download, Eye, FileText, Minus } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DataTable } from "@/components/common/data-table";
 import { FilterBar } from "@/components/common/filter-bar";
 import { EmptyState, PageHeader } from "@/components/common/misc";
 import { Pagination } from "@/components/common/pagination";
+import { StatusBadge } from "@/components/common/status-badge";
 import { formatDateTime, formatFileSize } from "@/lib/format";
 import { enumOptions, label } from "@/lib/i18n";
 import { toPlain } from "@/lib/serialize";
+import { cn } from "@/lib/utils";
 import { pageActor, pageNum, sp, type SearchParams } from "@/server/page-context";
 import { listMyDocuments } from "@/server/services/document.service";
 
 export const metadata: Metadata = { title: "Документы" };
 
+/** Ключевой пакет документов перевозки — показывается как чек-лист в контексте рейса. */
+const CORE = ["CMR", "INVOICE", "PACKING_LIST", "PROOF_OF_DELIVERY"] as const;
+
+/**
+ * Документы в контексте перевозок: по каждому рейсу — пакет (CMR, счёт, упаковочный лист, POD) и файлы.
+ * Открытие, скачивание и загрузка — как раньше (загрузка и замена — в карточке перевозки).
+ */
 export default async function DocumentsPage({ searchParams }: { searchParams: SearchParams }) {
   const actor = await pageActor();
   const params = await searchParams;
   const type = sp(params, "type");
   const valid = enumOptions("DocumentType").some((o) => o.value === type);
   const data = toPlain(
-    await listMyDocuments(actor, { page: pageNum(params), pageSize: 20, q: sp(params, "q"), type: valid ? (type as "CMR") : undefined }),
+    await listMyDocuments(actor, { page: pageNum(params), pageSize: 60, q: sp(params, "q"), type: valid ? (type as "CMR") : undefined }),
   );
-  type Row = (typeof data.items)[number];
+  type Doc = (typeof data.items)[number];
+  const groups = new Map<string, { order: Doc["order"]; docs: Doc[] }>();
+  for (const d of data.items) {
+    const g = groups.get(d.order.id) ?? { order: d.order, docs: [] };
+    g.docs.push(d);
+    groups.set(d.order.id, g);
+  }
+
   return (
     <>
-      <PageHeader title="Документы" description="Документы всех ваших перевозок. Файлы выдаются только участникам сделки." />
+      <PageHeader title="Документы" description="Пакеты документов по перевозкам. Файлы выдаются только участникам сделки." />
       <FilterBar
         fields={[
           { type: "search", name: "q", placeholder: "Имя файла или номер перевозки" },
@@ -36,46 +51,76 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
           },
         ]}
       />
-      <DataTable<Row>
-        rows={data.items}
-        rowKey={(d) => d.id}
-        empty={<EmptyState title="Документов пока нет" description="Документы появятся после загрузки в карточке перевозки." />}
-        columns={[
-          { key: "name", header: "Файл", primary: true, cell: (d) => <span className="font-medium">{d.filename}</span> },
-          { key: "type", header: "Тип", cell: (d) => label("DocumentType", d.type) },
-          {
-            key: "order",
-            header: "Перевозка",
-            cell: (d) => (
-              <Link className="text-primary hover:underline" href={`/orders/${d.order.id}?tab=documents`}>
-                {d.order.publicNumber}
-              </Link>
-            ),
-          },
-          { key: "size", header: "Размер", cell: (d) => formatFileSize(d.size), hideOnMobile: true },
-          { key: "date", header: "Загружен", cell: (d) => formatDateTime(d.createdAt) },
-          {
-            key: "actions",
-            header: "",
-            className: "text-right",
-            cell: (d) => (
-              <span className="inline-flex gap-3">
-                <a
-                  className="text-primary inline-flex items-center gap-1 hover:underline"
-                  href={`/api/documents/${d.id}/download?inline=1`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Eye className="size-4" aria-hidden /> Открыть
-                </a>
-                <a className="text-primary inline-flex items-center gap-1 hover:underline" href={`/api/documents/${d.id}/download`}>
-                  <Download className="size-4" aria-hidden /> Скачать
-                </a>
-              </span>
-            ),
-          },
-        ]}
-      />
+      {groups.size === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Документов пока нет"
+          description="CMR, счёт, упаковочный лист и подтверждение доставки загружаются в карточке перевозки — во вкладке «Документы»."
+        />
+      ) : (
+        <div className="space-y-3" data-testid="document-groups">
+          {[...groups.values()].map(({ order, docs }) => {
+            const present = new Set(docs.map((d) => d.type));
+            return (
+              <section key={order.id} className="bg-card overflow-hidden rounded-lg" aria-labelledby={`dg-${order.id}`}>
+                <header className="bg-surface-secondary hairline-b flex flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-2.5">
+                  <h2 id={`dg-${order.id}`} className="text-body font-semibold">
+                    <Link href={`/orders/${order.id}?tab=documents`} className="hover:text-link">
+                      <span className="id-code text-muted-foreground text-footnote mr-2 font-medium">{order.publicNumber}</span>
+                      {order.load.originCity} → {order.load.destinationCity}
+                    </Link>
+                  </h2>
+                  <StatusBadge kind="OrderStatus" value={order.currentStatus} />
+                  <ul className="ml-auto flex flex-wrap gap-1.5" aria-label="Пакет документов">
+                    {CORE.map((t) => (
+                      <li
+                        key={t}
+                        className={cn(
+                          "bg-fill-quaternary text-footnote inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5",
+                          present.has(t) ? "bg-success-bg text-success" : "text-muted-foreground",
+                        )}
+                      >
+                        {present.has(t) ? <Check className="size-3" aria-hidden /> : <Minus className="size-3" aria-hidden />}
+                        {t === "PROOF_OF_DELIVERY" ? "POD" : label("DocumentType", t)}
+                        <span className="sr-only">{present.has(t) ? " — есть" : " — нет"}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </header>
+                <ul className="divide-y-(length:--hairline)">
+                  {docs.map((d) => (
+                    <li key={d.id} className="text-body flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5">
+                      <FileText className="text-muted-foreground size-4 shrink-0" aria-hidden />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-medium">{d.filename}</span>
+                        <span className="text-footnote text-muted-foreground tabular">
+                          {label("DocumentType", d.type)} · {formatFileSize(d.size)} · {formatDateTime(d.createdAt)}
+                        </span>
+                      </span>
+                      <span className="inline-flex gap-3">
+                        <a
+                          className="text-link inline-flex min-h-8 items-center gap-1 hover:underline"
+                          href={`/api/documents/${d.id}/download?inline=1`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Eye className="size-4" aria-hidden /> Открыть
+                        </a>
+                        <a
+                          className="text-link inline-flex min-h-8 items-center gap-1 hover:underline"
+                          href={`/api/documents/${d.id}/download`}
+                        >
+                          <Download className="size-4" aria-hidden /> Скачать
+                        </a>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      )}
       <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/documents" searchParams={params} />
     </>
   );

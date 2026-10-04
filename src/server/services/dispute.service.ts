@@ -11,7 +11,14 @@ import type { disputeCreateSchema, disputeUpdateSchema } from "@/lib/validation/
 import { ordersWhereForActor, requireOrderAccess } from "./access";
 import { notify } from "./notification.service";
 import { orderParticipantUserIds, performTransitionInTx } from "./order-core";
-import { executeDisputeOutcome, freezeForDispute, unfreezeInTx, validateDisputePaymentOutcome } from "./secure-deal.service";
+import { logger } from "@/lib/logger";
+import {
+  freezeForDispute,
+  recordDisputeOutcomeInTx,
+  settleDisputeOutcome,
+  unfreezeInTx,
+  validateDisputePaymentOutcome,
+} from "./secure-deal.service";
 
 async function adminIds(tx: Prisma.TransactionClient) {
   const admins = await tx.user.findMany({ where: { platformRole: "PLATFORM_ADMIN", status: "ACTIVE" }, select: { id: true } });
@@ -155,9 +162,33 @@ export async function updateDispute(actor: Actor, disputeId: string, input: Disp
           source: "WEB",
           comment: `Спор ${input.status === "RESOLVED" ? "решён" : "отклонён"}: ${input.resolution}`,
         });
+        if (to === "CANCELLED") {
+          // Те же последствия, что и при обычной отмене перевозки
+          await tx.contract.updateMany({
+            where: { orderId: order.id, status: { in: ["PENDING_SIGNATURES", "PARTIALLY_SIGNED", "DRAFT"] } },
+            data: { status: "CANCELLED" },
+          });
+          await tx.load.update({
+            where: { id: order.loadId },
+            data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: `Решение по спору: ${input.resolution}` },
+          });
+          await tx.paymentRecord.updateMany({
+            where: { orderId: order.id, type: { not: "SECURE_DEAL" }, status: { in: ["PLANNED", "INVOICED"] } },
+            data: { status: "CANCELLED" },
+          });
+        }
       }
       if (money?.payment && money.outcome === "KEEP") {
         await unfreezeInTx(tx, money.payment.id, actor, `Спор закрыт, перевозка возобновлена: ${input.resolution}`);
+      }
+      if (money?.payment && money.outcome !== "KEEP") {
+        // Решение по деньгам фиксируется атомарно с закрытием спора; исполняется ниже и доисполняется плановой задачей
+        await recordDisputeOutcomeInTx(tx, money.payment.id, {
+          disputeId,
+          outcome: money.outcome,
+          releaseAmount: input.releaseAmount,
+          reason: `Решение по спору: ${input.resolution}`,
+        });
       }
       await audit(
         actor,
@@ -203,11 +234,29 @@ export async function updateDispute(actor: Actor, disputeId: string, input: Disp
     });
     return updated;
   });
-  // Движение средств по решению — операциями у платёжного провайдера, после фиксации решения
+  // Движение средств по решению — операциями у платёжного провайдера, после фиксации решения.
+  // Ошибка провайдера не откатывает решение: оно сохранено и будет доисполнено плановой задачей, администраторы уведомляются.
+  let paymentSettlement: "done" | "pending" | "failed" | null = null;
   if (money?.payment && money.outcome !== "KEEP") {
-    await executeDisputeOutcome(actor, money.payment.id, money.outcome, input.releaseAmount, `Решение по спору: ${input.resolution}`);
+    try {
+      paymentSettlement = await settleDisputeOutcome(actor, money.payment.id);
+    } catch (e) {
+      paymentSettlement = "failed";
+      logger.error("dispute.payment-outcome.failed", { disputeId, paymentId: money.payment.id, error: e });
+      await prisma.$transaction(async (tx) => {
+        await notify(tx, {
+          userIds: await adminIds(tx),
+          type: "PAYMENT_UPDATED",
+          title: "Решение по спору ещё не исполнено у платёжного провайдера",
+          body: `${e instanceof Error ? e.message : "Ошибка операции"} Решение сохранено и будет повторено автоматически.`,
+          entityType: "TransportOrder",
+          entityId: target.orderId,
+          link: `/orders/${target.orderId}?tab=finance`,
+        });
+      });
+    }
   }
-  return updatedDispute;
+  return { ...updatedDispute, paymentSettlement };
 }
 
 export async function listDisputes(actor: Actor, opts: { page: number; pageSize: number; status?: string }) {
@@ -255,7 +304,8 @@ export async function getDispute(actor: Actor, disputeId: string) {
     },
   });
   if (!dispute) throw errors.notFound("Спор не найден.");
-  await requireOrderAccess(actor, dispute.orderId);
+  const { access } = await requireOrderAccess(actor, dispute.orderId);
+  if (access.side === "DRIVER") throw errors.forbidden("Материалы спора доступны сторонам сделки.");
   const userIds = [dispute.openedByUserId, dispute.resolvedByUserId, ...dispute.comments.map((c) => c.authorUserId)].filter(
     Boolean,
   ) as string[];

@@ -114,9 +114,9 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
         <CardHeader className="flex-row flex-wrap items-start justify-between gap-2">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="text-primary size-5" aria-hidden /> Безопасная сделка
+              <ShieldCheck className="text-link size-5" aria-hidden /> Безопасная сделка
             </CardTitle>
-            <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
+            <p className="text-muted-foreground text-body mt-1 max-w-2xl">
               Заказчик обеспечивает оплату у платёжного провайдера до начала перевозки. Перевозчик видит, что деньги есть, а получает их
               после доставки, документов и подтверждения получения. Если заказчик не ответит за {view.settings.confirmationWindowHours} ч. и
               не откроет спор, выплата выполнится автоматически.
@@ -124,7 +124,7 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
           </div>
           <ProviderNote provider={view.provider} />
         </CardHeader>
-        <CardContent className="space-y-3 text-sm">
+        <CardContent className="text-body space-y-3">
           {view.canInitiate ? (
             <ConfirmDialog
               title="Оформить безопасную сделку?"
@@ -186,10 +186,10 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
         <CardHeader className="flex-row flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
-              <ShieldCheck className="text-primary size-5" aria-hidden /> Безопасная сделка
+              <ShieldCheck className="text-link size-5" aria-hidden /> Безопасная сделка
             </CardTitle>
-            <p className="text-muted-foreground max-w-2xl text-sm">{PAYMENT_STATUS_HINTS[status]}</p>
-            {p.failureReason && <p className="text-danger text-sm">Провайдер: {p.failureReason}</p>}
+            <p className="text-muted-foreground text-body max-w-2xl">{PAYMENT_STATUS_HINTS[status]}</p>
+            {p.failureReason && <p className="text-danger text-body">Провайдер: {p.failureReason}</p>}
           </div>
           <div className="flex flex-col items-end gap-2">
             <StatusBadge kind="PaymentStatus" value={p.status} size="lg" />
@@ -199,17 +199,17 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
         <CardContent className="space-y-5">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3" data-testid="secure-deal-tiles">
             {tiles.map((t) => (
-              <div key={t.label} className="border-border bg-card rounded-xl border p-3">
-                <p className="text-muted-foreground text-xs">{t.label}</p>
-                <MoneyDisplay amount={t.value} currency={currency} className="text-lg" />
+              <div key={t.label} className="bg-fill-quaternary rounded-lg px-3.5 py-3">
+                <p className="text-muted-foreground text-footnote">{t.label}</p>
+                <MoneyDisplay amount={t.value} currency={currency} className="text-title2 font-semibold" />
               </div>
             ))}
           </div>
 
           {view.conditions && (
             <div>
-              <h3 className="mb-2 text-sm font-semibold">Условия выплаты перевозчику</h3>
-              <ul className="space-y-1.5 text-sm" data-testid="release-conditions">
+              <h3 className="text-body mb-2 font-semibold">Условия выплаты перевозчику</h3>
+              <ul className="text-body space-y-1.5" data-testid="release-conditions">
                 {view.conditions.map((c) => (
                   <li key={c.key} className="flex items-start gap-2">
                     {c.met ? (
@@ -220,14 +220,14 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
                     <span>
                       {c.label}
                       {c.hint === "confirmationDue" && due ? (
-                        <span className="text-muted-foreground block text-xs">
+                        <span className="text-muted-foreground text-footnote block">
                           Срок проверки: до {formatDateTime(due)} ({formatRelative(due)}).{" "}
                           {view.settings.autoConfirmOnTimeout
                             ? "Если спор не будет открыт, получение подтвердится автоматически."
                             : "Автоподтверждение отключено — решение примет администратор."}
                         </span>
                       ) : c.hint ? (
-                        <span className="text-muted-foreground block text-xs">{c.hint}</span>
+                        <span className="text-muted-foreground text-footnote block">{c.hint}</span>
                       ) : null}
                     </span>
                   </li>
@@ -253,7 +253,7 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
             )}
             {(view.side === "CUSTOMER" || view.side === "CARRIER") &&
               ["PAYMENT_RESERVED", "PAYMENT_PARTIALLY_RELEASED"].includes(status) && (
-                <Button variant="ghost" className="text-destructive" asChild>
+                <Button variant="ghost" className="text-danger" asChild>
                   <Link href={`/orders/${orderId}?tab=dispute`} scroll={false}>
                     Есть проблема? Открыть спор
                   </Link>
@@ -280,12 +280,12 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
           <CardTitle>История платежа</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <ol className="border-border space-y-3 border-l pl-4 text-sm" data-testid="payment-history">
+          <ol className="hairline-l border-border-strong text-body space-y-3 pl-4" data-testid="payment-history">
             {(view.history ?? []).map((h) => (
               <li key={h.id} className="relative">
                 <span className="bg-primary absolute top-1.5 -left-[21px] size-2.5 rounded-full" aria-hidden />
                 <p className="font-medium">{label("PaymentStatus", h.toStatus)}</p>
-                <p className="text-muted-foreground text-xs">
+                <p className="text-muted-foreground text-footnote">
                   {formatDateTime(h.createdAt)} ·{" "}
                   {h.actorUserId
                     ? (view.userNames?.[h.actorUserId] ?? "Пользователь")
@@ -315,7 +315,7 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
                     <TableRow key={t.id}>
                       <TableCell>
                         {label("PaymentTransactionKind", t.kind)}
-                        {t.reason && <span className="text-muted-foreground block max-w-72 truncate text-xs">{t.reason}</span>}
+                        {t.reason && <span className="text-muted-foreground text-footnote block max-w-72 truncate">{t.reason}</span>}
                       </TableCell>
                       <TableCell>
                         <MoneyDisplay amount={t.amount} currency={t.currency} />
@@ -323,19 +323,19 @@ export function SecureDealPanel({ orderId, view }: { orderId: string; view: Secu
                       <TableCell>{t.fee > 0 ? formatMoney(t.fee, t.currency) : "—"}</TableCell>
                       <TableCell>
                         <StatusBadge kind="PaymentTransactionStatus" value={t.status} />
-                        {t.failureReason && <span className="text-danger block text-xs">{t.failureReason}</span>}
+                        {t.failureReason && <span className="text-danger text-footnote block">{t.failureReason}</span>}
                       </TableCell>
-                      <TableCell className="text-muted-foreground max-w-48 truncate font-mono text-xs">
+                      <TableCell className="text-muted-foreground text-footnote max-w-48 truncate font-mono">
                         {t.providerTransactionId ?? "—"}
                       </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{formatDateTime(t.completedAt ?? t.createdAt)}</TableCell>
+                      <TableCell className="text-muted-foreground text-footnote">{formatDateTime(t.completedAt ?? t.createdAt)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
           )}
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-footnote">
             CargoFlow не хранит деньги и данные банковских карт: средства резервирует и перечисляет платёжный провайдер, платформа фиксирует
             условия, статусы и журнал операций.
           </p>
@@ -390,10 +390,10 @@ function AdminPaymentActions({
     );
 
   return (
-    <div className="border-border space-y-3 rounded-xl border border-dashed p-3" data-testid="admin-payment-actions">
-      <p className="text-sm font-semibold">Администратор: операции по безопасной сделке</p>
+    <div className="bg-fill-quaternary space-y-3 rounded-lg p-3.5" data-testid="admin-payment-actions">
+      <p className="text-body font-semibold">Администратор: операции по безопасной сделке</p>
       {pendingTx && (
-        <div className="space-y-2 text-sm">
+        <div className="text-body space-y-2">
           <p>
             Ожидает подтверждения: {label("PaymentTransactionKind", pendingTx.kind)} · {formatMoney(pendingTx.amount, currency)}
           </p>
@@ -421,7 +421,7 @@ function AdminPaymentActions({
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-destructive"
+                className="text-danger"
                 disabled={pending}
                 onClick={() =>
                   run(
@@ -459,7 +459,7 @@ function AdminPaymentActions({
           <Button size="sm" variant="outline" onClick={() => setOp("refund")}>
             Вернуть заказчику
           </Button>
-          <span className="text-muted-foreground self-center text-xs">Удерживается: {formatMoney(held, currency)}</span>
+          <span className="text-muted-foreground text-footnote self-center">Удерживается: {formatMoney(held, currency)}</span>
         </div>
       )}
       <Dialog open={op !== null} onOpenChange={(o) => !o && setOp(null)}>
@@ -496,7 +496,7 @@ function AdminPaymentActions({
               Отмена
             </Button>
             <Button
-              className={cn(op === "refund" && "bg-destructive text-white")}
+              className={cn(op === "refund" && "bg-destructive text-destructive-foreground hover:bg-destructive-hover")}
               disabled={reason.trim().length < 5 || (amount !== "" && !(Number(amount) > 0 && Number(amount) <= held))}
               loading={pending}
               onClick={submit}

@@ -16,11 +16,16 @@ async function threadFor(orderId: string) {
 /** Сообщения чата с курсорной пагинацией (не загружаем всю историю сразу). */
 export async function listMessages(actor: Actor, orderId: string, opts: { before?: string | null; after?: string | null; limit: number }) {
   await requireOrderAccess(actor, orderId, "CHAT_VIEW");
+  for (const cursor of [opts.before, opts.after]) {
+    if (cursor && Number.isNaN(new Date(cursor).getTime())) throw errors.validation("Некорректный курсор сообщений.");
+  }
   const thread = await threadFor(orderId);
   const where = {
     threadId: thread.id,
     ...(opts.before ? { createdAt: { lt: new Date(opts.before) } } : {}),
-    ...(opts.after ? { createdAt: { gt: new Date(opts.after) } } : {}),
+    // Перекрытие 30 с: сообщение, зафиксированное позже, но с более ранним createdAt, не потеряется
+    // (клиент отбрасывает уже полученные сообщения по id)
+    ...(opts.after ? { createdAt: { gt: new Date(new Date(opts.after).getTime() - 30_000) } } : {}),
   };
   const rows = await prisma.chatMessage.findMany({
     where,
@@ -44,7 +49,6 @@ export async function listMessages(actor: Actor, orderId: string, opts: { before
     id: m.id,
     message: m.message,
     createdAt: m.createdAt,
-    readAt: m.readAt,
     mine: m.senderUserId === actor.userId,
     sender: {
       id: m.sender.id,
@@ -53,16 +57,13 @@ export async function listMessages(actor: Actor, orderId: string, opts: { before
     },
     attachment: m.attachment && m.attachment.status !== "DELETED" ? m.attachment : null,
   }));
-  // Отмечаем прочтение
+  // Прочтение хранится для каждого пользователя отдельно (ChatReadState): в чате несколько участников,
+  // одна отметка «прочитано» на сообщение ничего не говорит о том, кто именно его прочитал
   const now = new Date();
   await prisma.chatReadState.upsert({
     where: { threadId_userId: { threadId: thread.id, userId: actor.userId } },
     create: { threadId: thread.id, userId: actor.userId, lastReadAt: now },
     update: { lastReadAt: now },
-  });
-  await prisma.chatMessage.updateMany({
-    where: { threadId: thread.id, senderUserId: { not: actor.userId }, readAt: null },
-    data: { readAt: now },
   });
   return { items, hasMore };
 }
@@ -140,21 +141,27 @@ export async function listThreads(actor: Actor, opts: { page: number; pageSize: 
       readStates: { where: { userId: actor.userId } },
     },
   });
-  const withUnread = await Promise.all(
-    threads.map(async (t) => {
-      const lastRead = t.readStates[0]?.lastReadAt ?? new Date(0);
-      const unread = await prisma.chatMessage.count({
-        where: { threadId: t.id, senderUserId: { not: actor.userId }, createdAt: { gt: lastRead } },
-      });
-      const last = t.messages[0];
-      return {
-        id: t.id,
-        order: t.order,
-        unread,
-        lastMessage: last ? { text: last.message, at: last.createdAt, sender: `${last.sender.firstName} ${last.sender.lastName}` } : null,
-      };
-    }),
-  );
+  // Непрочитанные по всем тредам страницы — одним запросом
+  const counts = threads.length
+    ? await prisma.$queryRaw<{ threadId: string; n: bigint }[]>`
+        SELECT m."threadId", count(*)::bigint AS n
+        FROM "ChatMessage" m
+        LEFT JOIN "ChatReadState" r ON r."threadId" = m."threadId" AND r."userId" = ${actor.userId}::uuid
+        WHERE m."threadId" = ANY(${threads.map((t) => t.id)}::uuid[])
+          AND m."senderUserId" <> ${actor.userId}::uuid
+          AND m."createdAt" > COALESCE(r."lastReadAt", 'epoch'::timestamptz)
+        GROUP BY m."threadId"`
+    : [];
+  const unreadBy = new Map(counts.map((c) => [c.threadId, Number(c.n)]));
+  const withUnread = threads.map((t) => {
+    const last = t.messages[0];
+    return {
+      id: t.id,
+      order: t.order,
+      unread: unreadBy.get(t.id) ?? 0,
+      lastMessage: last ? { text: last.message, at: last.createdAt, sender: `${last.sender.firstName} ${last.sender.lastName}` } : null,
+    };
+  });
   withUnread.sort((a, b) => (b.lastMessage?.at.getTime() ?? 0) - (a.lastMessage?.at.getTime() ?? 0));
   const total = await prisma.chatThread.count({ where });
   return { items: withUnread, total, page: opts.page, pageSize: opts.pageSize };

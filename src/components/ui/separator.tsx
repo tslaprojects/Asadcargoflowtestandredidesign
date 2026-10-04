@@ -5,7 +5,7 @@ function Separator({ className, orientation = "horizontal" }: { className?: stri
     <div
       role="separator"
       aria-orientation={orientation}
-      className={cn("bg-border shrink-0", orientation === "horizontal" ? "h-px w-full" : "h-full w-px", className)}
+      className={cn("bg-border shrink-0", orientation === "horizontal" ? "h-(--hairline) w-full" : "h-full w-(--hairline)", className)}
     />
   );
 }

@@ -219,6 +219,9 @@ export function statusLabel(kind: StatusKind, value: string): string {
   return label(kind as EnumName, value);
 }
 
+/** Статусы, в которых машина движется или стоит на контрольной точке маршрута. */
+const MOVING = new Set(["AT_LOADING", "LOADED", "IN_TRANSIT", "AT_BORDER", "CUSTOMS", "BORDER_CLEARED", "AT_DELIVERY"]);
+
 export function StatusBadge({
   kind,
   value,
@@ -235,10 +238,41 @@ export function StatusBadge({
   if (!value) return null;
   const cfg = STATUS_STYLES[kind]?.[value] ?? { tone: "neutral" as const, icon: CircleDot };
   const Icon = cfg.icon;
+  // «Живой» индикатор — только для крупного статуса перевозки в движении (шапка), не в списках: не отвлекает.
+  const live = size === "lg" && kind === "OrderStatus" && MOVING.has(value);
+  const marker = live ? (
+    <span className={cn("animate-live-pulse size-2 rounded-full bg-current", TONE_TEXT[cfg.tone])} aria-hidden />
+  ) : hideIcon ? (
+    <span className={cn("size-1.5 rounded-full bg-current", TONE_TEXT[cfg.tone])} aria-hidden />
+  ) : (
+    <Icon className={cn("shrink-0", size === "lg" ? "size-4" : "size-3.5", size === "sm" && TONE_TEXT[cfg.tone])} aria-hidden />
+  );
+  // В списках — цветной значок и обычный текст, как в Reminders; в шапке — тонированная капсула.
+  if (size === "sm")
+    return (
+      <span className={cn("text-subheadline inline-flex items-center gap-1.5 whitespace-nowrap", className)} data-status={value}>
+        {marker}
+        {statusLabel(kind, value)}
+      </span>
+    );
   return (
-    <Badge tone={cfg.tone} className={cn(size === "lg" && "px-3 py-1 text-sm [&_svg]:size-4", className)} data-status={value}>
-      {!hideIcon && <Icon aria-hidden />}
+    <Badge
+      tone={cfg.tone}
+      className={cn("text-subheadline h-7 gap-1.5 rounded-full px-3 transition-colors duration-(--duration-complex)", className)}
+      data-status={value}
+    >
+      {marker}
       {statusLabel(kind, value)}
     </Badge>
   );
 }
+
+const TONE_TEXT: Record<BadgeTone, string> = {
+  success: "text-success",
+  warning: "text-warning",
+  info: "text-info",
+  delayed: "text-delayed",
+  danger: "text-danger",
+  neutral: "text-neutral",
+  outline: "text-muted-foreground",
+};

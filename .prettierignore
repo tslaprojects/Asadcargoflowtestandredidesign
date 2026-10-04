@@ -5,3 +5,12 @@ storage
 prisma/migrations
 playwright-report
 test-results
+.claude
+# Flutter: платформенные проекты и файлы, которые генерируют Xcode / Android Studio / flutter pub
+native/**/ios
+native/**/macos
+native/**/android
+native/**/windows
+native/**/build
+native/**/.dart_tool
+native/**/pubspec.yaml

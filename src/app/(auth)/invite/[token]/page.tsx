@@ -14,21 +14,21 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
   const [preview, actor] = await Promise.all([getInvitePreview(token), getCurrentActor()]);
   if (!preview) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold">Приглашение</h1>
+      <div className="space-y-5">
+        <h1 className="text-large-title text-center">Приглашение</h1>
         <FormError message="Приглашение недействительно, истекло или уже использовано. Попросите руководителя компании отправить новое." />
-        <Button asChild variant="outline">
+        <Button asChild variant="secondary" size="lg" className="w-full">
           <Link href="/login">Ко входу</Link>
         </Button>
       </div>
     );
   }
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Приглашение в компанию</h1>
-      <div className="border-border bg-card rounded-xl border p-4">
-        <p className="text-lg font-medium">{preview.company.legalName}</p>
-        <p className="text-muted-foreground text-sm">
+    <div className="space-y-5">
+      <h1 className="text-large-title text-center">Приглашение в компанию</h1>
+      <div className="bg-card rounded-lg px-4 py-4 text-center">
+        <p className="text-title3">{preview.company.legalName}</p>
+        <p className="text-subheadline text-muted-foreground mt-0.5">
           Роль: {label("MemberRole", preview.role)} · для {preview.email}
         </p>
       </div>
@@ -43,7 +43,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           <Button asChild size="lg">
             <Link href={`/register?invite=${encodeURIComponent(token)}`}>Зарегистрироваться и присоединиться</Link>
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="secondary" size="lg" className="text-link">
             <Link href={`/login?next=${encodeURIComponent(`/invite/${token}`)}`}>У меня уже есть аккаунт</Link>
           </Button>
         </div>

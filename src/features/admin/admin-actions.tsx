@@ -27,7 +27,7 @@ export function UserBlockButton({ userId, status }: { userId: string; status: st
         })) !== undefined
       }
       trigger={
-        <Button variant={block ? "outline" : "default"} size="sm" className={block ? "text-destructive" : ""}>
+        <Button variant={block ? "outline" : "default"} size="sm" className={block ? "text-danger" : ""}>
           {block ? "Заблокировать" : "Разблокировать"}
         </Button>
       }
@@ -75,7 +75,7 @@ export function CompanyDecisionButtons({ companyId, status }: { companyId: strin
               <Button
                 size="sm"
                 variant={d === "APPROVE" || d === "RESTORE" ? "success" : cfg.destructive ? "outline" : "outline"}
-                className={cfg.destructive ? "text-destructive" : ""}
+                className={cfg.destructive ? "text-danger" : ""}
               >
                 {cfg.label}
               </Button>
@@ -97,6 +97,7 @@ type Settings = {
   requirePodForClose: boolean;
   restrictedCargoTypes: string[];
   requireVerifiedToPublish: boolean;
+  requireVerifiedToBid: boolean;
   supportEmail: string;
 };
 
@@ -111,8 +112,8 @@ export function SettingsForm({ initial }: { initial: Settings }) {
         void run(() => api("/api/admin/settings", { method: "PUT", body: s }), { success: "Настройки сохранены" });
       }}
     >
-      <fieldset className="border-border space-y-4 rounded-xl border p-4">
-        <legend className="px-1 text-sm font-semibold">Безопасная сделка</legend>
+      <fieldset className="bg-fill-quaternary space-y-4 rounded-lg p-4">
+        <legend className="text-body px-1 font-semibold">Безопасная сделка</legend>
         <div className="flex items-start gap-2">
           <Checkbox id="s-sd" checked={s.secureDealEnabled} onCheckedChange={(c) => setS({ ...s, secureDealEnabled: c === true })} />
           <Label htmlFor="s-sd" className="leading-snug font-normal">
@@ -163,7 +164,7 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           />
         </Field>
         <div>
-          <p className="mb-2 text-sm font-medium">Фиксированная часть комиссии (в валюте сделки)</p>
+          <p className="text-body mb-2 font-medium">Фиксированная часть комиссии (в валюте сделки)</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {(["USD", "CNY", "KZT", "RUB"] as const).map((c) => (
               <Field key={c} id={`s-fix-${c}`} label={c}>
@@ -195,11 +196,21 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           Публиковать грузы могут только проверенные компании
         </Label>
       </div>
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="s-ver-bid"
+          checked={s.requireVerifiedToBid}
+          onCheckedChange={(c) => setS({ ...s, requireVerifiedToBid: c === true })}
+        />
+        <Label htmlFor="s-ver-bid" className="leading-snug font-normal">
+          Предлагать цену могут только проверенные перевозчики
+        </Label>
+      </div>
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">Ограничить публикацию грузов типов</legend>
+        <legend className="text-body mb-2 font-medium">Ограничить публикацию грузов типов</legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {enumOptions("CargoType").map((o) => (
-            <label key={o.value} className="flex items-center gap-2 text-sm">
+            <label key={o.value} className="text-body flex items-center gap-2">
               <Checkbox
                 checked={s.restrictedCargoTypes.includes(o.value)}
                 onCheckedChange={(c) =>

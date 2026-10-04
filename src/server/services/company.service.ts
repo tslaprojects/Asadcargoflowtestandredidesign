@@ -2,7 +2,7 @@ import "server-only";
 import type { z } from "zod";
 import type { CompanyDocumentType } from "@/generated/prisma/enums";
 import { audit, AuditAction } from "@/lib/audit/audit";
-import { requireActiveCompany, requirePermission, type Actor } from "@/lib/auth/actor";
+import { requireActiveCompany, requireCompanyPermission, requirePermission, type Actor } from "@/lib/auth/actor";
 import { generateToken, sha256 } from "@/lib/auth/tokens";
 import { prisma } from "@/lib/db/prisma";
 import { AppError, errors } from "@/lib/errors";
@@ -63,6 +63,8 @@ function assertCompanyManager(actor: Actor, companyId: string) {
 /** Полный профиль компании для её сотрудников и администратора. */
 export async function getCompanyProfile(actor: Actor, companyId: string) {
   assertCompanyAccess(actor, companyId);
+  // Сотрудники, реквизиты, приглашения и документы компании — не для водителя
+  requireCompanyPermission(actor, companyId, "COMPANY_VIEW", "Профиль компании доступен её офису.");
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     include: {
@@ -129,11 +131,19 @@ export async function getPublicCompany(companyId: string) {
 }
 
 export async function updateCompany(actor: Actor, companyId: string, input: z.output<typeof companyUpdateSchema>) {
-  requirePermission(actor, "COMPANY_MANAGE", "Изменять данные компании может только её руководитель.");
+  requireCompanyPermission(actor, companyId, "COMPANY_MANAGE", "Изменять данные компании может только её руководитель.");
   assertCompanyManager(actor, companyId);
   const before = await prisma.company.findUnique({ where: { id: companyId } });
   if (!before) throw errors.notFound("Компания не найдена.");
   const data = Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined));
+  // Юридические реквизиты проверенной компании подтверждены документами: их смена требует повторной проверки
+  const LEGAL_FIELDS = ["legalName", "taxId"] as const;
+  const legalChanged = LEGAL_FIELDS.some((k) => k in data && (data[k] ?? null) !== (before[k] ?? null));
+  if (legalChanged && before.verificationStatus === "VERIFIED" && !actor.isAdmin) {
+    throw errors.forbidden(
+      "Юридическое название и ИНН проверенной компании меняются через повторную проверку. Обратитесь к администратору платформы.",
+    );
+  }
   return prisma.$transaction(async (tx) => {
     const company = await tx.company.update({ where: { id: companyId }, data });
     const oldValue = Object.fromEntries(Object.keys(data).map((k) => [k, (before as Record<string, unknown>)[k]]));
@@ -150,14 +160,27 @@ export async function updateCompany(actor: Actor, companyId: string, input: z.ou
 
 export async function inviteMember(actor: Actor, companyId: string, input: z.output<typeof inviteSchema>) {
   const isDriverInvite = input.role === "DRIVER";
-  if (isDriverInvite) requirePermission(actor, "DRIVER_MANAGE");
-  else requirePermission(actor, "COMPANY_MEMBERS_MANAGE", "Приглашать сотрудников может только руководитель компании.");
-  if (!isDriverInvite) assertCompanyManager(actor, companyId);
-  else assertCompanyAccess(actor, companyId);
+  // Права — по роли пользователя именно в этой компании (а не в активной)
+  if (isDriverInvite)
+    requireCompanyPermission(actor, companyId, "DRIVER_MANAGE", "Приглашать водителей может руководитель или диспетчер перевозчика.");
+  else {
+    requireCompanyPermission(actor, companyId, "COMPANY_MEMBERS_MANAGE", "Приглашать сотрудников может только руководитель компании.");
+    assertCompanyManager(actor, companyId);
+  }
 
   const company = await prisma.company.findUniqueOrThrow({ where: { id: companyId } });
   if (!ROLES_BY_COMPANY_TYPE[company.type].includes(input.role)) {
     throw errors.validation("Эта роль недоступна для данного типа компании.", { role: ["Недопустимая роль"] });
+  }
+  if (input.driverProfileId) {
+    // Профиль водителя должен принадлежать этой компании и ещё не иметь учётной записи
+    if (!isDriverInvite) throw errors.validation("Профиль водителя указывается только для приглашения водителя.");
+    const profile = await prisma.driverProfile.findFirst({
+      where: { id: input.driverProfileId, companyId, deletedAt: null },
+      select: { userId: true },
+    });
+    if (!profile) throw errors.notFound("Водитель не найден в этой компании.");
+    if (profile.userId) throw new AppError("DUPLICATE_ACTION", "У водителя уже есть доступ к приложению.");
   }
   const existingUser = await prisma.user.findUnique({
     where: { email: input.email },
@@ -217,26 +240,38 @@ export async function inviteMember(actor: Actor, companyId: string, input: z.out
 export async function revokeInvite(actor: Actor, inviteId: string) {
   const invite = await prisma.companyInvite.findUnique({ where: { id: inviteId } });
   if (!invite) throw errors.notFound("Приглашение не найдено.");
-  requirePermission(actor, invite.role === "DRIVER" ? "DRIVER_MANAGE" : "COMPANY_MEMBERS_MANAGE");
-  assertCompanyAccess(actor, invite.companyId);
+  requireCompanyPermission(actor, invite.companyId, invite.role === "DRIVER" ? "DRIVER_MANAGE" : "COMPANY_MEMBERS_MANAGE");
+  if (invite.status !== "PENDING") throw new AppError("INVALID_STATE_TRANSITION", "Отозвать можно только действующее приглашение.");
   return prisma.companyInvite.update({ where: { id: inviteId }, data: { status: "REVOKED" } });
 }
 
 export async function updateMember(actor: Actor, memberId: string, input: z.output<typeof memberUpdateSchema>) {
-  requirePermission(actor, "COMPANY_MEMBERS_MANAGE", "Управлять сотрудниками может только руководитель компании.");
   const member = await prisma.companyMember.findUnique({ where: { id: memberId }, include: { company: true } });
   if (!member) throw errors.notFound("Сотрудник не найден.");
+  requireCompanyPermission(actor, member.companyId, "COMPANY_MEMBERS_MANAGE", "Управлять сотрудниками может только руководитель компании.");
   assertCompanyManager(actor, member.companyId);
   if (member.userId === actor.userId) throw errors.forbidden("Нельзя изменить собственные права.");
   if (input.role && !ROLES_BY_COMPANY_TYPE[member.company.type].includes(input.role)) {
     throw errors.validation("Эта роль недоступна для данного типа компании.");
   }
-  // Нельзя оставить компанию без руководителя
-  if (member.role === "CARRIER_ADMIN" && ((input.role && input.role !== "CARRIER_ADMIN") || input.status === "DISABLED")) {
-    const admins = await prisma.companyMember.count({ where: { companyId: member.companyId, role: "CARRIER_ADMIN", status: "ACTIVE" } });
-    if (admins <= 1) throw errors.forbidden("В компании должен остаться хотя бы один руководитель.");
+  const MANAGER_ROLES = ["SHIPPER", "FORWARDER", "CARRIER_ADMIN"] as const;
+  const isManager = (MANAGER_ROLES as readonly string[]).includes(member.role);
+  const losesManagement =
+    isManager && ((input.role !== undefined && !(MANAGER_ROLES as readonly string[]).includes(input.role)) || input.status === "DISABLED");
+  if (losesManagement && !actor.isAdmin) {
+    // Основателя компании (первого участника) может отключить или понизить только администратор платформы
+    const founder = await prisma.companyMember.findFirst({ where: { companyId: member.companyId }, orderBy: { createdAt: "asc" } });
+    if (founder?.id === member.id) throw errors.forbidden("Права основателя компании может изменить только администратор платформы.");
   }
   return prisma.$transaction(async (tx) => {
+    if (losesManagement) {
+      // Под блокировкой компании: параллельные изменения не оставят её без руководителя
+      await tx.$queryRaw`SELECT id FROM "Company" WHERE id = ${member.companyId}::uuid FOR UPDATE`;
+      const others = await tx.companyMember.count({
+        where: { companyId: member.companyId, id: { not: member.id }, status: "ACTIVE", role: { in: [...MANAGER_ROLES] } },
+      });
+      if (others < 1) throw errors.forbidden("В компании должен остаться хотя бы один руководитель.");
+    }
     const updated = await tx.companyMember.update({ where: { id: memberId }, data: input });
     await audit(
       actor,
@@ -257,7 +292,7 @@ export async function updateMember(actor: Actor, memberId: string, input: z.outp
 // ─────────── Документы компании и верификация ───────────
 
 export async function uploadCompanyDocument(actor: Actor, companyId: string, type: CompanyDocumentType, file: File) {
-  requirePermission(actor, "COMPANY_MANAGE", "Загружать документы компании может только её руководитель.");
+  requireCompanyPermission(actor, companyId, "COMPANY_MANAGE", "Загружать документы компании может только её руководитель.");
   assertCompanyManager(actor, companyId);
   const v = await validateUpload(file);
   const key = buildStorageKey(`companies/${companyId}`, v.ext);
@@ -284,12 +319,13 @@ export async function uploadCompanyDocument(actor: Actor, companyId: string, typ
 export async function getCompanyDocumentFile(actor: Actor, documentId: string) {
   const doc = await prisma.companyDocument.findUnique({ where: { id: documentId } });
   if (!doc || doc.deletedAt) throw errors.notFound("Документ не найден.");
-  assertCompanyAccess(actor, doc.companyId);
+  // Регистрационные и налоговые документы — руководителю компании и администратору (проверка)
+  requireCompanyPermission(actor, doc.companyId, "COMPANY_MANAGE", "Документы компании доступны её руководителю.");
   return doc;
 }
 
 export async function submitVerification(actor: Actor, companyId: string, comment: string | null) {
-  requirePermission(actor, "COMPANY_MANAGE", "Отправить компанию на проверку может только её руководитель.");
+  requireCompanyPermission(actor, companyId, "COMPANY_MANAGE", "Отправить компанию на проверку может только её руководитель.");
   assertCompanyManager(actor, companyId);
   const company = await prisma.company.findUniqueOrThrow({ where: { id: companyId } });
   if (company.verificationStatus === "VERIFIED") throw new AppError("DUPLICATE_ACTION", "Компания уже проверена.");

@@ -105,7 +105,7 @@ export function DocumentUploader({
             onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             className="h-auto py-1.5"
           />
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-footnote">
             {isImageType ? "JPG или PNG" : "PDF, JPG, PNG, DOC, DOCX, XLS, XLSX"} · до 15 МБ
             {file && ` · выбран: ${file.name} (${formatFileSize(file.size)})`}
           </p>

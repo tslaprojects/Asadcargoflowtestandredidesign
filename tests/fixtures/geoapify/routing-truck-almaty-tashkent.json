@@ -1,0 +1,67 @@
+{
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "mode": "truck",
+        "waypoints": [
+          { "location": [76.890085, 43.239], "original_index": 0 },
+          { "location": [69.239633, 41.298836], "original_index": 1 }
+        ],
+        "units": "metric",
+        "distance": 943212,
+        "distance_units": "meters",
+        "time": 47351.781,
+        "legs": [
+          {
+            "distance": 943212,
+            "time": 47351.781,
+            "steps": [
+              { "from_index": 0, "to_index": 6, "distance": 23, "time": 5.744, "instruction": { "text": "Двигайтесь на юго-запад." } },
+              {
+                "from_index": 1988,
+                "to_index": 2175,
+                "distance": 56270,
+                "time": 2984.173,
+                "instruction": { "text": "Сверните на съезде." },
+                "toll": true
+              },
+              { "from_index": 5463, "to_index": 5463, "distance": 0, "time": 0, "instruction": { "text": "Пункт назначения слева." } }
+            ]
+          }
+        ],
+        "toll": true
+      },
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [
+            [76.889965, 43.239044],
+            [76.889964, 43.239043],
+            [76.889944, 43.239023],
+            [76.8897, 43.238977],
+            [75.5, 43.33],
+            [73.871453, 43.164863],
+            [71.668392, 43.011782],
+            [70.384154, 42.512225],
+            [69.959333, 42.499663],
+            [69.40509, 41.840655],
+            [69.231895, 41.299774],
+            [69.231896, 41.299774],
+            [69.239348, 41.298475],
+            [69.239681, 41.298809]
+          ]
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "mode": "truck",
+    "waypoints": [
+      { "lat": 43.2390001, "lon": 76.8900852 },
+      { "lat": 41.2988361, "lon": 69.2396332 }
+    ],
+    "units": "metric"
+  },
+  "type": "FeatureCollection"
+}

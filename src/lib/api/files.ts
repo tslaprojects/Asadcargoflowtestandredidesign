@@ -20,6 +20,8 @@ export async function fileResponse(file: StoredFile, inline = false): Promise<Re
       "Content-Disposition": disposition,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
+      // Пользовательский файл открывается в песочнице: скрипты внутри документа не получают доступ к сайту
+      "Content-Security-Policy": "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'",
     },
   });
 }

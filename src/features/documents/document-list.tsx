@@ -45,12 +45,12 @@ export function DocumentList({
   const href = (d: DocItem, inline = false) =>
     downloadBase === "/api/documents"
       ? `/api/documents/${d.id}/download${inline ? "?inline=1" : ""}`
-      : `${downloadBase}/${d.id}${inline ? "?inline=1" : ""}`;
+      : `${downloadBase}/${d.id}/download${inline ? "?inline=1" : ""}`;
 
-  if (docs.length === 0) return <p className="text-muted-foreground py-6 text-center text-sm">Документов пока нет</p>;
+  if (docs.length === 0) return <p className="text-muted-foreground text-body py-6 text-center">Документов пока нет</p>;
   return (
     <>
-      <ul className="divide-border border-border bg-card divide-y rounded-xl border" data-testid="document-list">
+      <ul className="bg-card [&>li+li]:hairline-t rounded-lg" data-testid="document-list">
         {docs.map((d) => {
           const isImage = d.mimeType.startsWith("image/");
           return (
@@ -59,8 +59,8 @@ export function DocumentList({
                 {isImage ? <ImageIcon className="size-4" aria-hidden /> : <FileText className="size-4" aria-hidden />}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{d.filename}</p>
-                <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
+                <p className="text-body truncate font-medium">{d.filename}</p>
+                <p className="text-muted-foreground text-footnote flex flex-wrap items-center gap-x-2">
                   <span>{label("DocumentType", d.type)}</span>
                   <span>· {formatFileSize(d.size)}</span>
                   <span>· {formatDateTime(d.createdAt)}</span>
@@ -68,7 +68,7 @@ export function DocumentList({
                   {d.version > 1 && <Badge tone="info">версия {d.version}</Badge>}
                   {d.status === "SUPERSEDED" && <Badge tone="neutral">предыдущая версия</Badge>}
                 </p>
-                {d.note && <p className="text-muted-foreground text-xs">«{d.note}»</p>}
+                {d.note && <p className="text-muted-foreground text-footnote">«{d.note}»</p>}
               </div>
               <div className="flex items-center gap-1">
                 <Tooltip content="Открыть">
@@ -112,7 +112,7 @@ export function DocumentList({
                     trigger={
                       <Tooltip content="Удалить">
                         <Button variant="ghost" size="icon-sm" aria-label={`Удалить ${d.filename}`}>
-                          <Trash2 className="text-destructive" />
+                          <Trash2 className="text-danger" />
                         </Button>
                       </Tooltip>
                     }

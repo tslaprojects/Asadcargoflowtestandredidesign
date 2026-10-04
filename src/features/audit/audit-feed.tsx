@@ -56,7 +56,7 @@ function details(row: AuditRow): string | null {
 
 /** Лента «История изменений» — каждое событие связано с реальной записью AuditLog. */
 export function AuditFeed({ rows, tz }: { rows: AuditRow[]; tz?: string }) {
-  if (rows.length === 0) return <p className="text-muted-foreground py-6 text-center text-sm">Событий пока нет</p>;
+  if (rows.length === 0) return <p className="text-muted-foreground text-body py-6 text-center">Событий пока нет</p>;
   return (
     <ol className="space-y-0" data-testid="audit-feed">
       {rows.map((r) => {
@@ -65,7 +65,7 @@ export function AuditFeed({ rows, tz }: { rows: AuditRow[]; tz?: string }) {
         return (
           <li
             key={r.id}
-            className="border-border grid grid-cols-[120px_minmax(0,1fr)] gap-3 border-b py-2.5 text-sm last:border-0 sm:grid-cols-[150px_minmax(0,1fr)]"
+            className="hairline-b text-body grid grid-cols-[120px_minmax(0,1fr)] gap-3 py-2.5 last:border-0 sm:grid-cols-[150px_minmax(0,1fr)]"
           >
             <time className="tabular text-muted-foreground" dateTime={new Date(r.createdAt).toISOString()}>
               {formatDateTime(r.createdAt, tz)}

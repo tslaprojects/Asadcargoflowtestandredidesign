@@ -5,14 +5,15 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { ClientActor } from "@/lib/auth/actor";
 import { api } from "@/lib/client/api";
+import { t } from "@/lib/i18n";
 import type { NavKind } from "./nav-config";
 
+/** Монограмма пользователя, как у контакта в iOS, и меню учётной записи. */
 export function UserMenu({ actor, kind }: { actor: ClientActor; kind: NavKind }) {
   const router = useRouter();
   const initials = `${actor.firstName[0] ?? ""}${actor.lastName[0] ?? ""}`.toUpperCase();
@@ -23,28 +24,28 @@ export function UserMenu({ actor, kind }: { actor: ClientActor; kind: NavKind })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="grid size-9 place-items-center rounded-full bg-slate-800 text-sm font-semibold text-white hover:bg-slate-700"
+        className="bg-fill text-foreground text-footnote grid size-8 place-items-center rounded-full font-semibold tracking-wide transition-opacity duration-(--duration-micro) hover:opacity-80 lg:size-7"
         aria-label={`Меню пользователя ${actor.fullName}`}
       >
         {initials}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuLabel className="text-foreground">
-          <span className="block font-semibold">{actor.fullName}</span>
-          <span className="text-muted-foreground block truncate font-normal">{actor.email}</span>
-        </DropdownMenuLabel>
+        <div className="px-2 pt-1.5 pb-2">
+          <p className="font-semibold">{actor.fullName}</p>
+          <p className="text-footnote text-muted-foreground truncate">{actor.email}</p>
+        </div>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => router.push(kind === "driver" ? "/driver/profile" : "/profile")}>
-          <User /> Профиль
+          <User /> {t("nav.profile")}
         </DropdownMenuItem>
         {actor.isAdmin && (
           <DropdownMenuItem onSelect={() => router.push("/admin")}>
-            <Shield /> Администрирование
+            <Shield /> {t("nav.admin")}
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={logout} className="text-destructive">
-          <LogOut className="!text-destructive" /> Выйти
+        <DropdownMenuItem onSelect={logout}>
+          <LogOut /> {t("nav.logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

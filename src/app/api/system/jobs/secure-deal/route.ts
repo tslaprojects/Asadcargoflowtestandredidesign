@@ -1,7 +1,10 @@
 import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { fail, ok } from "@/lib/api/response";
+import { DATA_MODES, runWithDataMode } from "@/lib/db/data-mode";
 import { logger } from "@/lib/logger";
+import { demoWorkspaceReady } from "@/server/services/demo-workspace.service";
+import { runMaintenance } from "@/server/services/maintenance.service";
 import { processConfirmationTimeouts } from "@/server/services/secure-deal.service";
 
 /**
@@ -18,9 +21,21 @@ export async function POST(req: NextRequest) {
     return fail("UNAUTHORIZED", "Неверный ключ плановой задачи.", 401);
   }
   try {
-    const result = await processConfirmationTimeouts(new Date(), null);
-    logger.info("job.secure-deal.timeouts", result);
-    return ok(result);
+    // Задача обслуживает обе базы — каждую в своём контексте режима (данные не смешиваются).
+    const byMode: Record<string, unknown> = {};
+    for (const mode of DATA_MODES) {
+      if (mode === "demo" && !(await demoWorkspaceReady())) continue;
+      byMode[mode] = await runWithDataMode(mode, async () => {
+        const result = await processConfirmationTimeouts(new Date(), null);
+        logger.info("job.secure-deal.timeouts", { mode, ...result });
+        const maintenance = await runMaintenance(new Date()).catch((e) => {
+          logger.error("job.maintenance.failed", { mode, error: e });
+          return null;
+        });
+        return { ...result, maintenance };
+      });
+    }
+    return ok(byMode);
   } catch (e) {
     logger.error("job.secure-deal.failed", { error: e });
     return fail("INTERNAL_ERROR", "Ошибка выполнения задачи.", 500);

@@ -315,7 +315,21 @@ export function analyzeFuelTransaction(input: {
       : verified === 1
         ? "PARTIALLY_VERIFIED"
         : "UNVERIFIED";
-  return { checks, anomalies, score, risk: riskLevel(score), matchStatus };
+  return { checks, anomalies, score, risk: transactionRisk(score, anomalies), matchStatus };
+}
+
+const SEVERITY_RISK: Record<FuelAnomalySeverity, RiskLevel> = { LOW: "LOW", MEDIUM: "ATTENTION", HIGH: "HIGH", CRITICAL: "CRITICAL" };
+const RISK_ORDER: RiskLevel[] = ["LOW", "ATTENTION", "HIGH", "CRITICAL"];
+
+/**
+ * Итоговый риск заправки: не ниже самого серьёзного несоответствия.
+ * Иначе заправка с «критическим» несоответствием (например, 126 л не дошли до бака) показывалась бы как «требует внимания» по сумме баллов.
+ */
+export function transactionRisk(score: number, anomalies: Pick<DetectedAnomaly, "severity">[]): RiskLevel {
+  return anomalies.reduce<RiskLevel>((risk, a) => {
+    const r = SEVERITY_RISK[a.severity];
+    return RISK_ORDER.indexOf(r) > RISK_ORDER.indexOf(risk) ? r : risk;
+  }, riskLevel(score));
 }
 
 /** Резкое падение уровня топлива при стоящем автомобиле с выключенным двигателем. */

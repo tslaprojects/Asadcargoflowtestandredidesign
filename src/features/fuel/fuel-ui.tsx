@@ -13,10 +13,7 @@ export function DemoBadge({ className }: { className?: string }) {
 
 export function DemoBanner() {
   return (
-    <div
-      className="border-warning-border bg-warning-bg/60 mb-4 flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm"
-      role="note"
-    >
+    <div className="bg-warning-bg/60 text-body mb-4 flex flex-wrap items-center gap-2 rounded-lg p-3" role="note">
       <DemoBadge />
       <span>Демо-режим: топливные карты, заправки и телематика симулированы. Реальные деньги, топливо и устройства не участвуют.</span>
     </div>
@@ -77,9 +74,9 @@ export function TankGauge({ liters, capacity }: { liters: number | null; capacit
   const pct = capacity ? Math.max(0, Math.min(100, (liters / capacity) * 100)) : null;
   return (
     <div className="space-y-1">
-      <p className="text-lg font-semibold">
+      <p className="text-title3 font-semibold">
         <Metric value={Math.round(liters)} unit="л" />
-        {capacity ? <span className="text-muted-foreground text-sm font-normal"> из {capacity.toLocaleString("ru-RU")} л</span> : null}
+        {capacity ? <span className="text-muted-foreground text-body font-normal"> из {capacity.toLocaleString("ru-RU")} л</span> : null}
       </p>
       {pct != null && (
         <div

@@ -51,6 +51,13 @@ Docker и ручная установка PostgreSQL **не нужны**: скр
 | **Водитель** (`DRIVER`)                        | упрощённый мобильный экран «Мой рейс»: одна большая кнопка для следующего шага, фото, CMR, геолокация, чат                                                     |
 | **Администратор** (`PLATFORM_ADMIN`)           | пользователи, компании, верификация, споры, безопасные сделки (выплаты/возвраты), журнал аудита, настройки платформы                                           |
 
+### Нативные приложения
+
+- **CargoFlow** (Windows, macOS, iOS, Android) — для грузовладельцев, перевозчиков и экспедиторов: живая карта операций, перевозки, грузы, биржа, автопарк, события.
+- **CargoFlow Водитель** (iOS, Android) — рейс, следующий шаг одной кнопкой, фоновая геолокация, фото и CMR с камеры, офлайн-очередь.
+
+Flutter, полноценный нативный интерфейс (не WebView), тот же API. Код — `native/`, описание и сборка — [docs/NATIVE_APPS.md](docs/NATIVE_APPS.md).
+
 ## 2. Tech stack
 
 - **Next.js 16** (App Router, Server Components, Route Handlers, Turbopack), **React 19**, **TypeScript**
@@ -75,8 +82,9 @@ git clone <repo> cargoflow && cd cargoflow
 cp .env.example .env            # при необходимости поправьте значения
 docker compose up -d            # PostgreSQL (+ БД cargoflow_test) и MinIO
 npm install                     # postinstall выполнит prisma generate
-npm run db:deploy               # применить миграции
-npm run db:seed                 # демо-данные (ОЧИЩАЕТ базу!)
+npm run db:migrate:all          # миграции реальной и демо-базы (схема cargoflow_demo)
+npm run db:seed                 # сценарии в реальной базе разработки (ОЧИЩАЕТ её!)
+npm run seed:demo               # демо-база: ≈100 грузов, 20 машин, 40 клиентов (только DEMO)
 npm run dev                     # http://localhost:3000
 ```
 
@@ -84,24 +92,32 @@ npm run dev                     # http://localhost:3000
 
 Все переменные описаны в `.env.example`. Главные:
 
-| Переменная                                 | Назначение                                                                                                                              |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                             | строка подключения PostgreSQL                                                                                                           |
-| `TEST_DATABASE_URL`                        | **отдельная** БД для integration/E2E тестов (она очищается!)                                                                            |
-| `APP_URL`                                  | публичный URL приложения (ссылки в письмах, проверка Origin)                                                                            |
-| `APP_SECRET`                               | секрет ≥ 32 символов (`openssl rand -hex 32`)                                                                                           |
-| `SESSION_TTL_DAYS`                         | срок жизни сессии                                                                                                                       |
-| `STORAGE_DRIVER`                           | `local` или `s3`; для `s3` — `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`, `S3_FORCE_PATH_STYLE` |
-| `MAX_UPLOAD_MB`                            | лимит размера файла (по умолчанию 15)                                                                                                   |
-| `EMAIL_DRIVER`                             | `log` — письма пишутся в лог сервера; `none` — отключено                                                                                |
-| `TELEGRAM_BOT_TOKEN`, `WHATSAPP_API_TOKEN` | необязательные адаптеры уведомлений (для локального запуска не нужны)                                                                   |
-| `NEXT_PUBLIC_MAP_STYLE_URL`                | стиль MapLibre; пусто — растровые тайлы OpenStreetMap                                                                                   |
-| `PAYMENT_PROVIDER`                         | платёжный провайдер безопасной сделки: `sandbox` (тест, деньги не движутся) или `manual` (подтверждение операций администратором)       |
-| `PAYMENT_WEBHOOK_SECRET`                   | секрет HMAC для webhook провайдера `POST /api/payments/webhooks/:provider`; пусто — webhook отключён                                    |
-| `CRON_SECRET`                              | ключ плановой задачи `POST /api/system/jobs/secure-deal` (автоподтверждение по сроку); пусто — задача отключена                         |
-| `FUEL_CARD_PROVIDER`                       | провайдер топливных карт: `demo` — симулятор (все операции помечены DEMO DATA)                                                          |
-| `FUEL_CARD_WEBHOOK_SECRET`                 | секрет HMAC для `POST /api/integrations/fuel-cards/:provider/webhook`; пусто — webhook отключён                                         |
-| `TELEMATICS_WEBHOOK_SECRET`                | секрет HMAC для `POST /api/integrations/telematics/:provider/ingest` (CAN, датчик уровня, GPS); пусто — приём отключён                  |
+| Переменная                                 | Назначение                                                                                                                                                                                                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`                             | строка подключения PostgreSQL                                                                                                                                                                                                                    |
+| `DEMO_DATABASE_URL`                        | демо-база (режим «🧪 Демо-база» при входе); пусто — та же СУБД, схема `cargoflow_demo`. Подробно — [docs/DATABASE_MODES.md](docs/DATABASE_MODES.md)                                                                                              |
+| `TEST_DATABASE_URL`                        | **отдельная** БД для integration/E2E тестов (она очищается!)                                                                                                                                                                                     |
+| `APP_URL`                                  | публичный URL приложения (ссылки в письмах, проверка Origin)                                                                                                                                                                                     |
+| `APP_SECRET`                               | зарезервировано для будущих подписанных ссылок (сейчас не используется)                                                                                                                                                                          |
+| `TRUSTED_PROXY_HOPS`                       | число доверенных прокси перед приложением (IP клиента из `X-Forwarded-For` для rate limit и аудита), по умолчанию 1                                                                                                                              |
+| `SESSION_TTL_DAYS`                         | срок жизни сессии                                                                                                                                                                                                                                |
+| `STORAGE_DRIVER`                           | `local` или `s3`; для `s3` — `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_REGION`, `S3_FORCE_PATH_STYLE`                                                                                                          |
+| `MAX_UPLOAD_MB`                            | лимит размера файла (по умолчанию 15)                                                                                                                                                                                                            |
+| `EMAIL_DRIVER`                             | `log` — письма пишутся в лог сервера (в production токены и адреса маскируются); `none` — отключено                                                                                                                                              |
+| `TELEGRAM_BOT_TOKEN`, `WHATSAPP_API_TOKEN` | необязательные адаптеры уведомлений (для локального запуска не нужны)                                                                                                                                                                            |
+| `GEOAPIFY_API_KEY`                         | серверный ключ Geoapify: маршрут грузовика по дорогам (километраж, время в пути, линия на карте) и геокодирование адресов/городов вне справочника. Пусто — справочник городов и оценка «по прямой × 1.2» с пометкой «оценка»                     |
+| `NEXT_PUBLIC_GEOAPIFY_KEY`                 | публичный ключ Geoapify для подложки карт (стиль «positron»; ограничьте ключ доменом). Встраивается при сборке. Пусто — тайлы OpenStreetMap, только для разработки                                                                               |
+| `NEXT_PUBLIC_MAP_STYLE_URL`                | свой стиль MapLibre — приоритетнее `NEXT_PUBLIC_GEOAPIFY_KEY`                                                                                                                                                                                    |
+| `PAYMENT_PROVIDER`                         | платёжный провайдер безопасной сделки: `sandbox` (тест, деньги не движутся; в production только с `ALLOW_SANDBOX_PAYMENTS=1` или на демо-стенде) или `manual` (подтверждение администратором); пусто — sandbox в разработке, manual в production |
+| `PAYMENT_WEBHOOK_SECRET`                   | секрет HMAC для webhook провайдера `POST /api/payments/webhooks/:provider`; пусто — webhook отключён                                                                                                                                             |
+| `CRON_SECRET`                              | ключ внешнего вызова плановой задачи `POST /api/system/jobs/secure-deal`                                                                                                                                                                         |
+| `JOB_SECURE_DEAL_INTERVAL_MIN`             | встроенный планировщик задачи (автоподтверждение, повтор выплат и зависших операций, решения по спорам, обслуживание БД); по умолчанию 10 мин в production, `0` — выключен                                                                       |
+| `FUEL_CARD_PROVIDER`                       | провайдер топливных карт: `demo` — симулятор (все операции помечены DEMO DATA)                                                                                                                                                                   |
+| `FUEL_CARD_WEBHOOK_SECRET`                 | секрет HMAC для `POST /api/integrations/fuel-cards/:provider/webhook`; пусто — webhook отключён                                                                                                                                                  |
+| `TELEMATICS_WEBHOOK_SECRET`                | секрет HMAC для `POST /api/integrations/telematics/:provider/ingest` (CAN, датчик уровня, GPS); пусто — приём отключён                                                                                                                           |
+| `DEMO_SEED`                                | `1` — демо-стенд: при старте контейнера загрузить демо-базу, если она пуста (пишет только в DEMO; реальная база не трогается); регистрация на стенде закрыта (`ALLOW_PUBLIC_REGISTRATION=1` — открыть)                                           |
+| `DEMO_ADMIN_PASSWORD`                      | пароль демо-администратора в production (≥ 12 символов); не задан — случайный, нигде не выводится                                                                                                                                                |
+| `NEXT_PUBLIC_SHOW_DEMO`                    | `1` — кнопки демо-аккаунтов на странице входа в production (встраивается при сборке)                                                                                                                                                             |
 
 Секреты в репозиторий не коммитятся (`.env*` в `.gitignore`, кроме `.env.example`).
 
@@ -133,7 +149,9 @@ npm run db:generate   # сгенерировать клиент (src/generated/p
 npm run db:seed        # или: npm run db:reset (сброс миграций + seed)
 ```
 
-Seed **очищает базу** и проводит сделки **через настоящий сервисный слой** (транзакции, state machine, договоры с hash, аудит, уведомления), после чего сдвигает даты в прошлое. Создаются: 4 компании, демо-пользователи, автопарк, водители, 10 грузов (опубликованные, в торгах, черновик), перевозки во всех ключевых состояниях: закрытая (с отзывами), в пути (с трекингом, документами и чатом), с подписанным договором, ожидающая подписи (с историей торга), со спором. Все данные вымышлены.
+Seed **очищает базу** и проводит сделки **через настоящий сервисный слой** (транзакции, state machine, договоры с hash, аудит, уведомления), после чего переносит их в прошлое с правдоподобной хронологией (торги и договор → загрузка → рейс до плановой доставки → подтверждение). Создаются: 5 компаний (включая автопарк ABC Logistics для модуля топлива), демо-пользователи, автопарк, водители, 19 грузов (опубликованные, в торгах, черновик, для Next Load), 8 перевозок во всех ключевых состояниях: закрытые (с отзывами и выплатой), в пути (с трекингом, документами и чатом), доставленная с резервом оплаты, с подписанным договором, ожидающая подписи (с историей торга), со спором. Все данные вымышлены.
+
+Seed отказывается очищать базу, в которой есть пользователи не из демо-домена (`SEED_FORCE=1` — осознанно разрешить, например для тестовой базы).
 
 ## 9. Run development
 
@@ -146,8 +164,8 @@ npm run dev      # http://localhost:3000
 ## 10. Run tests
 
 ```bash
-npm run test:unit          # 91 unit-тест: валидация, права, state machine заказа, платежа и топливной транзакции, комиссия, условия выплаты, подбор Next Load, финансы, hash, часовые пояса, лимиты топливных карт, правила несоответствий, расход
-npm run test:integration   # 81 integration-тест на TEST_DATABASE_URL: core flow, безопасная сделка (резерв, выплата, двойная выплата, таймаут, спор, частичная выплата, возврат, отказ провайдера, webhook, права), Next Load, RBAC, конкурентность, топливо (карты, лимиты, блокировка, дубликат ID провайдера, возврат/отмена, сопоставление с уровнем и GPS, бак, расследования, изоляция водителей и компаний)
+npm run test:unit          # unit-тесты: валидация, права, state machine заказа, платежа и топливной транзакции, комиссия, условия выплаты, подбор Next Load, финансы, hash, часовые пояса, лимиты топливных карт, правила несоответствий, расход
+npm run test:integration   # integration-тесты на TEST_DATABASE_URL: core flow, безопасная сделка (резерв, выплата, двойная выплата, таймаут, спор, частичная выплата, возврат, отказ провайдера, webhook, права), Next Load, RBAC, конкурентность, топливо (карты, лимиты, блокировка, дубликат ID провайдера, возврат/отмена, сопоставление с уровнем и GPS, бак, расследования, изоляция водителей и компаний)
 npm test                   # unit + integration
 npm run test:e2e           # сборка + Playwright: полный сценарий, безопасная сделка → выплата → закрытие → следующий рейс, топливо (сводка → проверка → расследование, водитель без баланса), RBAC/CSRF по HTTP
 ```
@@ -172,7 +190,11 @@ npm run build && npm start
 3. `npm ci && npm run build`, затем при каждом релизе `npm run db:deploy`, запуск `npm start` за HTTPS-прокси (передающим `X-Forwarded-For`).
 4. Либо `Dockerfile` (выполняет `prisma migrate deploy` при старте).
 5. **Не запускайте seed в production** (он очищает БД; скрипт это блокирует).
-6. Rate limiter в MVP хранится в памяти процесса — при нескольких инстансах замените реализацию `RateLimiter` на Redis (интерфейс в `src/lib/auth/rate-limit.ts`).
+6. Rate limiter в MVP хранится в памяти процесса — при нескольких инстансах замените реализацию `RateLimiter` на Redis (интерфейс в `src/lib/auth/rate-limit.ts`). Укажите `TRUSTED_PROXY_HOPS` по числу прокси перед приложением.
+7. Плановая задача безопасной сделки запускается встроенным планировщиком (`JOB_SECURE_DEAL_INTERVAL_MIN`) или внешним cron с `CRON_SECRET`. Задача идемпотентна — параллельные запуски на нескольких инстансах безопасны.
+8. При старте в production сервер предупреждает в логе об опасных настройках (локальное хранилище файлов, e-mail только в лог, отсутствие https в `APP_URL`).
+9. Заголовки безопасности: CSP, HSTS (production), `X-Frame-Options`, `nosniff`; пользовательские файлы отдаются с `CSP: sandbox`.
+10. CI: `.github/workflows/ci.yml` — lint, typecheck, prettier, unit, integration на PostgreSQL, проверка соответствия миграций схеме, сборка.
 
 ## 13. Demo accounts
 
@@ -339,9 +361,11 @@ PAYMENT_DISPUTED ──(ADMIN)──► RESERVED (перевозка продо�
 | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | `sandbox` | тестовый режим: операции успешны сразу, реальные деньги **не движутся**; в UI — пометка «Тестовый режим»                                  |
 | `manual`  | реальный провайдер не подключён: каждая операция ждёт подтверждения администратором по данным банка-партнёра (номер платёжного поручения) |
-| реальный  | реализация интерфейса `PaymentProvider` + webhook `POST /api/payments/webhooks/:provider` (подпись HMAC `X-CargoFlow-Signature`)          |
+| реальный  | реализация интерфейса `PaymentProvider` + webhook `POST /api/payments/webhooks/:provider` (подпись HMAC, см. ниже)                        |
 
-Плановая задача: `POST /api/system/jobs/secure-deal` c заголовком `Authorization: Bearer $CRON_SECRET` (cron раз в 5–15 минут), или кнопка «Обработать истёкшие сроки» в админ-панели.
+Плановая задача выполняется встроенным планировщиком каждые `JOB_SECURE_DEAL_INTERVAL_MIN` минут (по умолчанию 10 в production), либо внешним cron: `POST /api/system/jobs/secure-deal` c заголовком `Authorization: Bearer $CRON_SECRET`, либо кнопкой «Обработать истёкшие сроки» в админ-панели. Задача: автоподтверждение по истечении срока, повтор выплат по подтверждённым получениям, переотправка зависших операций провайдера (с тем же ключом идемпотентности), доисполнение решений по спорам, обслуживание БД (истёкшие планы и карты, очистка служебных записей).
+
+**Подпись webhook** (платежи, топливные карты, телематика): `X-CargoFlow-Timestamp` (unix-секунды) и `X-CargoFlow-Signature = hex(HMAC-SHA256("<timestamp>.<тело>", секрет))`; запросы старше 5 минут отклоняются. Секрет можно задать отдельно для провайдера: `PAYMENT_WEBHOOK_SECRET_<PROVIDER>` (иначе общий). Устаревший формат без метки времени принимается, пока не задан `WEBHOOK_REQUIRE_TIMESTAMP=1`.
 
 API: `GET|POST /api/orders/:id/secure-deal`, `POST /api/orders/:id/secure-deal/cancel`, `GET /api/admin/payments`, `POST /api/admin/payments/:id/{release,refund}`, `POST /api/admin/payment-transactions/:id/{confirm,retry}`, `POST /api/admin/jobs/secure-deal`, `POST /api/system/jobs/secure-deal`, `POST /api/payments/webhooks/:provider`.
 
@@ -391,7 +415,7 @@ Route Handlers  src/app/api/**  ── route(): Origin/CSRF, сессия, rate 
 
 Коды ошибок — `src/lib/errors.ts` (`UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `INVALID_STATE_TRANSITION`, `BID_ALREADY_EXISTS`, `BID_ALREADY_ACCEPTED`, `LOAD_ALREADY_CONVERTED`, `VEHICLE_UNAVAILABLE`, `DRIVER_UNAVAILABLE`, `CONTRACT_ALREADY_SIGNED`, `DOCUMENT_NOT_ALLOWED`, `DELIVERY_NOT_ALLOWED`, `ORDER_ALREADY_CLOSED`, `DUPLICATE_ACTION`, `RATE_LIMITED`, `INTERNAL_ERROR`). Stack trace пользователю не отдаётся.
 
-Основные endpoints: `auth/{register,login,logout,forgot-password,reset-password,switch-company}`, `companies/:id`, `companies/:id/verification`, `loads`, `loads/:id`, `loads/:id/{publish,cancel,bids,questions,documents}`, `bids/:id/{accept,reject,counter,respond,withdraw}`, `orders`, `orders/:id`, `orders/:id/{status,vehicle,driver,deliver,confirm-delivery,cancel,contract,documents,tracking,messages,payments,review,dispute,history}`, `contracts/:id/{sign,pdf}`, `documents/:id`, `documents/:id/download`, `notifications`, `notifications/:id/read`, `disputes`, `vehicles`, `drivers`, `search`, `admin/*`, `health`.
+Основные endpoints: `auth/{register,login,logout,forgot-password,reset-password,switch-company}`, `companies/:id`, `companies/:id/verification`, `loads`, `loads/:id`, `loads/:id/{publish,cancel,bids,questions,documents}`, `bids/:id/{accept,reject,counter,respond,withdraw}`, `orders`, `orders/:id`, `orders/:id/{status,vehicle,driver,deliver,confirm-delivery,cancel,contract,documents,tracking,messages,payments,review,dispute,history,fuel,secure-deal}`, `contracts/:id/{sign,pdf}`, `documents/:id`, `documents/:id/download`, `notifications`, `notifications/:id/read`, `disputes`, `vehicles`, `drivers`, `search`, `admin/*`, `health`.
 
 ## 15. Folder structure
 
@@ -423,7 +447,8 @@ tests/unit | integration | e2e
 - **Договор:** автогенерация из шаблона, snapshot + hash, внутреннее электронное подписание (не КЭП) с повторным вводом пароля; после подписей обеих сторон — CONTRACT_SIGNED.
 - **Рейс:** автомобиль (грузоподъёмность, статус, GPS, конфликты) → водитель (статус, пересечение рейсов, срок удостоверения, доступ к приложению) → статусы водителя с геолокацией → граница/таможня → разгрузка → доставка с POD → подтверждение получения → CLOSED (+ окончательный расчёт на остаток).
 - **Отмена:** до подписания — любая сторона; после — только через спор/администратора (сообщение показывается в UI).
-- **Изменение цены после подписания:** «Для изменения цены после подписания обратитесь к администратору» (точка расширения для дополнительных соглашений).
+- **Изменение цены после подписания:** не поддерживается (обратитесь к администратору; точка расширения для дополнительных соглашений). Цена ставки меняется только в ответ на встречное предложение, а принятие фиксирует сумму, которую видел заказчик.
+- **Отказ перевозчика до подписания** — груз заказчика автоматически выставляется на биржу заново (копией).
 - **Споры:** открыть → перевозка DISPUTED (и оплата PAYMENT_DISPUTED) → комментарии → администратор решает/отклоняет и возобновляет, закрывает или отменяет перевозку, распределяя удерживаемую сумму.
 - **Безопасная сделка и следующий рейс** — см. разделы выше.
 - **Верификация компаний:** загрузка документов → заявка → одобрить / отклонить / запросить исправления / приостановить / восстановить; история сохраняется.
@@ -431,10 +456,13 @@ tests/unit | integration | e2e
 ## 17. Known MVP limitations
 
 - Электронное подписание — внутреннее подтверждение (акцепт) на платформе, **не квалифицированная ЭП**. Шаблон договора демонстрационный и должен быть адаптирован юристами под применимое право.
-- Геопозиция передаётся водителем из браузера по кнопке/при смене статуса — это не непрерывный GPS-трекинг. Карта использует публичные тайлы OSM (для production задайте собственный стиль через `NEXT_PUBLIC_MAP_STYLE_URL`).
-- Геокодирование — локальный справочник основных городов коридора; для остальных координаты не заполняются (карта покажет доступные точки).
+- Геопозиция передаётся водителем из браузера по кнопке/при смене статуса — это не непрерывный GPS-трекинг. Без `NEXT_PUBLIC_GEOAPIFY_KEY` / `NEXT_PUBLIC_MAP_STYLE_URL` карта использует публичные тайлы OSM — только для разработки.
+- Маршрут груза и километраж: с `GEOAPIFY_API_KEY` — маршрут грузовика по дорогам (Geoapify, `mode=truck`); без ключа, при сбое провайдера или если маршрут не найден (например, сегмент через границу с Китаем) — оценка «по прямой × 1.2», в интерфейсе «≈ … км (оценка)». Если не найден один сегмент, оценивается только он. Ограничения грузовика (габариты, вес, ADR, платные дороги) не передаются; время в пути — без учёта отдыха водителя и границ.
+- Геокодирование: справочник основных городов → кэш в БД (`GeocodeCache`) → Geoapify. Без ключа — только справочник. Автокомплита адреса в мастере груза нет.
+- Существующие грузы получают маршрут скриптом `npm run routes:backfill -- --mode real|demo` (батчами, с бюджетом запросов). Next Load и топливо пока считают расстояние по-прежнему (оценка по прямой).
 - Чат и уведомления обновляются опросом (5 с / 30 с), без WebSocket.
-- Rate limiter и кэш — в памяти процесса (один инстанс).
+- Rate limiter и кэш настроек (5 с) — в памяти процесса (один инстанс).
+- Часть API доступна только как API (без экранов): документы груза (`/api/loads/:id/documents`), ручной ввод телематики (`/api/fuel/vehicles/:id/telemetry`), симулятор АЗС владельца (`POST /api/fuel/transactions`).
 - Email-провайдер не подключён (письма пишутся в лог); Telegram/WhatsApp — только интерфейсы.
 - Платформа не проводит платежи сама: безопасная сделка работает через адаптер провайдера (`sandbox` — тестовый режим, `manual` — подтверждение администратором); реальный PSP не подключён. Опасные грузы (ADR), таможенное оформление, страхование не реализованы.
 - Next Load: расстояния — оценка по прямой с коэффициентом дороги, а не навигационный маршрут; подбор — полный перебор до 500 актуальных грузов (для больших объёмов — PostGIS / поисковый индекс).
@@ -450,11 +478,11 @@ tests/unit | integration | e2e
 | Email / Telegram / WhatsApp                                                                                                                | `src/lib/notifications/adapters.ts` (`NotificationAdapter`)                                          |
 | Внешняя / квалифицированная ЭП                                                                                                             | `src/lib/contracts/signature-provider.ts` (`SignatureProvider`)                                      |
 | GPS-трекеры, телематика, fleet-провайдеры                                                                                                  | `src/lib/tracking/provider.ts` (`TrackingProvider`, `source = GPS_PROVIDER`)                         |
-| Геокодер (Nominatim, 2GIS, Яндекс)                                                                                                         | `src/lib/geo/geocoder.ts` (`Geocoder`)                                                               |
+| Геокодер (сейчас Geoapify; Nominatim, 2GIS, Яндекс)                                                                                        | `src/lib/geo/geocoder.ts` (`Geocoder`), `src/server/geo/providers.ts` (`RemoteGeocoder`)             |
 | Хранилище                                                                                                                                  | `src/lib/storage/storage.ts` (`StorageAdapter`)                                                      |
 | Масштабирование rate limit                                                                                                                 | `src/lib/auth/rate-limit.ts` (`RateLimiter` → Redis)                                                 |
 | Платёжный провайдер безопасной сделки (банк / PSP с эскроу)                                                                                | `src/lib/payments/provider.ts` (`PaymentProvider`) + `api/payments/webhooks/[provider]`              |
-| Маршрутизация и пробег (OSRM, GraphHopper), PostGIS для подбора                                                                            | `src/lib/geo/distance.ts`, `src/lib/next-load/matching.ts`                                           |
+| Маршрутизация (сейчас Geoapify; OSRM, GraphHopper) — подключить к Next Load и топливу; PostGIS для подбора                                 | `src/lib/geo/routing.ts` (`RoutingProvider`), `src/lib/next-load/matching.ts`                        |
 | Процессинг топливных карт (Helios, Sinooil, КМГ, Лукойл, Газпромнефть, E100, DKV…)                                                         | `src/lib/fuel/providers.ts` (`FuelCardProvider`) + `api/integrations/fuel-cards/[provider]/webhook`  |
 | Телематика / CAN / датчики уровня (Wialon, Omnicomm, Geotab, Teltonika…)                                                                   | `TelematicsProvider` в `src/lib/fuel/providers.ts` + `api/integrations/telematics/[provider]/ingest` |
 | Страхование, таможенные брокеры, OCR документов, AI-ассистент, скоринг перевозчиков, оптимизация маршрутов, native-приложения, внешний API | сервисный слой уже изолирован от UI; REST API с единым форматом можно открыть внешним клиентам       |

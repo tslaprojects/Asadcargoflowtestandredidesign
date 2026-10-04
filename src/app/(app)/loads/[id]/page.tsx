@@ -2,6 +2,7 @@ import { ArrowRight, MessageCircleQuestion } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CompanyBadge, DefinitionList, EmptyState, MoneyDisplay, PageHeader } from "@/components/common/misc";
+import { RouteDistance } from "@/components/common/route-distance";
 import { RouteChain, RouteTimeline } from "@/components/common/route-timeline";
 import { StatusBadge } from "@/components/common/status-badge";
 import { UrlTabs } from "@/components/common/url-tabs";
@@ -15,6 +16,8 @@ import { DocumentList } from "@/features/documents/document-list";
 import { DocumentUploader } from "@/features/documents/document-uploader";
 import { AnswerQuestionForm, AskQuestionDialog, BidCard, BidDialog, type BidView } from "@/features/loads/bid-components";
 import { LoadOwnerActions } from "@/features/loads/load-owner-actions";
+import { MapView } from "@/features/tracking/map-view";
+import { routeLines, stopPoints } from "@/features/tracking/route-line";
 import { guard, pageActor } from "@/server/page-context";
 import { getLoadDetail } from "@/server/services/load.service";
 
@@ -49,6 +52,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
             items={[
               { label: "Загрузка", value: formatDateRange(load.loadingDateFrom, load.loadingDateTo) },
               { label: "Доставка", value: formatDateRange(load.deliveryDateFrom, load.deliveryDateTo) },
+              ...(load.routeDistanceKm != null ? [{ label: "Расстояние", value: <RouteDistance route={load} /> }] : []),
               { label: "Груз", value: `${load.title} · ${label("CargoType", load.cargoType)}` },
               { label: "Вес / объём", value: `${formatWeight(load.weightKg)}${load.volumeM3 ? ` · ${formatVolume(load.volumeM3)}` : ""}` },
               { label: "Кузов", value: load.bodyType ? label("BodyType", load.bodyType) : "Любой" },
@@ -70,7 +74,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
         <CardHeader>
           <CardTitle>Заказчик</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="text-body space-y-2">
           <CompanyBadge
             id={load.company.id}
             name={load.company.legalName}
@@ -133,11 +137,11 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
         </CardHeader>
         <CardContent>
           {load.questions.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Вопросов пока нет.</p>
+            <p className="text-muted-foreground text-body">Вопросов пока нет.</p>
           ) : (
             <ul className="space-y-3">
               {load.questions.map((q) => (
-                <li key={q.id} className="border-border rounded-lg border p-3 text-sm">
+                <li key={q.id} className="bg-fill-quaternary text-body rounded-lg p-3">
                   <p>
                     <span className="font-medium">{q.company.legalName}:</span> {q.question}
                   </p>
@@ -146,7 +150,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
                   ) : isOwner ? (
                     <AnswerQuestionForm questionId={q.id} />
                   ) : (
-                    <p className="text-muted-foreground mt-1 text-xs">Ожидает ответа</p>
+                    <p className="text-muted-foreground text-footnote mt-1">Ожидает ответа</p>
                   )}
                 </li>
               ))}
@@ -160,8 +164,8 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
   const bidsTab = (
     <div className="space-y-3">
       {canBid && !myActiveBid && (
-        <div className="border-info-border bg-info-bg flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4">
-          <p className="text-info text-sm">Предложите свою цену — заказчик получит уведомление.</p>
+        <div className="bg-info-bg flex flex-wrap items-center justify-between gap-3 rounded-lg p-4">
+          <p className="text-info text-body">Предложите свою цену — заказчик получит уведомление.</p>
           <BidDialog loadId={load.id} currency={load.currency} targetPrice={load.targetPrice} />
         </div>
       )}
@@ -236,7 +240,7 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
         }
       />
       {load.status === "CANCELLED" && (
-        <p className="border-danger-border bg-danger-bg text-danger mb-4 rounded-lg border px-3 py-2 text-sm">
+        <p className="bg-danger-bg text-danger text-body mb-4 rounded-lg px-3 py-2">
           Груз отменён{load.cancelReason ? `: ${load.cancelReason}` : ""}.
         </p>
       )}
@@ -248,11 +252,15 @@ export default async function LoadDetailPage({ params }: { params: Promise<{ id:
             value: "route",
             label: "Маршрут",
             content: (
-              <Card>
-                <CardContent className="pt-5">
-                  <RouteTimeline stops={load.stops} showContacts={isOwner || !!load.order} />
-                </CardContent>
-              </Card>
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+                <Card>
+                  <CardContent className="space-y-4 pt-5">
+                    {load.routeDistanceKm != null && <RouteDistance route={load} className="text-body font-medium" />}
+                    <RouteTimeline stops={load.stops} showContacts={isOwner || !!load.order} />
+                  </CardContent>
+                </Card>
+                <MapView points={stopPoints(load.stops)} lines={routeLines(load)} className="h-[380px] w-full overflow-hidden rounded-lg" />
+              </div>
             ),
           },
           { value: "cargo", label: "Груз", content: cargo },

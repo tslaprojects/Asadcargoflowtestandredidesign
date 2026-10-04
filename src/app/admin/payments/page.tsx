@@ -36,7 +36,7 @@ export default async function AdminPayments({ searchParams }: { searchParams: Se
         description="Обеспеченные платежи, выплаты и возвраты. Движение средств выполняет платёжный провайдер; здесь — статусы, операции и ручное подтверждение."
         actions={<RunTimeoutsButton />}
       />
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+      <div className="text-body mb-4 flex flex-wrap items-center gap-2">
         <span className="text-muted-foreground">Провайдер:</span>
         <Badge tone={provider.testMode ? "warning" : "info"}>{provider.title}</Badge>
         {provider.testMode && <span className="text-muted-foreground">реальные деньги не движутся</span>}
@@ -66,7 +66,7 @@ export default async function AdminPayments({ searchParams }: { searchParams: Se
             header: "Выплачено / возвращено",
             hideOnMobile: true,
             cell: (p) => (
-              <span className="text-sm">
+              <span className="text-body">
                 <MoneyDisplay amount={p.releasedAmount} currency={p.currency} /> /{" "}
                 <MoneyDisplay amount={p.refundedAmount} currency={p.currency} />
               </span>
@@ -79,7 +79,7 @@ export default async function AdminPayments({ searchParams }: { searchParams: Se
               <span className="flex flex-col gap-1">
                 <StatusBadge kind="PaymentStatus" value={p.status} />
                 {p.transactions.length > 0 && (
-                  <span className="text-warning text-xs">Ожидает: {label("PaymentTransactionKind", p.transactions[0].kind)}</span>
+                  <span className="text-warning text-footnote">Ожидает: {label("PaymentTransactionKind", p.transactions[0].kind)}</span>
                 )}
               </span>
             ),

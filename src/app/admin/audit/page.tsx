@@ -68,7 +68,7 @@ export default async function AdminAudit({ searchParams }: { searchParams: Searc
             key: "entity",
             header: "Объект",
             cell: (a) => (
-              <span className="font-mono text-xs">
+              <span className="text-footnote font-mono">
                 {a.entityType}:{a.entityId?.slice(0, 8)}
               </span>
             ),
@@ -81,7 +81,7 @@ export default async function AdminAudit({ searchParams }: { searchParams: Searc
             hideOnMobile: true,
             cell: (a) => (
               <details className="max-w-xs">
-                <summary className="text-primary cursor-pointer text-xs">показать</summary>
+                <summary className="text-link text-footnote cursor-pointer">показать</summary>
                 <pre className="mt-1 max-h-48 overflow-auto text-[11px] whitespace-pre-wrap">
                   {JSON.stringify({ old: a.oldValue, new: a.newValue }, null, 1)}
                 </pre>

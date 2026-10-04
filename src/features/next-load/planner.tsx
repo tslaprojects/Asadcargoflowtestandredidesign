@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input, NativeSelect } from "@/components/ui/input";
 import { api } from "@/lib/client/api";
 import { useAction } from "@/lib/client/use-action";
-import { COUNTRIES, countryFlag } from "@/lib/geo/countries";
+import { COUNTRIES } from "@/lib/geo/countries";
 import { cn } from "@/lib/utils";
 import { MapView } from "@/features/tracking/map-view";
 
@@ -143,22 +143,22 @@ export function NextLoadPlanner({
 
   const choice = (active: boolean) =>
     cn(
-      "border-border hover:border-primary/50 flex w-full items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors",
-      active && "border-primary bg-primary/5 text-primary",
+      "flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-left font-medium transition-colors duration-(--duration-micro)",
+      active ? "bg-accent text-link ring-primary/40 ring-1 ring-inset" : "bg-fill-quaternary hover:bg-fill-tertiary",
     );
 
   return (
     <div className="space-y-4" data-testid="next-load-planner">
-      <div className="text-sm">
-        <p className="text-muted-foreground text-xs">Текущая точка</p>
+      <div className="text-body">
+        <p className="text-muted-foreground text-footnote">Текущая точка</p>
         {!editOrigin && free ? (
           <p className="flex flex-wrap items-center gap-2">
-            <MapPin className="text-destructive size-4" aria-hidden />
+            <MapPin className="text-danger size-4" aria-hidden />
             <span className="font-medium">{free.label}</span>
-            <span className="text-muted-foreground text-xs">
+            <span className="text-muted-foreground text-footnote">
               {free.source === "TRACKING" ? "по последней отметке водителя" : "адрес разгрузки текущего рейса"}
             </span>
-            <button type="button" className="text-primary text-xs hover:underline" onClick={() => setEditOrigin(true)}>
+            <button type="button" className="text-link text-footnote hover:underline" onClick={() => setEditOrigin(true)}>
               изменить
             </button>
           </p>
@@ -171,7 +171,7 @@ export function NextLoadPlanner({
             >
               {COUNTRIES.map((c) => (
                 <option key={c.code} value={c.code}>
-                  {c.flag} {c.code}
+                  {c.code}
                 </option>
               ))}
             </NativeSelect>
@@ -194,10 +194,10 @@ export function NextLoadPlanner({
       </div>
 
       <div className="space-y-2">
-        <p className="text-sm font-semibold">Что дальше?</p>
+        <p className="text-body font-semibold">Что дальше?</p>
         {ret && (
           <button type="button" className={choice(mode === "RETURN")} onClick={() => setMode("RETURN")} data-testid="nl-return">
-            <RotateCcw className="size-4" aria-hidden /> Вернуться в {countryFlag(ret.country)} {ret.city}
+            <RotateCcw className="size-4" aria-hidden /> Вернуться в {ret.city}
           </button>
         )}
         <div className="flex flex-wrap gap-2" role="group" aria-label="Быстрые направления">
@@ -207,8 +207,8 @@ export function NextLoadPlanner({
               key={`${c.country}-${c.city}`}
               onClick={() => toggleCity(c)}
               className={cn(
-                "border-border hover:border-primary/50 rounded-full border px-3 py-1.5 text-sm transition-colors",
-                mode === "PICK" && has(c.city) && "border-primary bg-primary text-primary-foreground",
+                "rounded-full px-3 py-1.5 transition-colors duration-(--duration-micro)",
+                mode === "PICK" && has(c.city) ? "bg-primary text-primary-foreground" : "bg-fill-tertiary hover:bg-fill-secondary",
               )}
               aria-pressed={mode === "PICK" && has(c.city)}
             >
@@ -223,7 +223,7 @@ export function NextLoadPlanner({
           <NativeSelect aria-label="Страна направления" value={otherCountry} onChange={(e) => setOtherCountry(e.target.value)}>
             {COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
-                {c.flag} {c.code}
+                {c.code}
               </option>
             ))}
           </NativeSelect>
@@ -262,7 +262,7 @@ export function NextLoadPlanner({
 
       {mode === "PICK" && dests.length > 0 && (
         <div>
-          <p className="text-muted-foreground mb-1 text-xs">Направления (можно несколько)</p>
+          <p className="text-muted-foreground text-footnote mb-1">Направления (можно несколько)</p>
           <div className="flex flex-wrap gap-1.5">
             {dests.map((d, i) => (
               <Badge key={`${d.label}-${i}`} tone="info" className="gap-1 pr-1">
@@ -276,8 +276,8 @@ export function NextLoadPlanner({
         </div>
       )}
 
-      <details className="text-sm">
-        <summary className="text-primary cursor-pointer">Параметры поиска</summary>
+      <details className="text-body">
+        <summary className="text-link cursor-pointer">Параметры поиска</summary>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <Field id="nl-dev" label="Допустимый крюк, км" hint="Сколько лишних км готовы проехать ради груза по пути">
             <Input type="number" min={10} max={1000} value={deviation} onChange={(e) => setDeviation(e.target.value)} />
@@ -313,7 +313,7 @@ export function NextLoadPlanner({
             <DialogDescription>Нажмите на карту в той стороне, куда планируете ехать. Система подберёт грузы по пути.</DialogDescription>
           </DialogHeader>
           <MapView
-            className="h-[380px] w-full overflow-hidden rounded-xl"
+            className="h-[380px] w-full overflow-hidden rounded-lg"
             points={[
               ...(free ? [{ lat: free.lat, lng: free.lng, label: `Сейчас: ${free.label}`, kind: "VEHICLE" as const }] : []),
               ...(mapPoint ? [{ ...mapPoint, label: "Выбранная точка", kind: "TARGET" as const }] : []),
@@ -326,7 +326,7 @@ export function NextLoadPlanner({
                         [free.lng, free.lat],
                         [mapPoint.lng, mapPoint.lat],
                       ],
-                      color: "#7c3aed",
+                      color: "#ff9500",
                       dashed: true,
                     },
                   ]
@@ -336,7 +336,7 @@ export function NextLoadPlanner({
             pickHint="Кликните, чтобы выбрать точку"
           />
           <DialogFooter>
-            <p className="text-muted-foreground mr-auto self-center text-sm">
+            <p className="text-muted-foreground text-body mr-auto self-center">
               {mapPoint ? `Выбрано: ${mapPoint.lat.toFixed(2)}, ${mapPoint.lng.toFixed(2)}` : "Точка не выбрана"}
             </p>
             <Button variant="outline" onClick={() => setMapOpen(false)}>

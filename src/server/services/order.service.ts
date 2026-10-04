@@ -1,6 +1,6 @@
 import "server-only";
 import type { z } from "zod";
-import type { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import type { ActionSource, OrderStatus } from "@/generated/prisma/enums";
 import { audit, AuditAction } from "@/lib/audit/audit";
 import type { Actor } from "@/lib/auth/actor";
@@ -19,7 +19,8 @@ import { toPlain } from "@/lib/serialize";
 import type { orderListQuerySchema, statusChangeSchema } from "@/lib/validation/order";
 import { ordersWhereForActor, requireOrderAccess, resolveOrderAccess, type OrderSide } from "./access";
 import { companyRatings } from "./company.service";
-import { notify } from "./notification.service";
+import { companyUserIds, CUSTOMER_ROLES, notify } from "./notification.service";
+import { nextPublicNumber } from "@/lib/numbering";
 import { lockOrder, orderParticipantUserIds, performTransitionInTx } from "./order-core";
 import { confirmReceiptWithSecureDeal, findLiveSecureDeal, settleOnOrderCancel, startConfirmationWindow } from "./secure-deal.service";
 import { getSettings } from "./settings.service";
@@ -52,7 +53,7 @@ export async function listOrders(actor: Actor, q: ListQuery) {
   if (q.group === "in_transit") and.push({ currentStatus: { in: IN_TRANSIT_STATUSES } });
   if (q.group === "attention") and.push({ currentStatus: { in: ATTENTION_STATUSES } });
   if (q.group === "completed") and.push({ currentStatus: { in: ["DELIVERED", "CLOSED"] } });
-  if (q.status) and.push({ currentStatus: { in: q.status.split(",") as OrderStatus[] } });
+  if (q.status?.length) and.push({ currentStatus: { in: q.status as OrderStatus[] } });
   if (q.carrierId) and.push({ carrierCompanyId: q.carrierId });
   if (q.shipperId) and.push({ shipperCompanyId: q.shipperId });
   if (q.client) and.push({ load: { clientName: { contains: q.client, mode: "insensitive" } } });
@@ -170,9 +171,18 @@ export async function getOrderDetail(actor: Actor, orderId: string) {
   const userNames = Object.fromEntries(historyUsers.map((u) => [u.id, `${u.firstName} ${u.lastName}`]));
   const contract = order.contracts[0] ?? null;
 
+  // Водителю — только данные рейса: без цены груза, коммерческих условий, споров и отзывов
+  const load = canMoney ? order.load : { ...order.load, targetPrice: null, additionalTerms: null, clientName: null };
+  const statusHistory = canMoney
+    ? order.statusHistory
+    : order.statusHistory.map((h) => (h.fromStatus === null ? { ...h, comment: null } : h));
   return {
     order: {
       ...order,
+      load,
+      statusHistory,
+      disputes: isDriver ? [] : order.disputes,
+      reviews: isDriver ? [] : order.reviews,
       agreedAmount: canMoney ? order.agreedAmount : null,
       acceptedBid: canMoney ? order.acceptedBid : null,
       contracts: undefined,
@@ -313,6 +323,13 @@ export async function cancelOrder(actor: Actor, orderId: string, reason: string)
     });
     await tx.load.update({ where: { id: order.loadId }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: reason } });
     await tx.paymentRecord.updateMany({ where: { orderId, status: { in: ["PLANNED", "INVOICED"] } }, data: { status: "CANCELLED" } });
+    // Перевозчик отказался от сделки — груз заказчика не должен пропасть: он снова выставляется на биржу копией
+    // (один груз связан с одной сделкой, поэтому создаётся новый груз с тем же маршрутом и условиями)
+    let republishedLoadId: string | null = null;
+    if (access.side === "CARRIER") {
+      await tx.bid.update({ where: { id: order.acceptedBidId }, data: { status: "WITHDRAWN", decidedAt: new Date() } });
+      republishedLoadId = await republishLoadCopy(tx, actor, order.loadId, order.publicNumber, reason);
+    }
     await audit(
       actor,
       {
@@ -324,11 +341,74 @@ export async function cancelOrder(actor: Actor, orderId: string, reason: string)
       },
       tx,
     );
-    return order;
+    return { ...order, republishedLoadId };
   });
   // Безопасная сделка: неподтверждённая оплата отменяется, обеспеченная — возвращается заказчику через провайдера
   await settleOnOrderCancel(orderId, actor, reason);
   return cancelled;
+}
+
+/** Копия груза после отказа перевозчика: опубликована, если дата загрузки ещё актуальна, иначе — черновик. */
+async function republishLoadCopy(tx: Tx, actor: Actor, loadId: string, orderNumber: string, reason: string) {
+  const src = await tx.load.findUniqueOrThrow({ where: { id: loadId }, include: { stops: true, invitations: true } });
+  const latestLoading = src.loadingDateTo ?? src.loadingDateFrom;
+  const stillActual = latestLoading.getTime() >= Date.now() - 24 * 60 * 60_000;
+  const publicNumber = await nextPublicNumber(tx, "load");
+  const {
+    id: _id,
+    publicNumber: _pn,
+    status: _st,
+    visibility: _vis,
+    publishedAt: _pub,
+    cancelledAt: _ca,
+    cancelReason: _cr,
+    createdAt: _c,
+    updatedAt: _u,
+    deletedAt: _d,
+    stops,
+    invitations,
+    ...data
+  } = src;
+  void [_id, _pn, _st, _vis, _pub, _ca, _cr, _c, _u, _d];
+  const copy = await tx.load.create({
+    data: {
+      ...data,
+      // Точки те же — маршрут копируется без пересчёта
+      routeGeometry: (data.routeGeometry ?? Prisma.DbNull) as Prisma.InputJsonValue | typeof Prisma.DbNull,
+      publicNumber,
+      status: stillActual ? "PUBLISHED" : "DRAFT",
+      visibility: stillActual ? (invitations.length ? "INVITE_ONLY" : "MARKETPLACE") : "DRAFT",
+      publishedAt: stillActual ? new Date() : null,
+      notes: [src.notes, `Повторно выставлен после отказа перевозчика от сделки ${orderNumber}.`].filter(Boolean).join("\n"),
+      stops: {
+        create: stops.map(({ id: _sid, loadId: _lid, createdAt: _sc, updatedAt: _su, ...st }) => (void [_sid, _lid, _sc, _su], st)),
+      },
+      invitations: { create: invitations.map((i) => ({ carrierCompanyId: i.carrierCompanyId })) },
+    },
+  });
+  await audit(
+    actor,
+    {
+      action: AuditAction.LOAD_CREATED,
+      entityType: "Load",
+      entityId: copy.id,
+      companyId: src.companyId,
+      newValue: { publicNumber, copiedFrom: src.publicNumber, reason, status: copy.status },
+    },
+    tx,
+  );
+  await notify(tx, {
+    userIds: await companyUserIds(tx, src.companyId, CUSTOMER_ROLES),
+    type: "LOAD_PUBLISHED",
+    title: stillActual ? `Груз снова на бирже: ${publicNumber}` : `Груз сохранён как черновик: ${publicNumber}`,
+    body: stillActual
+      ? `Перевозчик отказался от сделки ${orderNumber}. Груз ${src.publicNumber} выставлен повторно.`
+      : `Перевозчик отказался от сделки ${orderNumber}. Обновите даты загрузки и опубликуйте груз.`,
+    entityType: "Load",
+    entityId: copy.id,
+    link: `/loads/${copy.id}`,
+  });
+  return copy.id;
 }
 
 // ─────────── Назначение транспорта ───────────
@@ -534,6 +614,17 @@ export async function assignDriver(actor: Actor, orderId: string, driverId: stri
     if (driver.status !== "ACTIVE") throw new AppError("DRIVER_UNAVAILABLE", "Водитель неактивен или отстранён.");
     if (!driver.userId)
       throw new AppError("DRIVER_UNAVAILABLE", "У водителя нет доступа к приложению. Отправьте ему приглашение в разделе «Водители».");
+    // Учётная запись водителя должна быть активным водителем этой компании — иначе он не увидит рейс
+    const driverMember = await tx.companyMember.findFirst({
+      where: { companyId: order.carrierCompanyId, userId: driver.userId, role: "DRIVER", status: "ACTIVE", user: { status: "ACTIVE" } },
+      select: { id: true },
+    });
+    if (!driverMember) {
+      throw new AppError(
+        "DRIVER_UNAVAILABLE",
+        "Доступ водителя к приложению отключён или заблокирован. Восстановите доступ в разделе «Сотрудники».",
+      );
+    }
     const win = orderWindow(order);
     const busy = await tx.transportOrder.findMany({
       where: { driverId, id: { not: orderId }, currentStatus: { in: RESOURCE_BUSY_STATUSES }, deliveredAt: null },
@@ -749,9 +840,6 @@ export async function confirmDelivery(actor: Actor, orderId: string, comment: st
       expectedFrom: "DELIVERED",
       silent: true,
     });
-    await tx.trackingEvent.create({
-      data: { orderId, userId: actor.userId, type: "DELIVERED", source: "WEB", note: "Получение подтверждено заказчиком" },
-    });
     // Финансы: фиксируем окончательный расчёт на остаток, если он ещё не запланирован
     const payments = await tx.paymentRecord.findMany({ where: { orderId, type: { not: "SECURE_DEAL" }, status: { not: "CANCELLED" } } });
     const summary = financeSummary(
@@ -813,38 +901,5 @@ export async function confirmDelivery(actor: Actor, orderId: string, comment: st
   });
 }
 
-/** Изменение цены после подписания — только через администратора (точка расширения для Amendment). */
-export async function requestPriceChange(actor: Actor, orderId: string) {
-  const { order } = await requireOrderAccess(actor, orderId);
-  const signedOrLater = !["CARRIER_SELECTED", "CONTRACT_PENDING"].includes(order.currentStatus);
-  if (signedOrLater) {
-    throw new AppError("FORBIDDEN", "Для изменения цены после подписания обратитесь к администратору.");
-  }
-  throw new AppError(
-    "FORBIDDEN",
-    "Цена согласована при принятии предложения. Для изменения отмените сделку до подписания или обратитесь к администратору.",
-  );
-}
-
 export type { OrderSide };
 export { performTransitionInTx };
-
-/** Администратор: возобновить перевозку после спора/паузы. */
-export async function resumeOrder(actor: Actor, orderId: string, comment: string | null, tx?: Tx) {
-  if (!actor.isAdmin) throw errors.forbidden();
-  const run = async (t: Tx) => {
-    const order = await t.transportOrder.findUniqueOrThrow({ where: { id: orderId } });
-    if (!order.previousStatus || (order.currentStatus !== "DISPUTED" && order.currentStatus !== "ON_HOLD")) {
-      throw new AppError("INVALID_STATE_TRANSITION", "Перевозка не приостановлена.");
-    }
-    return performTransitionInTx(t, {
-      orderId,
-      to: order.previousStatus,
-      side: "ADMIN",
-      actor,
-      source: "WEB",
-      comment: comment ?? "Перевозка возобновлена администратором",
-    });
-  };
-  return tx ? run(tx) : prisma.$transaction(run);
-}

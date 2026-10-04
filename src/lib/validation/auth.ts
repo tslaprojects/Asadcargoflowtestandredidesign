@@ -17,6 +17,12 @@ export const emailSchema = z
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Введите пароль").max(128),
+  /** Режим данных выбирается при входе; сервер принимает только эти значения и хранит выбор в сессии. */
+  dataMode: z.enum(["real", "demo"], { message: "Выберите режим данных" }).default("real"),
+});
+
+export const dataModeSwitchSchema = z.object({
+  dataMode: z.enum(["real", "demo"], { message: "Выберите режим данных" }),
 });
 
 export const companyCreateSchema = z.object({

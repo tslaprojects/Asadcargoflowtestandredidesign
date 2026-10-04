@@ -57,7 +57,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
           <CardHeader>
             <CardTitle>Компании</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+          <CardContent className="text-body space-y-2">
             {user.memberships.length === 0 && <p className="text-muted-foreground">Нет компаний</p>}
             {user.memberships.map((m) => (
               <Link
@@ -71,7 +71,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
                 <StatusBadge kind="VerificationStatus" value={m.company.verificationStatus} />
               </Link>
             ))}
-            <p className="text-muted-foreground pt-2 text-xs">Активных сессий: {user.sessions.length}</p>
+            <p className="text-muted-foreground text-footnote pt-2">Активных сессий: {user.sessions.length}</p>
           </CardContent>
         </Card>
         <Card className="lg:col-span-2">
@@ -79,7 +79,7 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
             <CardTitle>Активность</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="divide-border divide-y text-sm">
+            <ul className="text-body divide-y-(length:--hairline)">
               {activity.map((a) => (
                 <li key={a.id} className="flex flex-wrap justify-between gap-2 py-2">
                   <span>

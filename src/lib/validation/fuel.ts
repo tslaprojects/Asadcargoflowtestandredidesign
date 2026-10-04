@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { currencySchema, optionalDate, optionalText, requiredText } from "./common";
+import { booleanish, currencySchema, filterDate, optionalDate, optionalText, requiredText } from "./common";
 
 export const FUEL_TYPES = ["DIESEL", "PETROL", "LNG", "CNG", "LPG", "ADBLUE", "OTHER"] as const;
 
@@ -48,7 +48,7 @@ export const fuelCardLimitsSchema = z
       .default([]),
     allowedFrom: timeOfDay,
     allowedTo: timeOfDay,
-    driverCanSeeFuelLevel: z.coerce.boolean().default(true),
+    driverCanSeeFuelLevel: booleanish.default(true),
   })
   .refine((v) => (v.allowedFrom == null) === (v.allowedTo == null), {
     message: "Укажите начало и конец разрешённого времени",
@@ -132,7 +132,10 @@ export const fuelPurchaseSchema = z.object({
   fuelType: z.enum(FUEL_TYPES),
   liters: z.coerce.number({ message: "Укажите литры" }).positive("Больше 0").max(5000),
   pricePerLiter: z.coerce.number({ message: "Укажите цену" }).positive("Больше 0").max(1e7),
-  transactionDate: optionalDate,
+  transactionDate: optionalDate.refine(
+    (d) => d === null || d.getTime() <= Date.now() + 5 * 60_000,
+    "Дата заправки не может быть в будущем",
+  ),
 });
 
 /** Водитель регистрирует заправку в демо-режиме: карта определяется сервером. */
@@ -140,7 +143,9 @@ export const driverFuelPurchaseSchema = fuelPurchaseSchema.omit({ fuelCardId: tr
 
 export const telemetryReadingSchema = z
   .object({
-    recordedAt: z.coerce.date({ message: "Укажите время показания" }),
+    recordedAt: z.coerce
+      .date({ message: "Укажите время показания" })
+      .refine((d) => d.getTime() <= Date.now() + 10 * 60_000, "Время показания не может быть в будущем"),
     latitude: coord(-90, 90),
     longitude: coord(-180, 180),
     speedKmh: coord(0, 300),
@@ -214,8 +219,8 @@ export const investigationLinkSchema = z.object({ fuelTransactionId: z.uuid() })
 export const fuelListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: filterDate,
+  to: filterDate,
   vehicleId: z.uuid().optional(),
   driverId: z.uuid().optional(),
   orderId: z.uuid().optional(),

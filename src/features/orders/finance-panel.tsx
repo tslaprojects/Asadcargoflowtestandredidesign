@@ -14,8 +14,6 @@ import { useAction } from "@/lib/client/use-action";
 import { formatDate } from "@/lib/format";
 import { enumOptions, label } from "@/lib/i18n";
 import type { FinanceSummary } from "@/lib/money";
-import { toast } from "sonner";
-import { errorMessage } from "@/lib/client/api";
 
 type Payment = {
   id: string;
@@ -34,6 +32,7 @@ export function FinancePanel({
   summary,
   payments,
   canEdit,
+  canConfirmPaid = false,
   closedOrCancelled,
   secureDeal = false,
 }: {
@@ -41,6 +40,8 @@ export function FinancePanel({
   summary: FinanceSummary;
   payments: Payment[];
   canEdit: boolean;
+  /** Подтвердить получение оплаты может получатель (перевозчик) или администратор */
+  canConfirmPaid?: boolean;
   closedOrCancelled: boolean;
   /** Расчёты ведутся через безопасную сделку — ручной учёт скрыт */
   secureDeal?: boolean;
@@ -59,14 +60,6 @@ export function FinancePanel({
       { success: "Платёж добавлен", onSuccess: () => setOpen(false) },
     );
 
-  const requestPriceChange = async () => {
-    try {
-      await api(`/api/orders/${orderId}/price`, { method: "POST" });
-    } catch (e) {
-      toast.info(errorMessage(e));
-    }
-  };
-
   const tiles = secureDeal
     ? [
         { label: "Стоимость", value: summary.total },
@@ -84,21 +77,18 @@ export function FinancePanel({
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="finance-summary">
         {tiles.map((t) => (
-          <div key={t.label} className="border-border bg-card rounded-xl border p-4">
-            <p className="text-muted-foreground text-sm">{t.label}</p>
-            <MoneyDisplay amount={t.value} currency={summary.currency} className="text-xl" />
+          <div key={t.label} className="bg-card rounded-lg px-4 py-3">
+            <p className="text-muted-foreground text-footnote font-medium">{t.label}</p>
+            <MoneyDisplay amount={t.value} currency={summary.currency} className="text-title2 font-semibold" />
           </div>
         ))}
       </div>
-      {summary.mismatchedCurrency && <p className="text-warning text-sm">Есть платежи в другой валюте — они не учитываются в сводке.</p>}
+      {summary.mismatchedCurrency && <p className="text-warning text-body">Есть платежи в другой валюте — они не учитываются в сводке.</p>}
       {!secureDeal && (
         <Card>
           <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
             <CardTitle>Платежи</CardTitle>
             <div className="flex flex-wrap gap-2">
-              <Button variant="ghost" size="sm" onClick={requestPriceChange}>
-                Изменить стоимость
-              </Button>
               {canEdit && !closedOrCancelled && (
                 <Button size="sm" onClick={() => setOpen(true)}>
                   <Plus /> Добавить платёж
@@ -108,7 +98,7 @@ export function FinancePanel({
           </CardHeader>
           <CardContent>
             {payments.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Платежей пока нет. Зафиксируйте предоплату и окончательный расчёт.</p>
+              <p className="text-muted-foreground text-body">Платежей пока нет. Зафиксируйте предоплату и окончательный расчёт.</p>
             ) : (
               <Table>
                 <TableHeader>
@@ -153,22 +143,24 @@ export function FinancePanel({
                                   Счёт выставлен
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                disabled={pending}
-                                onClick={() =>
-                                  run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "PAID" } }), {
-                                    success: "Платёж отмечен оплаченным",
-                                  })
-                                }
-                              >
-                                Оплачено
-                              </Button>
+                              {canConfirmPaid && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={pending}
+                                  onClick={() =>
+                                    run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "PAID" } }), {
+                                      success: "Платёж отмечен оплаченным",
+                                    })
+                                  }
+                                >
+                                  Оплачено
+                                </Button>
+                              )}
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                className="text-destructive"
+                                className="text-danger"
                                 disabled={pending}
                                 onClick={() =>
                                   run(() => api(`/api/payments/${p.id}`, { method: "PATCH", body: { status: "CANCELLED" } }), {
@@ -187,7 +179,7 @@ export function FinancePanel({
                 </TableBody>
               </Table>
             )}
-            <p className="text-muted-foreground mt-3 text-xs">
+            <p className="text-muted-foreground text-footnote mt-3">
               CargoFlow фиксирует финансовые договорённости, но не проводит платежи. Согласованная стоимость после подписания договора
               меняется только через администратора.
             </p>
@@ -224,7 +216,7 @@ export function FinancePanel({
             <NativeSelect value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
               <option value="PLANNED">Запланирован</option>
               <option value="INVOICED">Выставлен счёт</option>
-              <option value="PAID">Оплачен</option>
+              {canConfirmPaid && <option value="PAID">Оплачен</option>}
             </NativeSelect>
           </Field>
           <Field id="p-due" label="Срок оплаты">

@@ -19,6 +19,21 @@ export interface NotificationAdapter {
   send(n: OutboundNotification): Promise<void>;
 }
 
+/**
+ * Секреты в ссылках (токены сброса пароля и приглашений) никогда не пишутся в лог в production:
+ * доступ к логам не должен давать доступ к учётным записям.
+ */
+export function redactSecrets(text: string): string {
+  if (process.env.NODE_ENV !== "production") return text;
+  return text.replace(/([?&]token=)[^&\s]+/gi, "$1[REDACTED]").replace(/(\/invite\/)[A-Za-z0-9_-]+/g, "$1[REDACTED]");
+}
+
+function maskEmail(email: string): string {
+  if (process.env.NODE_ENV !== "production") return email;
+  const [local, domain] = email.split("@");
+  return `${local.slice(0, 1)}***@${domain ?? ""}`;
+}
+
 /** Email: в разработке пишет письмо в лог сервера. Для production подключите SMTP/API-провайдер, реализовав send(). */
 export class EmailNotificationAdapter implements NotificationAdapter {
   readonly channel = "email" as const;
@@ -28,7 +43,11 @@ export class EmailNotificationAdapter implements NotificationAdapter {
   async send(n: OutboundNotification) {
     if (!n.email) return;
     const url = n.link ? `${process.env.APP_URL ?? ""}${n.link}` : "";
-    logger.info("email.dev", { to: n.email, subject: `CargoFlow: ${n.title}`, text: `${n.body ?? ""} ${url}`.trim() });
+    logger.info("email.dev", {
+      to: maskEmail(n.email),
+      subject: `CargoFlow: ${n.title}`,
+      text: redactSecrets(`${n.body ?? ""} ${url}`.trim()),
+    });
   }
 }
 
@@ -63,6 +82,9 @@ export const externalAdapters: NotificationAdapter[] = [
 
 /** Прямая отправка email (сброс пароля, приглашения). */
 export async function sendEmail(to: string, subject: string, text: string) {
-  if ((process.env.EMAIL_DRIVER ?? "log") !== "log") return;
-  logger.info("email.dev", { to, subject, text });
+  if ((process.env.EMAIL_DRIVER ?? "log") !== "log") {
+    logger.warn("email.disabled", { subject, reason: "EMAIL_DRIVER не поддерживает отправку — письмо не отправлено" });
+    return;
+  }
+  logger.info("email.dev", { to: maskEmail(to), subject, text: redactSecrets(text) });
 }

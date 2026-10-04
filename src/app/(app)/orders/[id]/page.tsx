@@ -1,11 +1,12 @@
-import { MapPin, Phone } from "lucide-react";
+import { MessageSquare, Phone } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CompanyBadge, DefinitionList, MoneyDisplay, PageHeader } from "@/components/common/misc";
-import { RouteChain, RouteTimeline } from "@/components/common/route-timeline";
+import { InsetGroup, InsetList, ListRow } from "@/components/common/inset-group";
+import { CompanyBadge, MoneyDisplay, PageHeader } from "@/components/common/misc";
+import { RouteTimeline } from "@/components/common/route-timeline";
 import { StatusBadge } from "@/components/common/status-badge";
 import { UrlTabs } from "@/components/common/url-tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { contentHash } from "@/lib/contracts/template";
 import { countryName } from "@/lib/geo/countries";
 import { formatDate, formatDateTime, formatRelative, formatTime, formatVolume, formatWeight } from "@/lib/format";
@@ -23,7 +24,12 @@ import { FinancePanel } from "@/features/orders/finance-panel";
 import { SecureDealPanel, type SecureDealPanelView } from "@/features/orders/secure-deal-panel";
 import { OrderActions } from "@/features/orders/order-actions";
 import { OrderStatusTimeline, type HistoryEntry } from "@/features/orders/order-status-timeline";
+import { OrderTrackingHeader } from "@/features/orders/order-tracking-header";
+import { JourneyTimeline } from "@/features/operations/journey-timeline";
+import { orderProgress } from "@/lib/state-machine/order-progress";
 import { MapView, type MapPoint } from "@/features/tracking/map-view";
+import { routeLines } from "@/features/tracking/route-line";
+import { RouteDistance } from "@/components/common/route-distance";
 import { guard, pageActor } from "@/server/page-context";
 import { unreadForOrder } from "@/server/services/chat.service";
 import { DRIVER_DOCUMENT_TYPES, listOrderDocuments } from "@/server/services/document.service";
@@ -76,6 +82,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const contractSignedByMe = !!contract?.signatures.some((s) => s.companyId === myCompanyId);
   const reviewedByMe = order.reviews.some((r) => r.fromCompanyId === myCompanyId);
   const counterpart = side === "CUSTOMER" ? order.carrier.legalName : order.shipper.legalName;
+  const counterpartPhone = side === "CUSTOMER" ? order.carrier.phone : side === "CARRIER" ? order.shipper.phone : null;
   const docNames = Object.fromEntries(docs.items.map((d) => [d.id, d.filename]));
   const final = FINAL_STATUSES.includes(order.currentStatus);
 
@@ -101,97 +108,87 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   ];
 
   const summary = (
-    <Card className="lg:sticky lg:top-20" data-testid="order-summary">
-      <CardHeader>
-        <CardTitle>Сводка</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div>
-          <p className="text-muted-foreground text-xs">Текущий статус</p>
-          <StatusBadge kind="OrderStatus" value={order.currentStatus} size="lg" />
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Маршрут</p>
-          <RouteChain stops={stops} />
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Груз</p>
-          <p>
-            {order.load.title} · {formatWeight(order.load.weightKg)}
-          </p>
-        </div>
+    <InsetGroup header="Условия и участники">
+      <div data-testid="order-summary">
         {order.agreedAmount !== null && (
-          <div>
-            <p className="text-muted-foreground text-xs">Стоимость</p>
-            <MoneyDisplay amount={order.agreedAmount} currency={order.currency} className="text-lg" />
+          <div className="hairline-b px-4 py-3">
+            <p className="text-footnote text-muted-foreground">Стоимость перевозки</p>
+            <MoneyDisplay amount={order.agreedAmount} currency={order.currency} className="text-title1 font-semibold" />
           </div>
         )}
-        {secureDeal && (
-          <div>
-            <p className="text-muted-foreground text-xs">Безопасная сделка</p>
-            {secureLive ? (
-              <Link href={`/orders/${order.id}?tab=finance`} scroll={false} data-testid="summary-secure-deal">
-                <StatusBadge kind="PaymentStatus" value={secureStatus!} />
-              </Link>
-            ) : (
-              <p className="text-muted-foreground">Не оформлена</p>
-            )}
-          </div>
-        )}
-        <div>
-          <p className="text-muted-foreground text-xs">Заказчик</p>
-          <CompanyBadge
-            id={order.shipper.id}
-            name={order.shipper.legalName}
-            verification={order.shipper.verificationStatus}
-            rating={ratings[order.shipper.id]}
+        <InsetList>
+          {secureDeal && (
+            <ListRow
+              title="Безопасная сделка"
+              value={
+                secureLive ? (
+                  <Link href={`/orders/${order.id}?tab=finance`} scroll={false} data-testid="summary-secure-deal">
+                    <StatusBadge kind="PaymentStatus" value={secureStatus!} />
+                  </Link>
+                ) : (
+                  "Не оформлена"
+                )
+              }
+            />
+          )}
+          {order.load.routeDistanceKm != null && <ListRow title="Расстояние" value={<RouteDistance route={order.load} />} />}
+          <ListRow
+            title="Заказчик"
+            subtitle={
+              <CompanyBadge
+                id={order.shipper.id}
+                name={order.shipper.legalName}
+                verification={order.shipper.verificationStatus}
+                rating={ratings[order.shipper.id]}
+              />
+            }
           />
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Перевозчик</p>
-          <CompanyBadge
-            id={order.carrier.id}
-            name={order.carrier.legalName}
-            verification={order.carrier.verificationStatus}
-            rating={ratings[order.carrier.id]}
+          <ListRow
+            title="Перевозчик"
+            subtitle={
+              <CompanyBadge
+                id={order.carrier.id}
+                name={order.carrier.legalName}
+                verification={order.carrier.verificationStatus}
+                rating={ratings[order.carrier.id]}
+              />
+            }
           />
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Автомобиль</p>
-          <p data-testid="summary-vehicle">
-            {order.vehicle ? `${order.vehicle.make} ${order.vehicle.model} · ${order.vehicle.plateNumber}` : "Не назначен"}
-          </p>
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Водитель</p>
-          <p data-testid="summary-driver">
-            {order.driver ? (
-              <>
-                {order.driver.fullName}{" "}
-                <a href={`tel:${order.driver.phone}`} className="text-primary hover:underline">
-                  {order.driver.phone}
-                </a>
-              </>
-            ) : (
-              "Не назначен"
-            )}
-          </p>
-        </div>
-        <div>
-          <p className="text-muted-foreground text-xs">Последнее обновление</p>
-          <p>{formatDateTime(order.statusChangedAt)}</p>
-        </div>
-      </CardContent>
-    </Card>
+          <ListRow
+            title="Автомобиль"
+            subtitle={
+              <span data-testid="summary-vehicle" className="text-foreground">
+                {order.vehicle ? `${order.vehicle.make} ${order.vehicle.model} · ${order.vehicle.plateNumber}` : "Не назначен"}
+              </span>
+            }
+          />
+          <ListRow
+            title="Водитель"
+            subtitle={
+              <span data-testid="summary-driver" className="text-foreground">
+                {order.driver ? (
+                  <>
+                    {order.driver.fullName}{" "}
+                    <a href={`tel:${order.driver.phone}`} className="text-link hover:underline">
+                      {order.driver.phone}
+                    </a>
+                  </>
+                ) : (
+                  "Не назначен"
+                )}
+              </span>
+            }
+          />
+          <ListRow title="Статус обновлён" value={<span className="num">{formatDateTime(order.statusChangedAt)}</span>} />
+        </InsetList>
+      </div>
+    </InsetGroup>
   );
 
   const overview = (
-    <div className="grid gap-5 xl:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>Этапы перевозки</CardTitle>
-        </CardHeader>
-        <CardContent>
+    <div className="grid gap-6 xl:grid-cols-2">
+      <InsetGroup header="Этапы перевозки">
+        <div className="p-2">
           <OrderStatusTimeline
             history={order.statusHistory as HistoryEntry[]}
             current={order.currentStatus}
@@ -199,135 +196,129 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             userNames={userNames}
             documents={docNames}
           />
-        </CardContent>
-      </Card>
-      <div className="space-y-5">
-        <Card>
-          <CardHeader>
-            <CardTitle>Груз и транспорт</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DefinitionList
-              items={[
-                { label: "Груз", value: `${order.load.title} (${label("CargoType", order.load.cargoType)})` },
-                {
-                  label: "Вес / объём",
-                  value: `${formatWeight(order.load.weightKg)}${order.load.volumeM3 ? ` · ${formatVolume(order.load.volumeM3)}` : ""}`,
-                },
-                { label: "Места", value: order.load.packagesCount ? `${order.load.packagesCount} ${order.load.packageType ?? ""}` : "—" },
-                { label: "Кузов", value: order.load.bodyType ? label("BodyType", order.load.bodyType) : "Любой" },
-                { label: "Дата загрузки", value: formatDate(order.loadingDate) },
-                { label: "Дата доставки", value: formatDate(order.deliveryDate) },
-                {
-                  label: "Автомобиль",
-                  value: order.vehicle ? `${order.vehicle.make} ${order.vehicle.model}, ${order.vehicle.plateNumber}` : "Не назначен",
-                },
-                {
-                  label: "Водитель",
-                  value: order.driver ? `${order.driver.fullName}, кат. ${order.driver.licenseCategory}` : "Не назначен",
-                },
-                ...(order.load.clientName && !isDriver ? [{ label: "Клиент экспедитора", value: order.load.clientName }] : []),
-              ]}
+        </div>
+      </InsetGroup>
+      <div className="space-y-6">
+        <InsetGroup header="Груз и транспорт">
+          <InsetList>
+            <ListRow title="Груз" value={`${order.load.title} (${label("CargoType", order.load.cargoType)})`} />
+            <ListRow
+              title="Вес / объём"
+              value={
+                <span className="num">
+                  {formatWeight(order.load.weightKg)}
+                  {order.load.volumeM3 ? ` · ${formatVolume(order.load.volumeM3)}` : ""}
+                </span>
+              }
             />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Контакты участников</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
+            <ListRow title="Места" value={order.load.packagesCount ? `${order.load.packagesCount} ${order.load.packageType ?? ""}` : "—"} />
+            <ListRow title="Кузов" value={order.load.bodyType ? label("BodyType", order.load.bodyType) : "Любой"} />
+            <ListRow title="Дата загрузки" value={<span className="num">{formatDate(order.loadingDate)}</span>} />
+            <ListRow title="Дата доставки" value={<span className="num">{formatDate(order.deliveryDate)}</span>} />
+            <ListRow
+              title="Автомобиль"
+              value={order.vehicle ? `${order.vehicle.make} ${order.vehicle.model}, ${order.vehicle.plateNumber}` : "Не назначен"}
+            />
+            <ListRow
+              title="Водитель"
+              value={order.driver ? `${order.driver.fullName}, кат. ${order.driver.licenseCategory}` : "Не назначен"}
+            />
+            {order.load.clientName && !isDriver && <ListRow title="Клиент экспедитора" value={order.load.clientName} />}
+          </InsetList>
+        </InsetGroup>
+        <InsetGroup header="Контакты участников">
+          <InsetList>
             {[order.shipper, order.carrier].map((c) => (
-              <p key={c.id} className="flex flex-wrap items-center gap-x-2">
-                <span className="font-medium">{c.legalName}</span>
-                {c.phone && (
-                  <a className="text-primary inline-flex items-center gap-1 hover:underline" href={`tel:${c.phone}`}>
-                    <Phone className="size-3.5" aria-hidden /> {c.phone}
-                  </a>
-                )}
-                {c.email && <span className="text-muted-foreground">{c.email}</span>}
-              </p>
+              <ListRow
+                key={c.id}
+                title={c.legalName}
+                subtitle={c.email ?? undefined}
+                value={
+                  c.phone ? (
+                    <a className="text-link inline-flex items-center gap-1 hover:underline" href={`tel:${c.phone}`}>
+                      <Phone className="size-3.5" aria-hidden /> {c.phone}
+                    </a>
+                  ) : undefined
+                }
+              />
             ))}
-          </CardContent>
-        </Card>
+          </InsetList>
+        </InsetGroup>
         {order.reviews.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Отзывы</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
+          <InsetGroup header="Отзывы">
+            <InsetList>
               {order.reviews.map((r) => (
-                <div key={r.id}>
-                  <p className="font-medium">
-                    {r.fromCompany.legalName}: {"★".repeat(r.rating)}
-                    <span className="text-muted-foreground">{"★".repeat(5 - r.rating)}</span>
-                  </p>
-                  {r.comment && <p className="text-muted-foreground">{r.comment}</p>}
-                </div>
+                <ListRow
+                  key={r.id}
+                  title={
+                    <span>
+                      {r.fromCompany.legalName}{" "}
+                      <span className="text-rating" aria-label={`Оценка ${r.rating} из 5`}>
+                        {"★".repeat(r.rating)}
+                        <span className="text-fill">{"★".repeat(5 - r.rating)}</span>
+                      </span>
+                    </span>
+                  }
+                  subtitle={r.comment ?? undefined}
+                />
               ))}
-            </CardContent>
-          </Card>
+            </InsetList>
+          </InsetGroup>
         )}
       </div>
     </div>
   );
 
   const routeTab = (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-      <Card>
-        <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2">
-            <MapPin className="size-4" aria-hidden /> Карта
-          </CardTitle>
-          <p className="text-muted-foreground text-sm" data-testid="last-location">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <InsetGroup
+        header="Карта"
+        action={
+          <span className="text-muted-foreground" data-testid="last-location">
             {lastLocation
               ? `Последнее обновление: ${formatTime(lastLocation.createdAt)} (${formatRelative(lastLocation.createdAt)})`
               : "Последнее местоположение не получено"}
-          </p>
-        </CardHeader>
-        <CardContent>
-          <MapView points={points} className="h-[420px] w-full overflow-hidden rounded-xl" />
-          <p className="text-muted-foreground mt-2 text-xs">
-            Позиция передаётся водителем из приложения (геолокация браузера) — это не непрерывный GPS-трекинг.
-          </p>
-        </CardContent>
-      </Card>
-      <div className="space-y-5">
-        <Card>
-          <CardHeader>
-            <CardTitle>Точки маршрута</CardTitle>
-          </CardHeader>
-          <CardContent>
+          </span>
+        }
+        footer="Позиция передаётся водителем из приложения (геолокация браузера) — это не непрерывный GPS-трекинг."
+      >
+        <MapView points={points} lines={routeLines(order.load)} className="h-[420px] w-full" />
+      </InsetGroup>
+      <div className="space-y-6">
+        <InsetGroup header="Точки маршрута">
+          <div className="px-4 py-3.5">
             <RouteTimeline stops={stops} />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>События трекинга</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {tracking.items.length === 0 ? (
-              <p className="text-muted-foreground text-sm">Событий пока нет</p>
-            ) : (
-              <ul className="space-y-2 text-sm">
-                {tracking.items.map((t) => (
-                  <li key={t.id} className="flex justify-between gap-3">
-                    <span>
-                      {label("TrackingEventType", t.type)}
-                      {t.note && <span className="text-muted-foreground block text-xs">{t.note}</span>}
-                      {t.latitude !== null && (
-                        <span className="text-muted-foreground block text-xs">
-                          {t.latitude.toFixed(4)}, {t.longitude?.toFixed(4)}
-                          {t.accuracy ? ` ±${Math.round(t.accuracy)} м` : ""}
-                        </span>
-                      )}
-                    </span>
-                    <span className="text-muted-foreground shrink-0 text-xs">{formatDateTime(t.createdAt)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        </InsetGroup>
+        <InsetGroup header="События трекинга">
+          {tracking.items.length === 0 ? (
+            <p className="text-subheadline text-muted-foreground px-4 py-3">Событий пока нет</p>
+          ) : (
+            <InsetList>
+              {tracking.items.map((t) => (
+                <ListRow
+                  key={t.id}
+                  title={label("TrackingEventType", t.type)}
+                  subtitle={
+                    t.note || t.latitude !== null ? (
+                      <>
+                        {t.note}
+                        {t.note && t.latitude !== null && " · "}
+                        {t.latitude !== null && (
+                          <span className="num">
+                            {t.latitude.toFixed(4)}, {t.longitude?.toFixed(4)}
+                            {t.accuracy ? ` ±${Math.round(t.accuracy)} м` : ""}
+                          </span>
+                        )}
+                      </>
+                    ) : undefined
+                  }
+                  value={<span className="text-footnote num">{formatDateTime(t.createdAt)}</span>}
+                />
+              ))}
+            </InsetList>
+          )}
+        </InsetGroup>
       </div>
     </div>
   );
@@ -337,28 +328,27 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
   const documentsTab = (
     <div className="space-y-5">
       {contract && !isDriver && (
-        <div className="border-border bg-card flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
+        <div className="bg-card flex flex-wrap items-center justify-between gap-2 rounded-lg px-4 py-3">
           <span>
             <span className="font-medium">Договор {contract.documentNumber}</span> (версия {contract.version}) ·{" "}
             <StatusBadge kind="ContractStatus" value={contract.status} />
           </span>
-          <a className="text-primary hover:underline" href={`/api/contracts/${contract.id}/pdf`} target="_blank" rel="noopener noreferrer">
+          <a className="text-link hover:underline" href={`/api/contracts/${contract.id}/pdf`} target="_blank" rel="noopener noreferrer">
             Открыть PDF
           </a>
         </div>
       )}
       <DocumentList docs={docItems} replaceUrl={`/api/orders/${id}/documents`} replaceTypes={uploadTypes} />
       {can("DOCUMENT_UPLOAD") && (!final || side === "ADMIN") && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Загрузить документ</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <InsetGroup header="Загрузить документ">
+          <div className="p-4">
             <DocumentUploader url={`/api/orders/${id}/documents`} types={uploadTypes} defaultType="CMR" />
-          </CardContent>
-        </Card>
+          </div>
+        </InsetGroup>
       )}
-      {final && side !== "ADMIN" && <p className="text-muted-foreground text-sm">Перевозка завершена — загрузка документов недоступна.</p>}
+      {final && side !== "ADMIN" && (
+        <p className="text-subheadline text-muted-foreground px-4">Перевозка завершена — загрузка документов недоступна.</p>
+      )}
     </div>
   );
 
@@ -375,7 +365,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       integrityOk={contentHash(contract.contentSnapshot) === contract.contentHash}
     />
   ) : (
-    <p className="text-muted-foreground text-sm">Договор ещё не создан.</p>
+    <p className="text-subheadline text-muted-foreground px-4">Договор ещё не создан.</p>
   );
 
   return (
@@ -383,27 +373,40 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
       <PageHeader
         back={{ href: isDriver ? "/driver" : "/orders", label: isDriver ? "Мой рейс" : "Перевозки" }}
         title={
-          <span className="flex flex-wrap items-center gap-3">
-            Перевозка {order.publicNumber}
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span>
+              Перевозка <span className="id-code">{order.publicNumber}</span>
+            </span>
             <StatusBadge kind="OrderStatus" value={order.currentStatus} size="lg" />
           </span>
         }
         description={
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <RouteChain stops={stops} className="text-foreground text-base" />
-            <Link href={`/loads/${order.load.id}`} className="text-primary hover:underline">
-              Груз {order.load.publicNumber}
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-foreground">{order.load.title}</span>
+            <span aria-hidden>·</span>
+            <span className="num">{formatWeight(order.load.weightKg)}</span>
+            <span aria-hidden>·</span>
+            <Link href={`/loads/${order.load.id}`} className="text-link hover:underline">
+              Груз <span className="id-code">{order.load.publicNumber}</span>
             </Link>
           </span>
         }
       />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 space-y-5">
-          <Card>
-            <CardHeader>
-              <CardTitle>Что дальше</CardTitle>
-            </CardHeader>
-            <CardContent>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-6">
+          <OrderTrackingHeader
+            progress={orderProgress(order.statusHistory, order.currentStatus)}
+            stops={stops}
+            lastLocation={lastLocation}
+            loadingDate={order.loadingDate}
+            deliveryDate={order.deliveryDate}
+            vehicle={order.vehicle}
+            driver={order.driver}
+            points={points}
+            lines={routeLines(order.load)}
+          />
+          <InsetGroup header="Действия">
+            <div className="p-4">
               <OrderActions
                 counterpart={counterpart}
                 ctx={{
@@ -425,9 +428,33 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                   vehicleId: order.vehicleId,
                 }}
               />
-              {final && order.currentStatus === "CANCELLED" && <p className="text-danger text-sm">Перевозка отменена.</p>}
-            </CardContent>
-          </Card>
+              {final && order.currentStatus === "CANCELLED" && <p className="text-danger text-subheadline">Перевозка отменена.</p>}
+              {!final && !isDriver && (
+                <div className="hairline-t mt-4 flex flex-wrap items-center gap-2 pt-4">
+                  <span className="text-subheadline text-muted-foreground mr-1">Связаться:</span>
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href={`/orders/${order.id}?tab=chat`} scroll={false}>
+                      <MessageSquare /> Чат по перевозке{unread ? ` (${unread})` : ""}
+                    </Link>
+                  </Button>
+                  {counterpartPhone && (
+                    <Button asChild variant="secondary" size="sm">
+                      <a href={`tel:${counterpartPhone}`}>
+                        <Phone /> {side === "CUSTOMER" ? "Перевозчику" : "Заказчику"}
+                      </a>
+                    </Button>
+                  )}
+                  {order.driver && (
+                    <Button asChild variant="ghost" size="sm">
+                      <a href={`tel:${order.driver.phone}`}>
+                        <Phone /> Водителю
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </InsetGroup>
           <UrlTabs
             defaultTab="overview"
             tabs={[
@@ -457,6 +484,7 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                         summary={finance}
                         payments={payments.filter((p) => p.type !== "SECURE_DEAL")}
                         canEdit={can("PAYMENT_EDIT") && !secureLive}
+                        canConfirmPaid={side === "CARRIER" || side === "ADMIN"}
                         closedOrCancelled={order.currentStatus === "CANCELLED"}
                         secureDeal={secureLive}
                       />
@@ -475,14 +503,11 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                 label: "История",
                 hidden: isDriver,
                 content: (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>История изменений</CardTitle>
-                    </CardHeader>
-                    <CardContent>
+                  <InsetGroup header="История изменений">
+                    <div className="p-4">
                       <AuditFeed rows={(audit?.items ?? []) as unknown as AuditRow[]} />
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </InsetGroup>
                 ),
               },
               {
@@ -513,7 +538,18 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
             ]}
           />
         </div>
-        <aside className="order-first lg:order-none">{summary}</aside>
+        <aside className="space-y-6 xl:sticky xl:top-20 xl:self-start">
+          <InsetGroup header="Этапы рейса">
+            <div className="px-4 py-3.5">
+              <JourneyTimeline
+                status={order.currentStatus}
+                stops={stops}
+                history={order.statusHistory.map((h) => ({ status: h.toStatus, at: String(h.createdAt) }))}
+              />
+            </div>
+          </InsetGroup>
+          {summary}
+        </aside>
       </div>
     </>
   );

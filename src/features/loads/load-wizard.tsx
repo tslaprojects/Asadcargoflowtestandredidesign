@@ -1,8 +1,8 @@
 "use client";
-import { ArrowDown, Check, MapPin, Plus, Trash2 } from "lucide-react";
+import { Check, MapPin, Plus, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { useFieldArray, useForm, type FieldPath } from "react-hook-form";
+import { useFieldArray, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { toast } from "sonner";
 import { Field, FormError } from "@/components/common/field";
 import { DefinitionList, MoneyDisplay } from "@/components/common/misc";
@@ -14,13 +14,14 @@ import { Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api, ApiError, errorMessage, newIdempotencyKey } from "@/lib/client/api";
 import { formatVolume, formatWeight } from "@/lib/format";
-import { COUNTRIES, countryFlag, countryName, defaultTimezone } from "@/lib/geo/countries";
+import { COUNTRIES, countryName, defaultTimezone } from "@/lib/geo/countries";
 import { knownCities } from "@/lib/geo/geocoder";
 import { enumOptions, label } from "@/lib/i18n";
 import { CURRENCIES } from "@/lib/money";
 import { zonedToUtc } from "@/lib/tz";
 import { cn } from "@/lib/utils";
 import { loadInputSchema, type LoadInput } from "@/lib/validation/load";
+import { RoutePreview } from "./route-preview";
 import { defaultWizardValues, emptyStop, type WizardValues } from "./wizard-values";
 
 function toPayload(v: WizardValues): LoadInput {
@@ -84,7 +85,7 @@ export function LoadWizard({
   const form = useForm<WizardValues>({ defaultValues: initial ?? defaultWizardValues });
   const { fields, insert, remove } = useFieldArray({ control: form.control, name: "stops" });
   const errors = form.formState.errors;
-  const values = form.watch();
+  const values = useWatch({ control: form.control }) as WizardValues;
 
   const validate = (upTo: number): boolean => {
     form.clearErrors();
@@ -174,8 +175,13 @@ export function LoadWizard({
               aria-current={i === step ? "step" : undefined}
               className="flex w-full flex-col items-start gap-1.5 text-left"
             >
-              <span className={cn("h-1.5 w-full rounded-full", i < step ? "bg-success" : i === step ? "bg-primary" : "bg-muted")} />
-              <span className={cn("text-xs sm:text-sm", i === step ? "font-medium" : "text-muted-foreground")}>
+              <span
+                className={cn(
+                  "h-1.5 w-full rounded-full transition-colors duration-(--duration-complex)",
+                  i < step ? "bg-primary/45" : i === step ? "bg-primary" : "bg-fill-secondary",
+                )}
+              />
+              <span className={cn("text-footnote sm:text-body", i === step ? "font-medium" : "text-muted-foreground")}>
                 <span className="hidden sm:inline">Шаг {i + 1}. </span>
                 {s}
               </span>
@@ -190,17 +196,22 @@ export function LoadWizard({
         <Card>
           <CardHeader>
             <CardTitle>Маршрут</CardTitle>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-body">
               Укажите точки загрузки, транзита/границы и доставки. Время — местное для каждой точки.
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-muted/60 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm" aria-label="Цепочка маршрута">
+            <div className="bg-fill-quaternary flex flex-wrap items-center gap-2 rounded-lg px-3 py-2.5" aria-label="Цепочка маршрута">
               {values.stops.map((s, i) => (
                 <React.Fragment key={i}>
-                  {i > 0 && <ArrowDown className="text-muted-foreground size-4 -rotate-90" aria-hidden />}
-                  <span className="font-medium whitespace-nowrap">
-                    {countryFlag(s.country)} {s.city || countryName(s.country)}
+                  {i > 0 && (
+                    <span className="text-tertiary-foreground" aria-hidden>
+                      →
+                    </span>
+                  )}
+                  <span className="inline-flex items-baseline gap-1 font-medium whitespace-nowrap">
+                    {s.city || countryName(s.country)}
+                    <span className="text-caption text-tertiary-foreground">{s.country}</span>
                   </span>
                 </React.Fragment>
               ))}
@@ -210,9 +221,9 @@ export function LoadWizard({
               const isLast = i === fields.length - 1;
               const country = values.stops[i]?.country;
               return (
-                <fieldset key={f.id} className="border-border rounded-xl border p-4" data-testid={`stop-${i}`}>
-                  <legend className="flex items-center gap-2 px-1 text-sm font-medium">
-                    <MapPin className="text-primary size-4" aria-hidden />
+                <fieldset key={f.id} className="bg-fill-quaternary rounded-lg p-4" data-testid={`stop-${i}`}>
+                  <legend className="text-body flex items-center gap-2 px-1 font-medium">
+                    <MapPin className="text-link size-4" aria-hidden />
                     Точка {i + 1}: {label("StopType", values.stops[i]?.type)}
                   </legend>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -228,7 +239,7 @@ export function LoadWizard({
                       <NativeSelect {...form.register(`stops.${i}.country`)}>
                         {COUNTRIES.map((c) => (
                           <option key={c.code} value={c.code}>
-                            {c.flag} {c.name}
+                            {c.name}
                           </option>
                         ))}
                       </NativeSelect>
@@ -266,7 +277,7 @@ export function LoadWizard({
                       </>
                     )}
                   </div>
-                  <div className="text-muted-foreground mt-2 flex items-center justify-between text-xs">
+                  <div className="text-muted-foreground text-footnote mt-2 flex items-center justify-between">
                     <span>Часовой пояс точки: {defaultTimezone(country)}</span>
                     {!isFirst && !isLast && (
                       <Button type="button" variant="ghost" size="sm" onClick={() => remove(i)} aria-label={`Удалить точку ${i + 1}`}>
@@ -277,7 +288,7 @@ export function LoadWizard({
                 </fieldset>
               );
             })}
-            {err("stops") && <p className="text-destructive text-sm">{err("stops")}</p>}
+            {err("stops") && <p className="text-danger text-body">{err("stops")}</p>}
             <Button
               type="button"
               variant="outline"
@@ -333,7 +344,7 @@ export function LoadWizard({
             <Field id="cargoDescription" label="Описание" className="sm:col-span-2" hint="Особенности груза, условия обращения">
               <Textarea rows={3} {...form.register("cargoDescription")} />
             </Field>
-            <p className="text-muted-foreground text-xs sm:col-span-2">
+            <p className="text-muted-foreground text-footnote sm:col-span-2">
               Опасные грузы (ADR) в MVP не поддерживаются отдельно — укажите особенности в описании.
             </p>
           </CardContent>
@@ -432,14 +443,14 @@ export function LoadWizard({
               <Textarea rows={3} {...form.register("additionalTerms")} />
             </Field>
             <fieldset className="sm:col-span-3">
-              <legend className="mb-2 text-sm font-medium">Кто увидит груз</legend>
+              <legend className="text-body mb-2 font-medium">Кто увидит груз</legend>
               <div className="grid gap-2 sm:grid-cols-2">
                 {(["MARKETPLACE", "INVITE_ONLY"] as const).map((v) => (
                   <label
                     key={v}
                     className={cn(
-                      "flex cursor-pointer items-start gap-2 rounded-lg border p-3 text-sm",
-                      values.visibility === v ? "border-primary bg-accent" : "border-border",
+                      "flex cursor-pointer items-start gap-2 rounded-lg p-3 transition-colors duration-(--duration-micro)",
+                      values.visibility === v ? "bg-accent ring-primary/40 ring-1 ring-inset" : "bg-fill-quaternary hover:bg-fill-tertiary",
                     )}
                   >
                     <input type="radio" value={v} className="mt-0.5 accent-[var(--primary)]" {...form.register("visibility")} />
@@ -453,12 +464,12 @@ export function LoadWizard({
                 ))}
               </div>
               {values.visibility === "INVITE_ONLY" && (
-                <div className="border-border mt-3 max-h-56 space-y-1 overflow-y-auto rounded-lg border p-2">
-                  {carriers.length === 0 && <p className="text-muted-foreground p-2 text-sm">Нет доступных перевозчиков</p>}
+                <div className="bg-fill-quaternary mt-3 max-h-56 space-y-1 overflow-y-auto rounded-lg p-2">
+                  {carriers.length === 0 && <p className="text-muted-foreground text-body p-2">Нет доступных перевозчиков</p>}
                   {carriers.map((c) => {
                     const checked = values.invitedCarrierIds.includes(c.id);
                     return (
-                      <label key={c.id} className="hover:bg-muted flex items-center gap-2 rounded-md px-2 py-1.5 text-sm">
+                      <label key={c.id} className="hover:bg-muted text-body flex items-center gap-2 rounded-md px-2 py-1.5">
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(v) =>
@@ -469,13 +480,13 @@ export function LoadWizard({
                           }
                         />
                         <span className="flex-1">{c.legalName}</span>
-                        <span className="text-muted-foreground text-xs">
+                        <span className="text-muted-foreground text-footnote">
                           {c.city} · {label("VerificationStatus", c.verificationStatus)}
                         </span>
                       </label>
                     );
                   })}
-                  {err("invitedCarrierIds") && <p className="text-destructive p-2 text-sm">{err("invitedCarrierIds")}</p>}
+                  {err("invitedCarrierIds") && <p className="text-danger text-body p-2">{err("invitedCarrierIds")}</p>}
                 </div>
               )}
             </fieldset>
@@ -487,11 +498,11 @@ export function LoadWizard({
         <Card data-testid="load-preview">
           <CardHeader>
             <CardTitle>Предпросмотр груза</CardTitle>
-            <p className="text-muted-foreground text-sm">Проверьте данные перед публикацией.</p>
+            <p className="text-muted-foreground text-body">Проверьте данные перед публикацией.</p>
           </CardHeader>
           <CardContent className="grid gap-6 lg:grid-cols-2">
             <div>
-              <h3 className="mb-3 text-sm font-semibold">Маршрут</h3>
+              <h3 className="text-body mb-3 font-semibold">Маршрут</h3>
               <RouteTimeline
                 stops={payloadPreview.stops.map((s) => ({
                   type: s.type,
@@ -505,9 +516,19 @@ export function LoadWizard({
                   contactPhone: (s.contactPhone as string) || null,
                 }))}
               />
+              <div className="mt-4">
+                <RoutePreview
+                  stops={payloadPreview.stops.map((s) => ({
+                    country: s.country,
+                    city: s.city,
+                    street: (s.street as string) || null,
+                    building: (s.building as string) || null,
+                  }))}
+                />
+              </div>
             </div>
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold">{values.title}</h3>
+              <h3 className="text-body font-semibold">{values.title}</h3>
               <DefinitionList
                 items={[
                   { label: "Тип груза", value: label("CargoType", values.cargoType) },
@@ -540,16 +561,16 @@ export function LoadWizard({
                   { label: "Видимость", value: label("LoadVisibility", values.visibility) },
                 ]}
               />
-              {values.additionalTerms && <p className="text-muted-foreground text-sm">Условия: {values.additionalTerms}</p>}
+              {values.additionalTerms && <p className="text-muted-foreground text-body">Условия: {values.additionalTerms}</p>}
             </div>
           </CardContent>
         </Card>
       )}
 
-      <div className="border-border bg-card/95 sticky bottom-16 z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 shadow-sm backdrop-blur lg:bottom-3">
+      <div className="material-bar shadow-menu sticky bottom-[calc(3.875rem+env(safe-area-inset-bottom))] z-10 flex flex-wrap items-center justify-between gap-2 rounded-xl p-2.5 lg:bottom-4">
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           onClick={() => (preview ? setPreview(false) : setStep(Math.max(0, step - 1)))}
           disabled={(!preview && step === 0) || submitting !== null}
         >
@@ -561,7 +582,7 @@ export function LoadWizard({
               {(mode === "create" || loadStatus === "DRAFT") && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   onClick={() => submit("draft")}
                   loading={submitting === "draft"}
                   loadingText="Сохраняем..."

@@ -42,26 +42,43 @@ export async function notify(tx: Tx, input: NotifyInput) {
   scheduleExternal(created.map((c) => c.id));
 }
 
+/**
+ * Внешняя отправка после фиксации транзакции. Уведомления создаются внутри бизнес-транзакции, поэтому
+ * отправка ждёт, пока записи станут видимы (коммит), с нарастающей задержкой до ~30 с.
+ * Если записи так и не появились — транзакция откатилась, и отправлять нечего.
+ */
 function scheduleExternal(ids: string[]) {
   const enabled = externalAdapters.filter((a) => a.isEnabled());
   if (enabled.length === 0 || process.env.NODE_ENV === "test") return;
-  setTimeout(async () => {
-    try {
-      const rows = await prisma.notification.findMany({
-        where: { id: { in: ids } },
-        include: { user: { select: { email: true, phone: true } } },
-      });
-      for (const n of rows) {
-        for (const a of enabled) {
-          await a
-            .send({ userId: n.userId, email: n.user.email, phone: n.user.phone, type: n.type, title: n.title, body: n.body, link: n.link })
-            .catch((e) => logger.warn("notification.adapter_failed", { channel: a.channel, error: e }));
+  const delays = [250, 1_000, 3_000, 8_000, 20_000];
+  const attempt = (i: number) =>
+    setTimeout(async () => {
+      try {
+        const rows = await prisma.notification.findMany({
+          where: { id: { in: ids } },
+          include: { user: { select: { email: true, phone: true } } },
+        });
+        if (rows.length < ids.length && i + 1 < delays.length) return attempt(i + 1);
+        for (const n of rows) {
+          for (const a of enabled) {
+            await a
+              .send({
+                userId: n.userId,
+                email: n.user.email,
+                phone: n.user.phone,
+                type: n.type,
+                title: n.title,
+                body: n.body,
+                link: n.link,
+              })
+              .catch((e) => logger.warn("notification.adapter_failed", { channel: a.channel, error: e }));
+          }
         }
+      } catch (e) {
+        logger.warn("notification.dispatch_failed", { error: e });
       }
-    } catch (e) {
-      logger.warn("notification.dispatch_failed", { error: e });
-    }
-  }, 250);
+    }, delays[i]);
+  attempt(0);
 }
 
 /** Пользователи компании (активные участники), опционально — только с указанными ролями. */

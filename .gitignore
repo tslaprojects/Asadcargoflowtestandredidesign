@@ -53,3 +53,7 @@ next-env.d.ts
 
 # MapLibre web worker копируется из node_modules (scripts/copy-maplibre-worker.mjs)
 /public/maplibre
+
+# Python-кэш скриптов Claude Code skills (.claude/skills)
+__pycache__/
+*.pyc

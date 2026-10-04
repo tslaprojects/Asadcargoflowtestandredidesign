@@ -54,7 +54,7 @@ export function BidDialog({ loadId, currency, targetPrice }: { loadId: string; c
       await api(`/api/loads/${loadId}/bids`, {
         body: {
           amount: Number(v.amount),
-          currency: v.currency,
+          currency,
           comment: v.comment,
           terms: v.terms,
           readyDate: v.readyDate || null,
@@ -91,7 +91,8 @@ export function BidDialog({ loadId, currency, targetPrice }: { loadId: string; c
                 <Input type="number" inputMode="decimal" min={0} step="any" {...form.register("amount")} />
               </Field>
               <Field id="bid-currency" label="Валюта" required>
-                <NativeSelect {...form.register("currency")}>
+                {/* Валюта сделки — валюта груза */}
+                <NativeSelect disabled {...form.register("currency")}>
                   {CURRENCIES.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -225,18 +226,18 @@ export type BidView = {
 
 function NegotiationHistory({ messages }: { messages: BidView["messages"] }) {
   return (
-    <ol className="border-border space-y-2 border-l-2 pl-3" aria-label="История переговоров">
+    <ol className="hairline-l border-border-strong space-y-2 pl-3" aria-label="История переговоров">
       {messages.map((m) => (
-        <li key={m.id} className="text-sm">
+        <li key={m.id} className="text-body">
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className={cn("font-medium", m.side === "CUSTOMER" ? "text-primary" : "text-foreground")}>
+            <span className={cn("font-medium", m.side === "CUSTOMER" ? "text-link" : "text-foreground")}>
               {m.side === "CUSTOMER" ? "Заказчик" : "Перевозчик"}
             </span>
-            <span className="text-muted-foreground text-xs">{label("BidMessageType", m.type)}</span>
+            <span className="text-muted-foreground text-footnote">{label("BidMessageType", m.type)}</span>
             {m.amount !== null && m.currency && (
-              <MoneyDisplay amount={m.amount} currency={m.currency} className={m.type === "COUNTER" ? "text-primary" : ""} />
+              <MoneyDisplay amount={m.amount} currency={m.currency} className={m.type === "COUNTER" ? "text-link" : ""} />
             )}
-            <span className="text-muted-foreground text-xs">{formatDateTime(m.createdAt)}</span>
+            <span className="text-muted-foreground text-footnote">{formatDateTime(m.createdAt)}</span>
           </div>
           {m.message && <p className="text-muted-foreground">{m.message}</p>}
         </li>
@@ -278,23 +279,20 @@ export function BidCard({
     });
 
   return (
-    <div
-      className={cn("bg-card rounded-xl border p-4 shadow-xs", bid.status === "ACCEPTED" ? "border-success-border" : "border-border")}
-      data-testid="bid-card"
-    >
+    <div className={cn("bg-card rounded-lg p-4", bid.status === "ACCEPTED" && "ring-success/45 ring-1 ring-inset")} data-testid="bid-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <CompanyBadge id={bid.carrier.id} name={bid.carrier.legalName} verification={bid.carrier.verificationStatus} rating={rating} />
-          <p className="text-muted-foreground text-xs">
+          <p className="text-muted-foreground text-footnote">
             {bid.createdBy.firstName} {bid.createdBy.lastName} · {formatDateTime(bid.createdAt)}
             {bid.readyDate && ` · готов с ${formatDate(bid.readyDate)}`}
             {bid.validUntil && ` · действует до ${formatDate(bid.validUntil)}`}
           </p>
         </div>
         <div className="text-right">
-          <MoneyDisplay amount={bid.amount} currency={bid.currency} className="text-xl" />
+          <MoneyDisplay amount={bid.amount} currency={bid.currency} className="text-title2" />
           {delta !== null && (
-            <p className={cn("text-xs", delta > 0 ? "text-warning" : "text-success")}>
+            <p className={cn("text-footnote", delta > 0 ? "text-warning" : "text-success")}>
               {delta > 0 ? "+" : ""}
               {delta}% к целевой цене
             </p>
@@ -304,10 +302,10 @@ export function BidCard({
           </div>
         </div>
       </div>
-      {bid.comment && <p className="mt-2 text-sm">{bid.comment}</p>}
-      {bid.terms && <p className="text-muted-foreground mt-1 text-sm">Условия: {bid.terms}</p>}
+      {bid.comment && <p className="text-body mt-2">{bid.comment}</p>}
+      {bid.terms && <p className="text-muted-foreground text-body mt-1">Условия: {bid.terms}</p>}
       {active && bid.counterAmount !== null && (
-        <div className="bg-info-bg text-info mt-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-sm">
+        <div className="bg-info-bg text-info text-body mt-3 flex flex-wrap items-center gap-2 rounded-lg px-3 py-2">
           <ArrowRightLeft className="size-4" aria-hidden />
           Встречное предложение заказчика: <MoneyDisplay amount={bid.counterAmount} currency={bid.currency} />
           <Badge tone="warning">{bid.awaitingSide === "CARRIER" ? "ожидает ответа перевозчика" : "ожидает заказчика"}</Badge>
@@ -318,7 +316,7 @@ export function BidCard({
         <div className="mt-3">
           <button
             type="button"
-            className="text-primary text-xs hover:underline"
+            className="text-link text-footnote hover:underline"
             onClick={() => setShowHistory((s) => !s)}
             aria-expanded={showHistory}
           >
@@ -333,7 +331,7 @@ export function BidCard({
       )}
 
       {active && canAct && perspective === "owner" && (
-        <div className="border-border mt-4 flex flex-wrap gap-2 border-t pt-3">
+        <div className="hairline-t mt-4 flex flex-wrap gap-2 pt-3">
           <ConfirmDialog
             title="Принять предложение?"
             description={
@@ -351,7 +349,11 @@ export function BidCard({
             pendingLabel="Оформляем сделку..."
             onConfirm={async () => {
               const r = await run<{ orderId: string }>(
-                (key) => api(`/api/bids/${bid.id}/accept`, { method: "POST", idempotencyKey: key }),
+                (key) =>
+                  api(`/api/bids/${bid.id}/accept`, {
+                    body: { expectedAmount: bid.amount, expectedCurrency: bid.currency },
+                    idempotencyKey: key,
+                  }),
                 {
                   success: (d) => `Предложение принято. Создана перевозка — подпишите договор.${d ? "" : ""}`,
                   refresh: false,
@@ -387,7 +389,7 @@ export function BidCard({
               return r !== undefined;
             }}
             trigger={
-              <Button variant="ghost" className="text-destructive">
+              <Button variant="ghost" className="text-danger">
                 <X /> Отклонить
               </Button>
             }
@@ -396,7 +398,7 @@ export function BidCard({
       )}
 
       {active && canAct && perspective === "carrier" && (
-        <div className="border-border mt-4 flex flex-wrap gap-2 border-t pt-3">
+        <div className="hairline-t mt-4 flex flex-wrap gap-2 pt-3">
           {bid.counterAmount !== null && bid.awaitingSide === "CARRIER" && (
             <>
               <Button
@@ -428,7 +430,7 @@ export function BidCard({
               return r !== undefined;
             }}
             trigger={
-              <Button variant="ghost" className="text-destructive">
+              <Button variant="ghost" className="text-danger">
                 Отозвать предложение
               </Button>
             }

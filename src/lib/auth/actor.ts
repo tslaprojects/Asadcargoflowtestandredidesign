@@ -1,5 +1,6 @@
 import "server-only";
 import type { CompanyType, MemberRole, PlatformRole, VerificationStatus } from "@/generated/prisma/enums";
+import { currentDataMode, type DataMode } from "@/lib/db/data-mode";
 import { prisma } from "@/lib/db/prisma";
 import { errors } from "@/lib/errors";
 import { permissionsForRole, type Permission } from "@/lib/permissions";
@@ -32,11 +33,18 @@ export type Actor = {
   /** Активная компания (контекст работы пользователя). */
   active: ActorMembership | null;
   permissions: Set<Permission>;
+  /** Режим данных сессии (из серверной сессии; не меняет права). */
+  dataMode: DataMode;
   ip: string | null;
   userAgent: string | null;
 };
 
-export type RequestMeta = { ip: string | null; userAgent: string | null };
+export type RequestMeta = {
+  ip: string | null;
+  userAgent: string | null;
+  /** Нативное приложение CargoFlow (Windows, macOS, iOS, Android): сессия передаётся токеном, а не cookie. */
+  native?: boolean;
+};
 
 const VIEW_ONLY = /_VIEW(_OWN)?$/;
 
@@ -97,6 +105,7 @@ export async function buildActor(
     memberships,
     active,
     permissions: permissionsForMembership(active, isAdmin),
+    dataMode: currentDataMode() ?? "real",
     ip: opts.meta?.ip ?? null,
     userAgent: opts.meta?.userAgent ?? null,
   };
@@ -114,6 +123,20 @@ export function requirePermission(actor: Actor, permission: Permission, message?
 export function membershipIn(actor: Actor, companyId: string | null | undefined): ActorMembership | null {
   if (!companyId) return null;
   return actor.memberships.find((m) => m.companyId === companyId) ?? null;
+}
+
+/**
+ * Права пользователя в конкретной компании (по его роли именно в ней, с учётом приостановки компании).
+ * Для операций над объектом компании права берутся отсюда, а не из активной компании:
+ * у пользователя может быть несколько компаний с разными ролями.
+ */
+export function permissionsInCompany(actor: Actor, companyId: string | null | undefined): Set<Permission> {
+  if (actor.isAdmin) return permissionsForMembership(null, true);
+  return permissionsForMembership(membershipIn(actor, companyId), false);
+}
+
+export function requireCompanyPermission(actor: Actor, companyId: string | null | undefined, permission: Permission, message?: string) {
+  if (!permissionsInCompany(actor, companyId).has(permission)) throw errors.forbidden(message);
 }
 
 /** Требует активную компанию (контекст работы). */
@@ -139,5 +162,6 @@ export function toClientActor(actor: Actor): ClientActor {
     memberships: actor.memberships,
     active: actor.active,
     permissions: [...actor.permissions],
+    dataMode: actor.dataMode,
   };
 }

@@ -337,7 +337,7 @@ export async function getContractPdf(actor: Actor, contractId: string) {
       signerName: `${s.user.firstName} ${s.user.lastName}`,
       companyName: s.company.legalName,
       side: s.side === "CUSTOMER" ? "Заказчик" : "Перевозчик",
-      signedAt: s.signedAt.toISOString().replace("T", " ").slice(0, 19),
+      signedAt: `${s.signedAt.toISOString().replace("T", " ").slice(0, 19)} UTC`,
       method: "Внутреннее электронное подтверждение (INTERNAL_ACCEPTANCE)",
       documentHash: s.documentHash,
       ipAddress: s.ipAddress,

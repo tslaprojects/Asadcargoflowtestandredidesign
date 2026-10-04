@@ -1,8 +1,15 @@
 node_modules
 .next
 .env
+.env.*
+!.env.example
 storage
 storage-e2e
 test-results
 playwright-report
 .git
+.local
+tests
+docs
+coverage
+*.tsbuildinfo

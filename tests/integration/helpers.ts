@@ -10,9 +10,10 @@ export const PASSWORD = "Test12345";
 const META = { ip: "10.0.0.1", userAgent: "vitest" };
 let counter = 0;
 
+/** Очищает базу текущего режима данных (по умолчанию — реальную; внутри runWithDataMode("demo") — демо-схему). */
 export async function resetDb() {
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
-    SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
+    SELECT tablename FROM pg_tables WHERE schemaname = current_schema() AND tablename <> '_prisma_migrations'`;
   await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${tables.map((t) => `"${t.tablename}"`).join(", ")} RESTART IDENTITY CASCADE`);
   await prisma.platformSetting.createMany({
     data: Object.entries(DEFAULT_SETTINGS).map(([key, value]) => ({ key, value: value as never })),

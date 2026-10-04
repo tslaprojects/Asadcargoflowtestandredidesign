@@ -1,0 +1,22 @@
+{
+  "results": [
+    {
+      "country_code": "kz",
+      "city": "Алматы",
+      "lon": 76.1,
+      "lat": 43.1,
+      "result_type": "city",
+      "rank": { "confidence": 0.9 }
+    },
+    {
+      "country_code": "kz",
+      "city": "Алматы",
+      "street": "проспект Абая",
+      "housenumber": "10",
+      "lon": 76.9286,
+      "lat": 43.2402,
+      "result_type": "building",
+      "rank": { "confidence": 0.95, "confidence_street_level": 1, "match_type": "full_match" }
+    }
+  ]
+}

@@ -35,7 +35,7 @@ export default async function AdminDocuments({ searchParams }: { searchParams: S
                 d.filename
               ) : (
                 <a
-                  className="text-primary hover:underline"
+                  className="text-link hover:underline"
                   href={`/api/documents/${d.id}/download?inline=1`}
                   target="_blank"
                   rel="noopener noreferrer"
@@ -49,7 +49,7 @@ export default async function AdminDocuments({ searchParams }: { searchParams: S
             key: "order",
             header: "Перевозка",
             cell: (d) => (
-              <Link className="text-primary hover:underline" href={`/orders/${d.order.id}?tab=documents`}>
+              <Link className="text-link hover:underline" href={`/orders/${d.order.id}?tab=documents`}>
                 {d.order.publicNumber}
               </Link>
             ),

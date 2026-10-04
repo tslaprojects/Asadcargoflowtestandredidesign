@@ -1,6 +1,6 @@
+import { ArrowRight, Wallet } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { DataTable } from "@/components/common/data-table";
 import { FilterBar } from "@/components/common/filter-bar";
 import { EmptyState, MoneyDisplay, PageHeader } from "@/components/common/misc";
 import { Pagination } from "@/components/common/pagination";
@@ -13,6 +13,10 @@ import { listMyPayments } from "@/server/services/payment.service";
 
 export const metadata: Metadata = { title: "Финансы" };
 
+/**
+ * Финансы в контексте перевозок: перевозка → перевозчик → ставка → платежи (тип, статус, срок).
+ * Итоги по валютам — по всем перевозкам. Платформа не проводит платежи: учёт и безопасная сделка через провайдера.
+ */
 export default async function FinancePage({ searchParams }: { searchParams: SearchParams }) {
   const actor = await pageActorWith("PAYMENT_VIEW");
   const params = await searchParams;
@@ -20,40 +24,47 @@ export default async function FinancePage({ searchParams }: { searchParams: Sear
   const data = toPlain(
     await listMyPayments(actor, {
       page: pageNum(params),
-      pageSize: 20,
+      pageSize: 40,
       status: status && ["PLANNED", "INVOICED", "PAID", "CANCELLED"].includes(status) ? status : undefined,
     }),
   );
-  type Row = (typeof data.items)[number];
+  type Pay = (typeof data.items)[number];
   const totals = Object.entries(data.totals);
+  const groups = new Map<string, { order: Pay["order"]; items: Pay[] }>();
+  for (const p of data.items) {
+    const g = groups.get(p.order.id) ?? { order: p.order, items: [] };
+    g.items.push(p);
+    groups.set(p.order.id, g);
+  }
+
   return (
     <>
       <PageHeader
         title="Финансы"
-        description="Финансовый учёт по перевозкам: стоимость, предоплаты, оплаты и остатки. Платформа не проводит платежи."
+        description="Стоимость перевозок, оплаты и остатки — по каждому рейсу. Платформа не хранит деньги и не проводит платежи сама."
       />
       {totals.length > 0 && (
-        <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="bg-card mb-4 grid divide-y-(length:--hairline) overflow-hidden rounded-lg md:grid-cols-2 md:divide-x-(length:--hairline) md:divide-y-0 xl:grid-cols-4">
           {totals.map(([cur, t]) => (
-            <div key={cur} className="border-border bg-card rounded-xl border p-4">
-              <p className="text-sm font-medium">{cur}</p>
-              <dl className="mt-2 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">По договорам</dt>
-                  <dd>
+            <div key={cur} className="px-4 py-3">
+              <p className="text-section mb-1.5">{cur}</p>
+              <dl className="grid grid-cols-3 gap-2">
+                <div>
+                  <dt className="text-footnote text-muted-foreground tabular">По договорам</dt>
+                  <dd className="text-body font-semibold">
                     <MoneyDisplay amount={t.contracted} currency={cur} />
                   </dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Оплачено</dt>
-                  <dd>
+                <div>
+                  <dt className="text-footnote text-muted-foreground tabular">Оплачено</dt>
+                  <dd className="text-success text-body font-semibold">
                     <MoneyDisplay amount={t.paid} currency={cur} />
                   </dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-muted-foreground">Остаток</dt>
-                  <dd>
-                    <MoneyDisplay amount={t.outstanding} currency={cur} className="text-warning" />
+                <div>
+                  <dt className="text-footnote text-muted-foreground tabular">Остаток</dt>
+                  <dd className="text-warning text-body font-semibold">
+                    <MoneyDisplay amount={t.outstanding} currency={cur} />
                   </dd>
                 </div>
               </dl>
@@ -62,37 +73,57 @@ export default async function FinancePage({ searchParams }: { searchParams: Sear
         </div>
       )}
       <FilterBar fields={[{ type: "select", name: "status", label: "Статус платежа", options: enumOptions("PaymentStatus") }]} />
-      <DataTable<Row>
-        rows={data.items}
-        rowKey={(p) => p.id}
-        empty={<EmptyState title="Платежей пока нет" description="Платежи фиксируются во вкладке «Финансы» перевозки." />}
-        columns={[
-          {
-            key: "order",
-            header: "Перевозка",
-            primary: true,
-            cell: (p) => (
-              <Link className="text-primary hover:underline" href={`/orders/${p.order.id}?tab=finance`}>
-                {p.order.publicNumber}
-              </Link>
-            ),
-          },
-          { key: "type", header: "Тип", cell: (p) => label("PaymentType", p.type) },
-          { key: "amount", header: "Сумма", cell: (p) => <MoneyDisplay amount={p.amount} currency={p.currency} /> },
-          { key: "status", header: "Статус", cell: (p) => <StatusBadge kind="PaymentStatus" value={p.status} /> },
-          {
-            key: "payer",
-            header: "Плательщик → получатель",
-            cell: (p) => `${p.payer.legalName} → ${p.payee.legalName}`,
-            hideOnMobile: true,
-          },
-          {
-            key: "date",
-            header: "Оплачен / срок",
-            cell: (p) => (p.paidAt ? formatDate(p.paidAt) : p.dueDate ? `до ${formatDate(p.dueDate)}` : "—"),
-          },
-        ]}
-      />
+      {groups.size === 0 ? (
+        <EmptyState
+          icon={Wallet}
+          title="Платежей пока нет"
+          description="Предоплата, окончательный расчёт и безопасная сделка оформляются во вкладке «Финансы» перевозки."
+        />
+      ) : (
+        <div className="space-y-3" data-testid="finance-groups">
+          {[...groups.values()].map(({ order, items }) => (
+            <section key={order.id} className="bg-card overflow-hidden rounded-lg" aria-labelledby={`fg-${order.id}`}>
+              <header className="bg-surface-secondary hairline-b text-body flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2.5">
+                <h2 id={`fg-${order.id}`} className="font-semibold">
+                  <Link href={`/orders/${order.id}?tab=finance`} className="hover:text-link">
+                    <span className="id-code text-muted-foreground text-footnote mr-2 font-medium">{order.publicNumber}</span>
+                    {order.load.originCity} → {order.load.destinationCity}
+                  </Link>
+                </h2>
+                <ArrowRight className="text-muted-foreground size-3.5" aria-hidden />
+                <span className="text-muted-foreground">{order.carrier.legalName}</span>
+                <ArrowRight className="text-muted-foreground size-3.5" aria-hidden />
+                <span>
+                  ставка <MoneyDisplay amount={order.agreedAmount} currency={order.currency} className="font-semibold" />
+                </span>
+                <span className="ml-auto">
+                  <StatusBadge kind="OrderStatus" value={order.currentStatus} />
+                </span>
+              </header>
+              <ul className="divide-y-(length:--hairline)">
+                {items.map((p) => (
+                  <li
+                    key={p.id}
+                    className="text-body grid gap-x-4 gap-y-1 px-4 py-2.5 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-medium">{label("PaymentType", p.type)}</span>
+                      <span className="text-footnote text-muted-foreground tabular block truncate">
+                        {p.payer.legalName} → {p.payee.legalName}
+                      </span>
+                    </span>
+                    <StatusBadge kind="PaymentStatus" value={p.status} />
+                    <span className="text-footnote text-muted-foreground tabular sm:text-right">
+                      {p.paidAt ? `оплачен ${formatDate(p.paidAt)}` : p.dueDate ? `срок ${formatDate(p.dueDate)}` : "—"}
+                    </span>
+                    <MoneyDisplay amount={p.amount} currency={p.currency} className="font-semibold sm:text-right" />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
       <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/finance" searchParams={params} />
     </>
   );

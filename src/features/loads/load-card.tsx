@@ -1,9 +1,9 @@
-import { Calendar, Package, Scale, Truck } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { CompanyBadge, MoneyDisplay } from "@/components/common/misc";
+import { RouteDistance, type RouteSummary } from "@/components/common/route-distance";
 import { RouteChain } from "@/components/common/route-timeline";
 import { StatusBadge } from "@/components/common/status-badge";
-import { Badge } from "@/components/ui/badge";
 import { formatDateRange, formatVolume, formatWeight } from "@/lib/format";
 import { label } from "@/lib/i18n";
 
@@ -26,63 +26,85 @@ export type LoadCardData = {
   company: { id: string; legalName: string; verificationStatus: string };
   _count?: { bids: number };
   bids?: { status: string; amount: number; currency: string }[];
-};
+} & Partial<RouteSummary>;
 
-/** Карточка груза на бирже / в списке. */
+/**
+ * Строка груза в списке, как письмо в Mail: маршрут и цена — первой строкой, что везём — второй,
+ * параметры, даты, заказчик и статус — третьей, вторичным цветом.
+ * Статус «Опубликован» не показывается (на бирже он у всех), значимые статусы — «Идут торги», «Выбран» и т. п. — видны.
+ */
 export function LoadCard({ load, showCompany = true }: { load: LoadCardData; showCompany?: boolean }) {
   const myBid = load.bids?.find((b) => b.status === "PENDING" || b.status === "ACCEPTED");
+  const quote = load.priceType === "REQUEST_QUOTE" || load.targetPrice === null;
   return (
     <Link
       href={`/loads/${load.id}`}
-      className="group border-border bg-card hover:border-primary/40 flex flex-col gap-3 rounded-xl border p-4 shadow-xs transition-colors hover:shadow-sm"
+      className="hover:bg-fill-quaternary active:bg-fill-tertiary flex items-center gap-2 pl-4 transition-colors duration-(--duration-micro)"
       data-testid="load-card"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-muted-foreground text-xs font-medium">{load.publicNumber}</p>
-          <p className="group-hover:text-primary truncate font-semibold">{load.title}</p>
-        </div>
-        <StatusBadge kind="LoadStatus" value={load.status} />
-      </div>
-      <RouteChain stops={load.stops} className="text-sm font-medium" />
-      <div className="text-muted-foreground grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
-        <span className="inline-flex items-center gap-1.5">
-          <Scale className="size-4" aria-hidden /> {formatWeight(load.weightKg)}
-          {load.volumeM3 ? ` · ${formatVolume(load.volumeM3)}` : ""}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Truck className="size-4" aria-hidden /> {load.bodyType ? label("BodyType", load.bodyType) : "Любой кузов"}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Calendar className="size-4" aria-hidden /> Загрузка: {formatDateRange(load.loadingDateFrom, load.loadingDateTo)}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Package className="size-4" aria-hidden /> Доставка: {formatDateRange(load.deliveryDateFrom, load.deliveryDateTo)}
-        </span>
-      </div>
-      <div className="border-border mt-auto space-y-2 border-t pt-3">
-        {showCompany && (
-          <div className="min-w-0 text-sm">
-            <CompanyBadge name={load.company.legalName} verification={load.company.verificationStatus} link={false} />
+      <div data-row-content className="flex min-w-0 flex-1 items-center gap-3 py-3 pr-3">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="flex items-baseline gap-3">
+            <RouteChain stops={load.stops} compact className="min-w-0 flex-1 font-semibold" />
+            {quote ? (
+              <span className="shrink-0 font-semibold">Запрос цены</span>
+            ) : (
+              <MoneyDisplay amount={load.targetPrice} currency={load.currency} className="text-title3 shrink-0 font-semibold" />
+            )}
           </div>
-        )}
-        <div className="flex items-baseline justify-between gap-2">
-          {load.priceType === "REQUEST_QUOTE" || load.targetPrice === null ? (
-            <span className="text-base font-semibold">Запрос цены</span>
-          ) : (
-            <MoneyDisplay amount={load.targetPrice} currency={load.currency} className="text-lg font-semibold" />
+          <div className="flex items-baseline gap-3">
+            <p className="min-w-0 flex-1 truncate">
+              {load.title} <span className="id-code text-footnote text-muted-foreground">{load.publicNumber}</span>
+            </p>
+            <span className="text-footnote text-muted-foreground shrink-0">{label("PriceType", load.priceType)}</span>
+          </div>
+          <p className="text-footnote text-muted-foreground num flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <span>
+              {formatWeight(load.weightKg)}
+              {load.volumeM3 ? ` · ${formatVolume(load.volumeM3)}` : ""} ·{" "}
+              {load.bodyType ? label("BodyType", load.bodyType) : "любой кузов"}
+            </span>
+            <span aria-hidden>·</span>
+            <span>
+              <span className="sr-only">Загрузка: </span>
+              {formatDateRange(load.loadingDateFrom, load.loadingDateTo)}
+              {(load.deliveryDateFrom || load.deliveryDateTo) && (
+                <>
+                  {" "}
+                  → <span className="sr-only">доставка: </span>
+                  {formatDateRange(load.deliveryDateFrom, load.deliveryDateTo)}
+                </>
+              )}
+            </span>
+            {load.routeDistanceKm != null && (
+              <>
+                <span aria-hidden>·</span>
+                <RouteDistance
+                  compact
+                  route={{
+                    routeDistanceKm: load.routeDistanceKm,
+                    routeDurationMin: load.routeDurationMin ?? null,
+                    routeSource: load.routeSource ?? null,
+                  }}
+                />
+              </>
+            )}
+          </p>
+          {(showCompany || load.status !== "PUBLISHED" || (load._count && load._count.bids > 0) || myBid) && (
+            <div className="text-footnote flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5">
+              {showCompany && <CompanyBadge name={load.company.legalName} verification={load.company.verificationStatus} link={false} />}
+              {load.status !== "PUBLISHED" && <StatusBadge kind="LoadStatus" value={load.status} />}
+              {load._count && load._count.bids > 0 && <span className="text-muted-foreground num">предложений: {load._count.bids}</span>}
+              {myBid && (
+                <span className={myBid.status === "ACCEPTED" ? "text-success" : "text-link"}>
+                  Ваше предложение: <MoneyDisplay amount={myBid.amount} currency={myBid.currency} />
+                </span>
+              )}
+            </div>
           )}
-          <span className="text-muted-foreground text-right text-xs">
-            {label("PriceType", load.priceType)}
-            {load._count && load._count.bids > 0 && ` · предложений: ${load._count.bids}`}
-          </span>
         </div>
+        <ChevronRight className="text-tertiary-foreground size-4 shrink-0" aria-hidden />
       </div>
-      {myBid && (
-        <Badge tone={myBid.status === "ACCEPTED" ? "success" : "info"} className="w-fit">
-          Ваше предложение: <MoneyDisplay amount={myBid.amount} currency={myBid.currency} />
-        </Badge>
-      )}
     </Link>
   );
 }

@@ -31,7 +31,7 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
             type: "select",
             name: "country",
             label: "Страна на маршруте",
-            options: COUNTRIES.map((c) => ({ value: c.code, label: `${c.flag} ${c.name}` })),
+            options: COUNTRIES.map((c) => ({ value: c.code, label: c.name })),
           },
           { type: "date", name: "dateFrom", label: "Загрузка с" },
           { type: "date", name: "dateTo", label: "Загрузка по" },
@@ -61,11 +61,13 @@ export default async function MarketplacePage({ searchParams }: { searchParams: 
           description="Измените фильтры или загляните позже — новые грузы появляются постоянно."
         />
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <ul className="bg-card [&>li+li_[data-row-content]]:hairline-t overflow-hidden rounded-lg" data-testid="load-list">
           {data.items.map((l) => (
-            <LoadCard key={l.id} load={l as unknown as LoadCardData} />
+            <li key={l.id}>
+              <LoadCard load={l as unknown as LoadCardData} />
+            </li>
           ))}
-        </div>
+        </ul>
       )}
       <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/marketplace" searchParams={params} />
     </>

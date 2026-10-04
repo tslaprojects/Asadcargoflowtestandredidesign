@@ -1,117 +1,121 @@
 import type { Metadata } from "next";
-import { DataTable } from "@/components/common/data-table";
+import Link from "next/link";
 import { FilterBar } from "@/components/common/filter-bar";
-import { EmptyState, PageHeader } from "@/components/common/misc";
 import { Pagination } from "@/components/common/pagination";
-import { StatusBadge } from "@/components/common/status-badge";
-import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/db/prisma";
-import { countryFlag } from "@/lib/geo/countries";
-import { formatVolume, formatWeight } from "@/lib/format";
-import { enumOptions, label } from "@/lib/i18n";
+import { label } from "@/lib/i18n";
 import { toPlain } from "@/lib/serialize";
-import { AddVehicleButton, VehicleRowActions, type VehicleRow } from "@/features/fleet/vehicle-components";
+import { cn } from "@/lib/utils";
+import { FleetWorkspace, type FleetVehicle } from "@/features/fleet/fleet-workspace";
+import { AddVehicleButton } from "@/features/fleet/vehicle-components";
 import { pageActorWith, pageNum, sp, type SearchParams } from "@/server/page-context";
 import { listVehicles } from "@/server/services/fleet.service";
-import Link from "next/link";
+import { fleetAssignments } from "@/server/services/operations.service";
 
-export const metadata: Metadata = { title: "Автомобили" };
+export const metadata: Metadata = { title: "Автопарк" };
 
+const STATUSES = ["AVAILABLE", "ASSIGNED", "MAINTENANCE", "INACTIVE"] as const;
+const STATUS_SHORT: Record<(typeof STATUSES)[number], string> = {
+  AVAILABLE: "Свободны",
+  ASSIGNED: "В рейсе",
+  MAINTENANCE: "Сервис",
+  INACTIVE: "Неактивны",
+};
+
+/** Автопарк — Fleet Operations: карта машин в рейсе + список + панель машины (действия сохранены). */
 export default async function VehiclesPage({ searchParams }: { searchParams: SearchParams }) {
   const actor = await pageActorWith("VEHICLE_VIEW");
   const params = await searchParams;
   const status = sp(params, "status");
-  const data = toPlain(
-    await listVehicles(actor, {
-      q: sp(params, "q"),
-      status: status && ["AVAILABLE", "ASSIGNED", "INACTIVE", "MAINTENANCE"].includes(status) ? status : undefined,
-      page: pageNum(params),
-      pageSize: 20,
-    }),
-  );
-  const awaiting = toPlain(
-    await prisma.transportOrder.findMany({
-      where: { carrierCompanyId: actor.active!.companyId, currentStatus: "CONTRACT_SIGNED" },
+  const companyId = actor.active!.companyId;
+  const validStatus = status && (STATUSES as readonly string[]).includes(status) ? status : undefined;
+  const [data, trips, grouped, awaitingRaw] = await Promise.all([
+    listVehicles(actor, { q: sp(params, "q"), status: validStatus, page: pageNum(params), pageSize: 30 }).then(toPlain),
+    fleetAssignments(actor),
+    prisma.vehicle.groupBy({ by: ["status"], where: { companyId, deletedAt: null }, _count: { _all: true } }),
+    prisma.transportOrder.findMany({
+      where: { carrierCompanyId: companyId, currentStatus: "CONTRACT_SIGNED" },
       select: { id: true, publicNumber: true, load: { select: { originCity: true, destinationCity: true, weightKg: true } } },
     }),
-  ).map((o) => ({
+  ]);
+  const awaiting = toPlain(awaitingRaw).map((o) => ({
     id: o.id,
     publicNumber: o.publicNumber,
     route: `${o.load.originCity} → ${o.load.destinationCity}`,
     weightKg: o.load.weightKg,
   }));
+  const tripByVehicle = new Map(trips.filter((t) => t.vehicle).map((t) => [t.vehicle!.id, t]));
+  const vehicles: FleetVehicle[] = data.items.map((v) => ({
+    id: v.id,
+    plateNumber: v.plateNumber,
+    country: v.country,
+    make: v.make,
+    model: v.model,
+    year: v.year,
+    vehicleType: v.vehicleType,
+    bodyType: v.bodyType,
+    capacityKg: v.capacityKg,
+    volumeM3: v.volumeM3,
+    vin: v.vin,
+    gpsEnabled: v.gpsEnabled,
+    status: v.status,
+    bodyLabel: label("BodyType", v.bodyType),
+    currentOrder: v.orders[0] ?? null,
+    trip: tripByVehicle.get(v.id) ?? null,
+  }));
+  const count = (s?: string) => grouped.filter((g) => !s || g.status === s).reduce((a, g) => a + g._count._all, 0);
+  const href = (s?: string) => {
+    const q = new URLSearchParams();
+    const text = sp(params, "q");
+    if (text) q.set("q", text);
+    if (s) q.set("status", s);
+    const qs = q.toString();
+    return qs ? `/vehicles?${qs}` : "/vehicles";
+  };
   const canManage = actor.permissions.has("VEHICLE_MANAGE");
-  type Row = (typeof data.items)[number];
+
+  const counts = (
+    <nav aria-label="Фильтр по статусу" className="bg-fill-tertiary grid grid-cols-5 gap-0.5 rounded-md p-0.5" data-testid="fleet-counts">
+      {[undefined, ...STATUSES].map((s) => {
+        const active = (validStatus ?? undefined) === s;
+        return (
+          <Link
+            key={s ?? "all"}
+            href={href(s)}
+            aria-current={active ? "true" : undefined}
+            className={cn(
+              "flex min-w-0 flex-col items-center rounded-[0.4375rem] px-1 py-1 text-center transition-[background-color,box-shadow] duration-(--duration-standard)",
+              active ? "bg-segment-thumb shadow-control" : "hover:bg-fill-quaternary",
+            )}
+          >
+            <span className="text-headline num leading-5">{count(s)}</span>
+            <span className="text-caption text-muted-foreground w-full truncate">{s ? STATUS_SHORT[s] : "Все"}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
   return (
-    <>
-      <PageHeader
-        title="Мои автомобили"
-        description={`Всего: ${data.total}${awaiting.length ? ` · ожидают назначения: ${awaiting.length}` : ""}`}
-        actions={canManage && <AddVehicleButton />}
-      />
-      <FilterBar
-        fields={[
-          { type: "search", name: "q", placeholder: "Госномер, марка, модель…" },
-          { type: "select", name: "status", label: "Статус", options: enumOptions("VehicleStatus") },
-        ]}
-      />
-      <DataTable<Row>
-        rows={data.items}
-        rowKey={(v) => v.id}
-        caption="Автомобили"
-        empty={<EmptyState title="Автомобили ещё не добавлены" description="Добавьте автомобили, чтобы назначать их на перевозки." />}
-        columns={[
-          {
-            key: "plate",
-            header: "Номер",
-            primary: true,
-            cell: (v) => (
-              <span className="font-mono font-semibold">
-                {countryFlag(v.country)} {v.plateNumber}
-              </span>
-            ),
-          },
-          { key: "make", header: "Марка", cell: (v) => `${v.make} ${v.model}${v.year ? ` (${v.year})` : ""}` },
-          { key: "body", header: "Кузов", cell: (v) => label("BodyType", v.bodyType) },
-          { key: "cap", header: "Грузоподъёмность", cell: (v) => formatWeight(v.capacityKg) },
-          { key: "vol", header: "Объём", cell: (v) => formatVolume(v.volumeM3), hideOnMobile: true },
-          {
-            key: "gps",
-            header: "GPS",
-            cell: (v) => (v.gpsEnabled ? <Badge tone="success">есть</Badge> : <Badge tone="neutral">нет</Badge>),
-          },
-          { key: "status", header: "Статус", cell: (v) => <StatusBadge kind="VehicleStatus" value={v.status} /> },
-          {
-            key: "order",
-            header: "Рейс",
-            cell: (v) =>
-              v.orders[0] ? (
-                <Link className="text-primary hover:underline" href={`/orders/${v.orders[0].id}`}>
-                  {v.orders[0].publicNumber}
-                </Link>
-              ) : (
-                "—"
-              ),
-          },
-          ...(canManage
-            ? [
-                {
-                  key: "actions",
-                  header: "Действия",
-                  className: "text-right",
-                  cell: (v: Row) => (
-                    <VehicleRowActions
-                      vehicle={v as unknown as VehicleRow}
-                      currentOrder={v.orders[0] ?? null}
-                      assignableOrders={awaiting}
-                    />
-                  ),
-                },
-              ]
-            : []),
-        ]}
-      />
-      <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/vehicles" searchParams={params} />
-    </>
+    <FleetWorkspace
+      key="fleet"
+      vehicles={vehicles}
+      total={data.total}
+      counts={counts}
+      controls={
+        <FilterBar key="filters" bare inlineFields={0} fields={[{ type: "search", name: "q", placeholder: "Госномер, марка, модель…" }]} />
+      }
+      footer={
+        <div key="pagination" className="px-3 pb-3">
+          <Pagination page={data.page} pageSize={data.pageSize} total={data.total} basePath="/vehicles" searchParams={params} />
+        </div>
+      }
+      headerActions={canManage ? <AddVehicleButton key="add" /> : undefined}
+      canManage={canManage}
+      canFuel={actor.permissions.has("FUEL_VIEW")}
+      assignableOrders={awaiting}
+      now={new Date().toISOString()}
+      initialSelected={sp(params, "selected") ?? null}
+    />
   );
 }

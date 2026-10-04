@@ -246,6 +246,9 @@ export async function adminCompanyDecision(
     let action: (typeof AuditAction)[keyof typeof AuditAction];
     switch (decision) {
       case "APPROVE":
+        if (company.verificationStatus === "SUSPENDED") {
+          throw new AppError("INVALID_STATE_TRANSITION", "Компания приостановлена — сначала восстановите её деятельность.");
+        }
         status = "VERIFIED";
         action = AuditAction.VERIFICATION_APPROVED;
         if (pending)
@@ -370,6 +373,7 @@ export async function adminListLoads(actor: Actor, opts: Page & { q?: string; st
       orderBy: { createdAt: "desc" },
       skip: (opts.page - 1) * opts.pageSize,
       take: opts.pageSize,
+      omit: { routeGeometry: true },
       include: { company: { select: { legalName: true } }, _count: { select: { bids: true } } },
     }),
     prisma.load.count({ where }),

@@ -77,6 +77,24 @@ export function formatVolume(m3: number | null | undefined): string {
   return `${formatNumber(m3, 1)} м³`;
 }
 
+/** Километраж: «1 240» (целые км; до 10 км — с десятыми). */
+export function formatDistanceKm(km: number | null | undefined): string {
+  if (km === null || km === undefined || !Number.isFinite(km)) return "—";
+  return formatNumber(km, km < 10 ? 1 : 0);
+}
+
+/** Время в пути: «45 мин», «18 ч 30 мин», «2 д 4 ч». */
+export function formatDuration(min: number | null | undefined): string {
+  if (min === null || min === undefined || !Number.isFinite(min) || min < 0) return "—";
+  const m = Math.round(min);
+  if (m < 60) return `${m} мин`;
+  const days = Math.floor(m / 1440);
+  const hours = Math.floor((m % 1440) / 60);
+  const rest = m % 60;
+  if (days > 0) return hours ? `${days} д ${hours} ч` : `${days} д`;
+  return rest ? `${hours} ч ${rest} мин` : `${hours} ч`;
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} Б`;
   if (bytes < 1024 * 1024) return `${formatNumber(bytes / 1024, 1)} КБ`;

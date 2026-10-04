@@ -8,6 +8,7 @@
  * Запуск: npm run db:seed   (ВНИМАНИЕ: очищает базу данных!)
  */
 import "dotenv/config";
+import { randomBytes } from "node:crypto";
 
 // Не отправлять dev-письма при генерации демо-данных
 process.env.EMAIL_DRIVER = "none";
@@ -22,6 +23,7 @@ import { signContract } from "@/server/services/contract.service";
 import { uploadOrderDocument } from "@/server/services/document.service";
 import { assignDriver, assignVehicle, changeStatus, confirmDelivery, reportDelivered } from "@/server/services/order.service";
 import { createLoad } from "@/server/services/load.service";
+import { setGeoProviders } from "@/server/geo/providers";
 import { createPayment } from "@/server/services/payment.service";
 import { createReview } from "@/server/services/review.service";
 import { addLocation } from "@/server/services/tracking.service";
@@ -52,20 +54,41 @@ function file(buf: Buffer, name: string, type: string) {
   return new File([new Uint8Array(buf)], name, { type });
 }
 
+/** Очищает таблицы ТЕКУЩЕЙ схемы соединения (в демо-режиме — демо-схема; реальная не затрагивается). */
 async function truncateAll() {
+  const [{ schema }] = await prisma.$queryRaw<{ schema: string }[]>`SELECT current_schema() AS schema`;
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
-    SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
-  const list = tables.map((t) => `"public"."${t.tablename}"`).join(", ");
+    SELECT tablename FROM pg_tables WHERE schemaname = ${schema} AND tablename <> '_prisma_migrations'`;
+  const list = tables.map((t) => `"${schema}"."${t.tablename}"`).join(", ");
   if (list) await prisma.$executeRawUnsafe(`TRUNCATE TABLE ${list} RESTART IDENTITY CASCADE`);
   for (const seq of ["load_number_seq", "order_number_seq", "contract_number_seq"]) {
     await prisma.$executeRawUnsafe(`ALTER SEQUENCE "${seq}" RESTART WITH 1`);
   }
 }
 
-async function user(email: string, firstName: string, lastName: string, phone: string, platformRole: "USER" | "PLATFORM_ADMIN" = "USER") {
+async function user(
+  email: string,
+  firstName: string,
+  lastName: string,
+  phone: string,
+  platformRole: "USER" | "PLATFORM_ADMIN" = "USER",
+  password = DEMO_PASSWORD,
+) {
   return prisma.user.create({
-    data: { email, firstName, lastName, phone, platformRole, passwordHash: await hashPassword(DEMO_PASSWORD) },
+    data: { email, firstName, lastName, phone, platformRole, passwordHash: await hashPassword(password) },
   });
+}
+
+/**
+ * Пароль демо-администратора платформы. Вне production — общий демо-пароль.
+ * В production общеизвестный пароль администратора недопустим: берётся DEMO_ADMIN_PASSWORD,
+ * а если он не задан — случайный пароль, который нигде не выводится (доступ — через сброс пароля или переменную).
+ */
+function demoAdminPassword(): { password: string; note: string } {
+  if (process.env.NODE_ENV !== "production") return { password: DEMO_PASSWORD, note: DEMO_PASSWORD };
+  const fromEnv = process.env.DEMO_ADMIN_PASSWORD;
+  if (fromEnv && fromEnv.length >= 12 && fromEnv !== DEMO_PASSWORD) return { password: fromEnv, note: "из DEMO_ADMIN_PASSWORD" };
+  return { password: randomBytes(24).toString("base64url"), note: "случайный (задайте DEMO_ADMIN_PASSWORD, не короче 12 символов)" };
 }
 
 const actor = (userId: string, companyId?: string) => buildActor(userId, { activeCompanyId: companyId ?? null, meta: META });
@@ -125,74 +148,106 @@ const ROUTE_CN_ALA_MSK = (start: number): LoadInput["stops"] => [
   },
 ];
 
-/** Сдвигает все временные метки сделки в прошлое (демо-историчность). */
+/**
+ * Переносит сделку в прошлое с правдоподобной хронологией (демо-историчность).
+ *
+ * Сделки в seed проводятся через сервисы за доли секунды, а грузы создаются с датой загрузки в будущем
+ * (прошедшую дату публикация не принимает). Поэтому метки времени пересчитываются по участкам:
+ *  - до начала загрузки (торги, договор, назначения) — сдвиг на `days` дней назад;
+ *  - рейс (прибытие на загрузку … доставка) — растягивается от фактической загрузки до плановой доставки
+ *    (но не позже, чем за 2 часа до текущего момента), идущий рейс — до «час назад»;
+ *  - после доставки (подтверждение, выплата, закрытие, отзывы) — сдвигаются вместе с доставкой;
+ *  - плановые даты груза и перевозки совпадают с фактической загрузкой.
+ * Так доставка никогда не оказывается раньше загрузки, а история статусов — «в одну секунду».
+ */
 async function shiftOrderToPast(orderId: string, days: number) {
-  const iv = `${days} days`;
+  const HOUR = 60 * 60_000;
   const order = await prisma.transportOrder.findUniqueOrThrow({ where: { id: orderId } });
+  const history = await prisma.transportOrderStatusHistory.findMany({ where: { orderId }, orderBy: { createdAt: "asc" } });
+  const tracking = await prisma.trackingEvent.findMany({ where: { orderId }, select: { type: true, createdAt: true, recordedAt: true } });
+  const loadingEntry = history.find((h) => h.toStatus === "AT_LOADING");
+  const deliveredEntry = history.find((h) => h.toStatus === "DELIVERED");
+  const now = Date.now();
+  const lit = (d: Date | number) => `'${new Date(d).toISOString()}'::timestamptz`;
+  const shiftPre = `interval '${days} days'`;
+
+  let f: (col: string) => string = (col) => `${col} - ${shiftPre}`;
+  let plannedDelta = -days * DAY;
+  if (loadingEntry && order.loadingDate) {
+    // Событие трекинга «прибыл на загрузку» создаётся в той же транзакции чуть раньше записи истории
+    const a0 = Math.min(
+      loadingEntry.createdAt.getTime(),
+      ...tracking.filter((t) => t.type === "ARRIVED_LOADING").map((t) => Math.min(t.createdAt.getTime(), t.recordedAt.getTime())),
+    );
+    const lastEvent = Math.max(
+      ...history.map((h) => h.createdAt.getTime()),
+      ...tracking.map((t) => Math.max(t.createdAt.getTime(), t.recordedAt.getTime())),
+    );
+    const d0 = deliveredEntry ? deliveredEntry.createdAt.getTime() : lastEvent;
+    const loadAt = a0 - days * DAY + 6 * HOUR;
+    const plannedDuration = order.deliveryDate ? order.deliveryDate.getTime() - order.loadingDate.getTime() : 5 * DAY;
+    const endAt = deliveredEntry ? Math.min(loadAt + plannedDuration, now - 2 * HOUR) : now - HOUR;
+    const ratio = d0 > a0 ? (endAt - loadAt) / (d0 - a0) : 0;
+    const postGap = deliveredEntry && endAt + HOUR < now ? "1 hour" : "0 seconds";
+    f = (col) =>
+      `(CASE WHEN ${col} IS NULL THEN NULL
+        WHEN ${col} < ${lit(a0)} THEN ${col} - ${shiftPre}
+        WHEN ${col} <= ${lit(d0)} THEN ${lit(loadAt)} + (${col} - ${lit(a0)}) * ${ratio}
+        ELSE ${col} + (${lit(endAt)} - ${lit(d0)}) + interval '${postGap}' END)`;
+    plannedDelta = loadAt - order.loadingDate.getTime();
+  }
+  const planned = (col: string) => `${col} + interval '${Math.round(plannedDelta / 1000)} seconds'`;
+  const set = (cols: string[]) => cols.map((c) => `"${c}"=${f(`"${c}"`)}`).join(", ");
+  const setPlanned = (cols: string[]) => cols.map((c) => `"${c}"=${planned(`"${c}"`)}`).join(", ");
+
   const bids = await prisma.bid.findMany({ where: { loadId: order.loadId }, select: { id: true } });
   const bidIds = bids.map((b) => b.id);
   const q = (sql: string, ...params: unknown[]) => prisma.$executeRawUnsafe(sql, ...params);
   await q(
-    `UPDATE "TransportOrder" SET "createdAt"="createdAt"-$1::interval, "updatedAt"="updatedAt"-$1::interval, "statusChangedAt"="statusChangedAt"-$1::interval, "loadingDate"="loadingDate"-$1::interval, "deliveryDate"="deliveryDate"-$1::interval, "deliveredAt"="deliveredAt"-$1::interval, "closedAt"="closedAt"-$1::interval, "confirmationDueAt"="confirmationDueAt"-$1::interval, "receiptConfirmedAt"="receiptConfirmedAt"-$1::interval WHERE id=$2::uuid`,
-    iv,
+    `UPDATE "TransportOrder" SET ${set(["createdAt", "updatedAt", "statusChangedAt", "deliveredAt", "closedAt", "confirmationDueAt", "receiptConfirmedAt"])}, ${setPlanned(["loadingDate", "deliveryDate"])} WHERE id=$1::uuid`,
     orderId,
   );
   await q(
-    `UPDATE "Load" SET "createdAt"="createdAt"-$1::interval, "updatedAt"="updatedAt"-$1::interval, "publishedAt"="publishedAt"-$1::interval, "loadingDateFrom"="loadingDateFrom"-$1::interval, "loadingDateTo"="loadingDateTo"-$1::interval, "deliveryDateFrom"="deliveryDateFrom"-$1::interval, "deliveryDateTo"="deliveryDateTo"-$1::interval WHERE id=$2::uuid`,
-    iv,
+    `UPDATE "Load" SET ${set(["createdAt", "updatedAt", "publishedAt"])}, ${setPlanned(["loadingDateFrom", "loadingDateTo", "deliveryDateFrom", "deliveryDateTo"])} WHERE id=$1::uuid`,
     order.loadId,
   );
-  await q(
-    `UPDATE "LoadStop" SET "plannedDateFrom"="plannedDateFrom"-$1::interval, "plannedDateTo"="plannedDateTo"-$1::interval WHERE "loadId"=$2::uuid`,
-    iv,
-    order.loadId,
-  );
-  await q(
-    `UPDATE "Bid" SET "createdAt"="createdAt"-$1::interval, "updatedAt"="updatedAt"-$1::interval, "decidedAt"="decidedAt"-$1::interval WHERE "loadId"=$2::uuid`,
-    iv,
-    order.loadId,
-  );
-  await q(`UPDATE "BidMessage" SET "createdAt"="createdAt"-$1::interval WHERE "bidId" = ANY($2::uuid[])`, iv, bidIds);
-  for (const t of ["TransportOrderStatusHistory", "TrackingEvent", "OrderDocument", "PaymentRecord", "Review", "Dispute"]) {
-    await q(`UPDATE "${t}" SET "createdAt"="createdAt"-$1::interval WHERE "orderId"=$2::uuid`, iv, orderId);
+  await q(`UPDATE "LoadStop" SET ${setPlanned(["plannedDateFrom", "plannedDateTo"])} WHERE "loadId"=$1::uuid`, order.loadId);
+  await q(`UPDATE "Bid" SET ${set(["createdAt", "updatedAt", "decidedAt"])} WHERE "loadId"=$1::uuid`, order.loadId);
+  await q(`UPDATE "BidMessage" SET ${set(["createdAt"])} WHERE "bidId" = ANY($1::uuid[])`, bidIds);
+  for (const t of ["TransportOrderStatusHistory", "OrderDocument", "Review", "Dispute"]) {
+    await q(`UPDATE "${t}" SET ${set(["createdAt"])} WHERE "orderId"=$1::uuid`, orderId);
   }
-  await q(`UPDATE "TrackingEvent" SET "recordedAt"="recordedAt"-$1::interval WHERE "orderId"=$2::uuid`, iv, orderId);
+  await q(`UPDATE "TrackingEvent" SET ${set(["createdAt", "recordedAt"])} WHERE "orderId"=$1::uuid`, orderId);
   await q(
-    `UPDATE "PaymentRecord" SET "paidAt"="paidAt"-$1::interval, "dueDate"="dueDate"-$1::interval, "authorizedAt"="authorizedAt"-$1::interval, "reservedAt"="reservedAt"-$1::interval, "releaseRequestedAt"="releaseRequestedAt"-$1::interval, "releasedAt"="releasedAt"-$1::interval, "refundedAt"="refundedAt"-$1::interval, "updatedAt"="updatedAt"-$1::interval WHERE "orderId"=$2::uuid`,
-    iv,
-    orderId,
-  );
-  for (const t of ["PaymentTransaction", "PaymentStatusHistory"]) {
-    await q(
-      `UPDATE "${t}" SET "createdAt"="createdAt"-$1::interval${t === "PaymentTransaction" ? `, "completedAt"="completedAt"-$1::interval` : ""} WHERE "paymentId" IN (SELECT id FROM "PaymentRecord" WHERE "orderId"=$2::uuid)`,
-      iv,
-      orderId,
-    );
-  }
-  await q(
-    `UPDATE "Contract" SET "createdAt"="createdAt"-$1::interval, "signedAt"="signedAt"-$1::interval WHERE "orderId"=$2::uuid`,
-    iv,
+    `UPDATE "PaymentRecord" SET ${set(["createdAt", "paidAt", "dueDate", "authorizedAt", "reservedAt", "releaseRequestedAt", "releasedAt", "refundedAt", "updatedAt"])} WHERE "orderId"=$1::uuid`,
     orderId,
   );
   await q(
-    `UPDATE "ContractSignature" SET "signedAt"="signedAt"-$1::interval, "createdAt"="createdAt"-$1::interval WHERE "contractId" IN (SELECT id FROM "Contract" WHERE "orderId"=$2::uuid)`,
-    iv,
+    `UPDATE "PaymentTransaction" SET ${set(["createdAt", "completedAt"])} WHERE "paymentId" IN (SELECT id FROM "PaymentRecord" WHERE "orderId"=$1::uuid)`,
     orderId,
   );
   await q(
-    `UPDATE "ChatMessage" SET "createdAt"="createdAt"-$1::interval WHERE "threadId" IN (SELECT id FROM "ChatThread" WHERE "orderId"=$2::uuid)`,
-    iv,
+    `UPDATE "PaymentStatusHistory" SET ${set(["createdAt"])} WHERE "paymentId" IN (SELECT id FROM "PaymentRecord" WHERE "orderId"=$1::uuid)`,
     orderId,
   );
-  await q(`UPDATE "AuditLog" SET "createdAt"="createdAt"-$1::interval WHERE "entityId" = ANY($2::text[])`, iv, [
+  await q(`UPDATE "Contract" SET ${set(["createdAt", "signedAt"])} WHERE "orderId"=$1::uuid`, orderId);
+  await q(
+    `UPDATE "ContractSignature" SET ${set(["signedAt", "createdAt"])} WHERE "contractId" IN (SELECT id FROM "Contract" WHERE "orderId"=$1::uuid)`,
+    orderId,
+  );
+  await q(
+    `UPDATE "ChatMessage" SET ${set(["createdAt"])} WHERE "threadId" IN (SELECT id FROM "ChatThread" WHERE "orderId"=$1::uuid)`,
+    orderId,
+  );
+  await q(`UPDATE "AuditLog" SET ${set(["createdAt"])} WHERE "entityId" = ANY($1::text[])`, [orderId, order.loadId, ...bidIds]);
+  await q(`UPDATE "Notification" SET ${set(["createdAt"])}, "readAt"=COALESCE("readAt", now()) WHERE "entityId" = ANY($1::text[])`, [
     orderId,
     order.loadId,
-    ...bidIds,
   ]);
+  // Срок проверки считается от фактической доставки
   await q(
-    `UPDATE "Notification" SET "createdAt"="createdAt"-$1::interval, "readAt"=COALESCE("readAt", now()) WHERE "entityId" = ANY($2::text[])`,
-    iv,
-    [orderId, order.loadId],
+    `UPDATE "TransportOrder" SET "confirmationDueAt" = "deliveredAt" + interval '${DEFAULT_SETTINGS.confirmationWindowHours} hours' WHERE id=$1::uuid AND "confirmationDueAt" IS NOT NULL AND "deliveredAt" IS NOT NULL`,
+    orderId,
   );
 }
 
@@ -213,9 +268,27 @@ async function runOrderToSigned(customer: Actor, carrier: Actor, load: Awaited<R
 }
 
 async function main() {
+  // Сиды в сеть не ходят: координаты — из справочника, километраж — оценка
+  setGeoProviders({ routing: null, geocoder: null });
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_PRODUCTION_SEED !== "1") {
     throw new Error("Seed очищает базу данных. В production запуск запрещён (ALLOW_PRODUCTION_SEED=1 для принудительного запуска).");
   }
+  // Seed очищает базу: запускается только на пустой базе или базе с демо-данными (в любом окружении),
+  // чтобы случайный запуск с DATABASE_URL боевой базы не стёр реальные данные
+  const realUsers = await prisma.user.count({ where: { NOT: { email: { endsWith: "@cargoflow.demo" } } } });
+  if (realUsers > 0 && process.env.SEED_FORCE !== "1") {
+    throw new Error(
+      `В базе ${realUsers} пользователей не из демо — seed их удалит. Если это действительно тестовая база, запустите с SEED_FORCE=1.`,
+    );
+  }
+  await seedScenarios();
+}
+
+/**
+ * Сценарии демо-данных (ключевые компании, сделки, топливо). Очищает таблицы текущей схемы.
+ * Вызывается из `npm run db:seed` (локальная база) и из `npm run seed:demo` (в контексте демо-базы).
+ */
+export async function seedScenarios() {
   console.log("→ Очистка базы данных");
   await truncateAll();
 
@@ -236,7 +309,8 @@ async function main() {
   const uDriver = await user("driver@cargoflow.demo", "Demo", "Driver", "+7 700 000 00 05");
   const uDriver2 = await user("driver2@cargoflow.demo", "Нурлан", "Рейсов", "+7 700 000 00 06");
   const uCarrier2 = await user("carrier2@cargoflow.demo", "Ли", "Демо", "+86 138 0000 0007");
-  const uAdmin = await user("admin@cargoflow.demo", "Demo", "Admin", "+7 700 000 00 99", "PLATFORM_ADMIN");
+  const adminPassword = demoAdminPassword();
+  const uAdmin = await user("admin@cargoflow.demo", "Demo", "Admin", "+7 700 000 00 99", "PLATFORM_ADMIN", adminPassword.password);
 
   const shipperCo = await prisma.company.create({
     data: {
@@ -490,7 +564,7 @@ async function main() {
     { publish: true },
   );
   const oClosed = await runOrderToSigned(aShipper, aCarrier, lClosed, 4200);
-  await createPayment(aShipper, oClosed, {
+  await createPayment(aCarrier, oClosed, {
     type: "PREPAYMENT",
     amount: 1500,
     currency: "USD",
@@ -577,7 +651,7 @@ async function main() {
     { publish: true },
   );
   const oTransit = await runOrderToSigned(aShipper, aCarrier, lTransit, 4500);
-  await createPayment(aShipper, oTransit, {
+  await createPayment(aCarrier, oTransit, {
     type: "PREPAYMENT",
     amount: 1500,
     currency: "USD",
@@ -958,7 +1032,7 @@ async function main() {
   // Уведомления seed-процесса помечаем прочитанными, чтобы не шуметь при первом входе
   await prisma.notification.updateMany({ where: { createdAt: { lt: new Date(Date.now() - 60 * 60_000) } }, data: { readAt: new Date() } });
 
-  console.log("\n✓ Демо-данные созданы. Пароль для всех демо-аккаунтов:", DEMO_PASSWORD);
+  console.log("\n✓ Демо-данные созданы. Пароль демо-аккаунтов:", DEMO_PASSWORD, "· администратор:", adminPassword.note);
   console.table([
     { role: "SHIPPER", email: "shipper@cargoflow.demo", company: "Demo Cargo Kazakhstan" },
     { role: "CARRIER_ADMIN", email: "carrier@cargoflow.demo", company: "Demo Trans Logistics" },
@@ -973,9 +1047,12 @@ async function main() {
   ]);
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+// Автозапуск только при прямом вызове (`npm run db:seed`), не при импорте из prisma/seed-demo.ts
+if (process.argv[1]?.replace(/\\/g, "/").endsWith("prisma/seed.ts")) {
+  main()
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());
+}
