@@ -1,4 +1,4 @@
-# CargoFlow: установка всего необходимого и запуск (Windows 10/11)
+﻿# CargoFlow: установка всего необходимого и запуск (Windows 10/11)
 $ErrorActionPreference = "Stop"
 Set-Location (Join-Path $PSScriptRoot "..")
 function Say($m) { Write-Host "[cargoflow] $m" -ForegroundColor Cyan }
@@ -10,7 +10,7 @@ function Test-Node {
 }
 
 if (-not (Test-Node)) {
-  Say "Node.js не найден — устанавливаю Node.js LTS через winget..."
+  Say "Node.js не найден - устанавливаю Node.js LTS через winget..."
   if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Host "winget недоступен. Установите Node.js LTS вручную: https://nodejs.org и запустите файл снова." -ForegroundColor Red
     Read-Host "Нажмите Enter для выхода"; exit 1
@@ -22,7 +22,7 @@ if (-not (Test-Node)) {
 Say "Node.js $(node -v)"
 
 if (-not (Test-Path "node_modules")) {
-  Say "Установка зависимостей (первый раз 1–3 минуты)..."
+  Say "Установка зависимостей (первый раз 1-3 минуты)..."
   npm install --no-audit --no-fund
   if ($LASTEXITCODE -ne 0) { Read-Host "Ошибка установки. Enter"; exit 1 }
 }
